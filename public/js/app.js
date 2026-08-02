@@ -14,6 +14,12 @@ async function navBarDoldur() {
   } else {
     navSag.innerHTML = `<a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a>`;
   }
+
+  // Anasayfadaki büyük giriş butonu: giriş yapılmışsa gizle, değilse göster
+  const heroBtn = document.getElementById("heroGirisBtn");
+  if (heroBtn) {
+    heroBtn.style.display = veri.girisYapti ? "none" : "inline-flex";
+  }
   return veri;
 }
 
