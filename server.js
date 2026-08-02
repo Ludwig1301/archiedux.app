@@ -828,6 +828,7 @@ function oyunDurumu(oyun, kendiId) {
     okeyRenk: oyun.okeyRenk,
     okeyNum: oyun.okeyNum,
     coplerUst: oyun.copler.length ? oyun.copler[oyun.copler.length - 1] : null,
+    coplerSon: oyun.copler.slice(-8),
     desteSayisi: oyun.deste.length,
     kazanan: oyun.kazanan || null,
     sonuc: oyun.sonuc || null,

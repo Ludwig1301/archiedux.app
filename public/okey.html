@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Okey 101 — CONGRESS</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='22' fill='%23111113' stroke='%23c9a227' stroke-width='3'/><path d='M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z' fill='%23c9a227'/></svg>" />
-  <link rel="stylesheet" href="css/style.css?v=2" />
-  <link rel="stylesheet" href="css/okey.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/okey.css?v=3" />
 </head>
 <body>
   <div class="navbar">
@@ -82,10 +82,8 @@
           <button class="okey-cik-btn" onclick="okeyCik()">Odadan Ayrıl</button>
         </div>
 
-        <!-- Rakip (üst) -->
         <div class="okey-koltuk okey-koltuk-ust" id="okeyOyuncuUst"></div>
 
-        <!-- Orta: rakipler + merkez -->
         <div class="okey-orta-satir">
           <div class="okey-koltuk okey-koltuk-sol" id="okeyOyuncuSol"></div>
           <div class="okey-merkez">
@@ -98,17 +96,17 @@
           <div class="okey-koltuk okey-koltuk-sag" id="okeyOyuncuSag"></div>
         </div>
 
-        <!-- Alt: benim ıstakam -->
+        <!-- Alt: çöp | ıstaka | atış -->
         <div class="okey-alt-alan">
-          <div class="okey-bolge okey-cop-bolge" id="okeyCopBolge" title="Çöpten çek">
+          <div class="okey-bolge okey-cop-bolge" id="okeyCopBolge" title="En üstteki taşa tıkla, çek">
             <span class="okey-mini-etiket">Çöp</span>
             <div class="okey-cop" id="okeyCop"></div>
           </div>
 
           <div class="okey-istaka">
-            <div class="okey-gruplar" id="okeyGruplar"></div>
-            <div class="okey-el-sarici">
-              <div class="okey-el" id="okeyEl"></div>
+            <div class="okey-istaka-cerceve">
+              <div class="okey-istaka-katman ust" id="okeyIstakaUst"></div>
+              <div class="okey-istaka-katman alt" id="okeyIstakaAlt"></div>
             </div>
           </div>
 
@@ -120,12 +118,10 @@
 
         <div class="okey-masalar" id="okeyMasalar"></div>
 
-        <!-- Alt kontroller -->
         <div class="okey-alt-kontroller">
           <div class="okey-sirala">
             <button class="okey-btn okey-btn-kucuk" onclick="okeySiraladiz()">🔢 Sıralı Diz</button>
             <button class="okey-btn okey-btn-kucuk" onclick="okeyCiftDiz()">👯 Çift Diz</button>
-            <button class="okey-btn okey-btn-kucuk" onclick="okeyGrupGeri()">↩ Geri Al</button>
             <button class="okey-btn okey-btn-kucuk okey-btn-ac" onclick="okeyAc()">Aç</button>
             <button class="okey-btn okey-btn-kucuk okey-btn-bitir" onclick="okeyBitir()">Bitir</button>
           </div>
@@ -146,8 +142,8 @@
   </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/app.js?v=2"></script>
-<script src="js/okey.js?v=2"></script>
+<script src="js/app.js?v=3"></script>
+<script src="js/okey.js?v=3"></script>
 <script>okeySayfasiBaslat();</script>
 </body>
 </html>

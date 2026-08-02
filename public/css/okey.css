@@ -347,6 +347,12 @@
   border: 2px solid color-mix(in srgb, var(--profil-accent) 55%, transparent);
 }
 
+.okey-avatar.kucuk {
+  width: 22px;
+  height: 22px;
+  border-width: 1px;
+}
+
 .okey-oyuncu-tas {
   font-family: var(--mono);
   font-size: 13px;
@@ -546,6 +552,10 @@
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+.okey-cop-bolge {
+  width: 118px;
+}
+
 .okey-bolge.hedef {
   border-color: var(--profil-accent);
   background: rgba(201, 162, 39, 0.12);
@@ -554,7 +564,7 @@
 .okey-cop,
 .okey-atis {
   width: 52px;
-  height: 66px;
+  min-height: 66px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -569,6 +579,32 @@
   cursor: pointer;
   font-weight: 700;
   color: #333;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.okey-cop .okey-cop-mini {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.okey-cop .okey-cop-mini .okey-tas {
+  width: 26px;
+  height: 36px;
+}
+
+.okey-cop .okey-cop-mini .okey-tas-ic {
+  font-size: 12px;
+}
+
+.okey-cop .okey-cop-ust {
+  border: 2px solid var(--profil-accent);
+  border-radius: 7px;
+  padding: 1px;
 }
 
 .okey-cop.tiklanabilir {
@@ -586,22 +622,57 @@
   min-width: 0;
 }
 
-.okey-el-sarici {
-  margin-top: 8px;
-  min-height: 74px;
-  padding: 8px;
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+.okey-istaka-cerceve {
+  background: linear-gradient(180deg, #3a2a1a 0%, #2a1e12 100%);
+  border: 1px solid #5a4630;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6), 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
-.okey-el {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+.okey-istaka-katman {
+  display: grid;
+  grid-template-columns: repeat(8, 44px);
+  gap: 6px;
   justify-content: center;
-  align-items: flex-end;
+  min-height: 60px;
+}
+
+.okey-istaka-katman.ust {
+  margin-bottom: 6px;
+}
+
+.okey-rak-hucre {
+  width: 44px;
+  height: 60px;
+  border-radius: 7px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.okey-rak-hucre.grup {
+  border-color: var(--profil-accent);
+  border-style: solid;
+  box-shadow: 0 0 10px rgba(201, 162, 39, 0.35);
+}
+
+.okey-rak-hucre.hedef {
+  border-color: var(--profil-accent);
+  background: rgba(201, 162, 39, 0.12);
+}
+
+.okey-rak-hucre .okey-tas {
+  width: 40px;
+  height: 56px;
+}
+
+.okey-rak-hucre .okey-tas-ic {
+  font-size: 16px;
 }
 
 /* Alt kontroller */
