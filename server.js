@@ -1,8 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
+const http = require("http");
 const express = require("express");
 const session = require("express-session");
+const { Server } = require("socket.io");
+const cookie = require("cookie");
 const { createClient } = require("redis");
 const { RedisStore } = require("connect-redis");
 
@@ -11,6 +14,7 @@ const redisClient = createClient({
   url: process.env.REDIS_URL || "redis://127.0.0.1:6379",
 });
 redisClient.connect().catch((e) => console.error("Redis bağlantı hatası:", e));
+const sessionStore = new RedisStore({ client: redisClient });
 
 for (const envFile of [path.join(__dirname, ".env"), path.join(__dirname, ".env.example")]) {
   if (fs.existsSync(envFile)) {
@@ -84,9 +88,11 @@ function getDiscordConfig() {
 // ---------- Basit JSON "veritabanı" ----------
 function okuDB() {
   if (!fs.existsSync(DB_PATH)) {
-    fs.writeFileSync(DB_PATH, JSON.stringify({ profiles: {} }, null, 2));
+    fs.writeFileSync(DB_PATH, JSON.stringify({ profiles: {}, okeySonuclar: [] }, null, 2));
   }
-  return JSON.parse(fs.readFileSync(DB_PATH, "utf-8"));
+  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf-8"));
+  if (!Array.isArray(db.okeySonuclar)) db.okeySonuclar = [];
+  return db;
 }
 
 function yazDB(data) {
@@ -221,12 +227,13 @@ app.use(
 app.get("/profil", (req, res) => res.sendFile(path.join(__dirname, "public", "profile.html")));
 app.get("/galeri", (req, res) => res.sendFile(path.join(__dirname, "public", "gallery.html")));
 app.get("/uyeler", (req, res) => res.sendFile(path.join(__dirname, "public", "members.html")));
+app.get("/okey", (req, res) => res.sendFile(path.join(__dirname, "public", "okey.html")));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use(
   session({
-    store: new RedisStore({ client: redisClient }),
+    store: sessionStore,
     secret: SESSION_SECRET || "gelistirme-icin-gecici-anahtar",
     resave: false,
     saveUninitialized: false,
@@ -722,7 +729,422 @@ app.get("/api/members", async (req, res) => {
   res.json(liste);
 });
 
-app.listen(PORT || 3000, () => {
+// ---------- Okey Oyunu (Socket.IO) ----------
+const RENKLER = ["k", "m", "s", "y"]; // kırmızı, mavi, siyah, yeşil
+const RENK_ISARET = { k: "🔴", m: "🔵", s: "⚫", y: "🟢" };
+const OYUNLAR = new Map(); // kod -> oyun
+
+function desteOlustur() {
+  const deste = [];
+  let id = 1;
+  for (const renk of RENKLER) {
+    for (let num = 1; num <= 13; num++) {
+      for (let i = 0; i < 2; i++) {
+        deste.push({ id: id++, renk, num, okey: false, sahte: false });
+      }
+    }
+  }
+  for (let i = 0; i < 2; i++) {
+    deste.push({ id: id++, renk: null, num: 0, okey: false, sahte: true });
+  }
+  for (let i = deste.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deste[i], deste[j]] = [deste[j], deste[i]];
+  }
+  return deste;
+}
+
+function jokerMi(t) {
+  return !!t.sahte || !!t.okey;
+}
+
+// Per: aynı renk, sıralı 3+ taş (joker boşluk doldurur)
+function perDogru(taslar) {
+  if (taslar.length < 3) return false;
+  const normal = taslar.filter((t) => !jokerMi(t));
+  if (normal.length === 0) return false;
+  if (new Set(normal.map((t) => t.renk)).size !== 1) return false;
+  const sayilar = normal.map((t) => t.num).sort((a, b) => a - b);
+  if (new Set(sayilar).size !== sayilar.length) return false;
+  const min = sayilar[0];
+  const max = sayilar[sayilar.length - 1];
+  if (max > 13) return false;
+  const aralik = max - min + 1;
+  return aralik <= taslar.length;
+}
+
+// Çift: aynı sayı, 3-4 taş (joker olabilir)
+function ciftDogru(taslar) {
+  if (taslar.length < 3 || taslar.length > 4) return false;
+  const normal = taslar.filter((t) => !jokerMi(t));
+  if (normal.length === 0) return false;
+  const num = normal[0].num;
+  if (num < 1 || num > 13) return false;
+  return normal.every((t) => t.num === num);
+}
+
+function perPuan(taslar) {
+  const normal = taslar.filter((t) => !jokerMi(t));
+  if (normal.length === 0) return 0;
+  const max = Math.max(...normal.map((t) => t.num));
+  let bas = max - taslar.length + 1;
+  if (bas < 1) bas = 1;
+  let toplam = 0;
+  for (let n = bas; n < bas + taslar.length; n++) toplam += Math.min(n, 13);
+  return toplam;
+}
+
+function ciftPuan(taslar) {
+  const normal = taslar.filter((t) => !jokerMi(t));
+  return (normal.length ? normal[0].num : 0) * taslar.length;
+}
+
+function grupPuan(taslar) {
+  return perDogru(taslar) ? perPuan(taslar) : ciftPuan(taslar);
+}
+
+function elPuan(taslar) {
+  return taslar.reduce((top, t) => top + (jokerMi(t) ? 0 : t.num), 0);
+}
+
+function odaKodu() {
+  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let k = "";
+  for (let i = 0; i < 6; i++) k += c[Math.floor(Math.random() * c.length)];
+  return k;
+}
+
+function oyunDurumu(oyun, kendiId) {
+  return {
+    kod: oyun.kod,
+    durum: oyun.durum,
+    tur: oyun.tur,
+    cekimGerekli: oyun.cekimGerekli,
+    gosterilen: oyun.gosterilen,
+    okeyRenk: oyun.okeyRenk,
+    okeyNum: oyun.okeyNum,
+    coplerUst: oyun.copler.length ? oyun.copler[oyun.copler.length - 1] : null,
+    desteSayisi: oyun.deste.length,
+    kazanan: oyun.kazanan || null,
+    sonuc: oyun.sonuc || null,
+    oyuncular: oyun.oyuncular.map((o) => ({
+      discordId: o.discordId,
+      ad: o.ad,
+      avatar: o.avatar,
+      elSayisi: o.el.length,
+      acildi: o.acildi,
+      ben: o.discordId === kendiId,
+      el: o.discordId === kendiId ? o.el : [],
+      masa: o.masa,
+    })),
+  };
+}
+
+function oyunYayinla(oyun) {
+  for (const oyuncu of oyun.oyuncular) {
+    if (oyuncu.socketId) {
+      io.to(oyuncu.socketId).emit("okey-guncelle", oyunDurumu(oyun, oyuncu.discordId));
+    }
+  }
+}
+
+function oyunBaslat(oyun) {
+  const deste = desteOlustur();
+  const gosterilen = deste.pop(); // gösterge taşı
+  let okeyNum = gosterilen.num + 1;
+  if (okeyNum > 13) okeyNum = 1;
+  const okeyRenk = gosterilen.renk;
+  for (const t of deste) {
+    if (t.renk === okeyRenk && t.num === okeyNum) t.okey = true;
+  }
+  // dağıt: dağıtan 15, diğerleri 14
+  for (let i = 0; i < oyun.oyuncular.length; i++) {
+    const adet = i === 0 ? 15 : 14;
+    oyun.oyuncular[i].el = [];
+    oyun.oyuncular[i].masa = [];
+    oyun.oyuncular[i].acildi = false;
+    for (let k = 0; k < adet; k++) oyun.oyuncular[i].el.push(deste.pop());
+  }
+  oyun.deste = deste;
+  oyun.copler = [];
+  oyun.gosterilen = gosterilen;
+  oyun.okeyRenk = okeyRenk;
+  oyun.okeyNum = okeyNum;
+  oyun.durum = "oynaniyor";
+  oyun.tur = 0; // dağıtan başlar, 15 taşla direkt atar
+  oyun.cekimGerekli = false;
+  oyun.kazanan = null;
+  oyun.sonuc = null;
+}
+
+function oyunuBitir(oyun, kazananId) {
+  // Sıralama: kazanan 1., diğerleri el puanına göre (düşük = daha iyi)
+  const digerleri = oyun.oyuncular.filter((o) => o.discordId !== kazananId);
+  const siralama = [{ discordId: kazananId, el: 0 }];
+  digerleri.sort((a, b) => elPuan(a.el) - elPuan(b.el));
+  for (const o of digerleri) siralama.push({ discordId: o.discordId, el: elPuan(o.el) });
+
+  const dereceler = {};
+  siralama.forEach((s, i) => { dereceler[s.discordId] = i + 1; });
+  const XP = { 1: 50, 2: 30, 3: 20, 4: 10 };
+
+  const db = okuDB();
+  db.okeySonuclar = Array.isArray(db.okeySonuclar) ? db.okeySonuclar : [];
+  for (const oyuncu of oyun.oyuncular) {
+    const derece = dereceler[oyuncu.discordId] || 4;
+    const kazanilan = XP[derece] || 10;
+    db.profiles[oyuncu.discordId] = db.profiles[oyuncu.discordId] || {};
+    db.profiles[oyuncu.discordId].xp = (db.profiles[oyuncu.discordId].xp || 0) + kazanilan;
+    db.okeySonuclar.push({
+      oyuncuId: oyuncu.discordId,
+      ad: oyuncu.ad,
+      avatar: oyuncu.avatar,
+      derece,
+      kazanilan,
+      tarih: new Date().toISOString(),
+    });
+  }
+  db.okeySonuclar = db.okeySonuclar.slice(-4000);
+  yazDB(db);
+
+  oyun.durum = "bitti";
+  oyun.kazanan = kazananId;
+  oyun.sonuc = oyun.oyuncular.map((o) => ({
+    discordId: o.discordId,
+    ad: o.ad,
+    derece: dereceler[o.discordId] || 4,
+    kazanilan: XP[dereceler[o.discordId] || 4] || 10,
+  }));
+  oyunYayinla(oyun);
+}
+
+// ---------- Leaderboard ----------
+app.get("/api/okey/leaderboard", async (req, res) => {
+  const db = okuDB();
+  const sonuclar = Array.isArray(db.okeySonuclar) ? db.okeySonuclar : [];
+  const ag = {};
+  for (const s of sonuclar) {
+    if (!ag[s.oyuncuId]) {
+      ag[s.oyuncuId] = { oyuncuId: s.oyuncuId, ad: s.ad, avatar: s.avatar, oyun: 0, bir: 0, iki: 0, uc: 0, dort: 0 };
+    }
+    const a = ag[s.oyuncuId];
+    a.oyun++;
+    a.ad = s.ad;
+    a.avatar = s.avatar;
+    if (s.derece === 1) a.bir++;
+    else if (s.derece === 2) a.iki++;
+    else if (s.derece === 3) a.uc++;
+    else a.dort++;
+  }
+  const liste = Object.values(ag).sort((a, b) => b.bir - a.bir || b.oyun - a.oyun);
+  res.json(liste);
+});
+
+// ---------- HTTP + Socket.IO ----------
+const httpServer = http.createServer(app);
+const io = new Server(httpServer);
+
+// Socket oturum doğrulama: çerezi okuyup Redis'teki oturumu bulur
+io.use((socket, next) => {
+  const raw = cookie.parse(socket.handshake.headers.cookie || "")["connect.sid"];
+  if (!raw) return next(new Error("Giriş gerekli"));
+  const parts = raw.split(".");
+  let sid = parts[0];
+  if (sid.startsWith("s:")) sid = sid.slice(2);
+  sessionStore.get(sid, (err, sess) => {
+    if (err || !sess || !sess.discordId) return next(new Error("Giriş gerekli"));
+    socket.kullaniciId = sess.discordId;
+    socket.odaKodu = null;
+    next();
+  });
+});
+
+io.on("connection", (socket) => {
+  const kullaniciBilgisi = async (id) => {
+    const uye = await discordUyeBilgisiCek(id);
+    const profil = profilGetir(id);
+    return {
+      discordId: id,
+      ad: uye ? uye.kullaniciAdi : "Üye",
+      avatar: profil.avatar || (uye ? uye.avatar : ""),
+    };
+  };
+
+  const odadanCik = () => {
+    if (socket.odaKodu) {
+      const oyun = OYUNLAR.get(socket.odaKodu);
+      if (oyun) {
+        if (oyun.durum === "bekliyor") {
+          oyun.oyuncular = oyun.oyuncular.filter((o) => o.discordId !== socket.kullaniciId);
+          if (oyun.oyuncular.length === 0) OYUNLAR.delete(oyun.kod);
+          else oyunYayinla(oyun);
+        }
+      }
+      socket.odaKodu = null;
+    }
+  };
+
+  socket.on("okey-olustur", async (data, cb) => {
+    odadanCik();
+    const bilgi = await kullaniciBilgisi(socket.kullaniciId);
+    let kod = odaKodu();
+    while (OYUNLAR.has(kod)) kod = odaKodu();
+    const oyun = {
+      kod,
+      durum: "bekliyor",
+      oyuncular: [{ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false }],
+      deste: [],
+      copler: [],
+      gosterilen: null,
+      okeyRenk: null,
+      okeyNum: null,
+      tur: 0,
+      cekimGerekli: true,
+      kazanan: null,
+      sonuc: null,
+    };
+    OYUNLAR.set(kod, oyun);
+    socket.odaKodu = kod;
+    socket.join("okey-" + kod);
+    if (cb) cb({ basarili: true, kod });
+    oyunYayinla(oyun);
+  });
+
+  socket.on("okey-katil", async (data, cb) => {
+    const kod = String((data && data.kod) || "").trim().toUpperCase();
+    const oyun = OYUNLAR.get(kod);
+    if (!oyun) return cb && cb({ hata: "Oda bulunamadı." });
+    if (oyun.durum !== "bekliyor") return cb && cb({ hata: "Oyun çoktan başlamış." });
+    if (oyun.oyuncular.length >= 4) return cb && cb({ hata: "Oda dolu (4 kişi)." });
+    if (oyun.oyuncular.some((o) => o.discordId === socket.kullaniciId)) return cb && cb({ hata: "Zaten odadasın." });
+    odadanCik();
+    const bilgi = await kullaniciBilgisi(socket.kullaniciId);
+    oyun.oyuncular.push({ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false });
+    socket.odaKodu = kod;
+    socket.join("okey-" + kod);
+    if (cb) cb({ basarili: true, kod });
+    oyunYayinla(oyun);
+    if (oyun.oyuncular.length === 4) {
+      oyunBaslat(oyun);
+      oyunYayinla(oyun);
+    }
+  });
+
+  socket.on("okey-cik", () => {
+    odadanCik();
+  });
+
+  socket.on("disconnect", () => {
+    odadanCik();
+  });
+
+  socket.on("okey-deste-cek", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (oyun.tur !== oyun.oyuncular.indexOf(oyuncu)) return cb && cb({ hata: "Sıra sende değil." });
+    if (!oyun.cekimGerekli) return cb && cb({ hata: "Zaten çektin." });
+    if (oyun.deste.length === 0) {
+      // deste bitti -> mevcut el puanlarına göre bitir (en düşük 1.)
+      const sirali = [...oyun.oyuncular].sort((a, b) => elPuan(a.el) - elPuan(b.el));
+      oyunuBitir(oyun, sirali[0].discordId);
+      return;
+    }
+    oyuncu.el.push(oyun.deste.pop());
+    oyun.cekimGerekli = false;
+    oyunYayinla(oyun);
+  });
+
+  socket.on("okey-cop-cek", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (oyun.tur !== oyun.oyuncular.indexOf(oyuncu)) return cb && cb({ hata: "Sıra sende değil." });
+    if (!oyun.cekimGerekli) return cb && cb({ hata: "Zaten çektin." });
+    if (oyun.copler.length === 0) return cb && cb({ hata: "Çöp yok." });
+    oyuncu.el.push(oyun.copler.pop());
+    oyun.cekimGerekli = false;
+    oyunYayinla(oyun);
+  });
+
+  socket.on("okey-tas-at", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (oyun.tur !== oyun.oyuncular.indexOf(oyuncu)) return cb && cb({ hata: "Sıra sende değil." });
+    if (oyun.cekimGerekli) return cb && cb({ hata: "Önce çekmelisin." });
+    const tileId = data && data.tileId;
+    const idx = oyuncu.el.findIndex((t) => t.id === tileId);
+    if (idx === -1) return cb && cb({ hata: "Taş sende yok." });
+    const [tas] = oyuncu.el.splice(idx, 1);
+    oyun.copler.push(tas);
+    // sıradaki oyuncuya geç
+    oyun.tur = (oyun.tur + 1) % oyun.oyuncular.length;
+    oyun.cekimGerekli = true;
+    oyunYayinla(oyun);
+  });
+
+  // Aç: elinden seçtiği gruplar toplamda >= 101 puan olmalı
+  socket.on("okey-ac", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (oyuncu.acildi) return cb && cb({ hata: "Zaten açıldın." });
+    const gruplar = (data && data.gruplar) || [];
+    if (!Array.isArray(gruplar) || gruplar.length === 0) return cb && cb({ hata: "Grup seçmelisin." });
+    const secilenler = [];
+    for (const grup of gruplar) {
+      const taslar = [];
+      for (const tid of grup) {
+        const idx = oyuncu.el.findIndex((t) => t.id === tid);
+        if (idx === -1) return cb && cb({ hata: "Geçersiz taş." });
+        taslar.push(oyuncu.el.splice(idx, 1)[0]);
+      }
+      secilenler.push(taslar);
+    }
+    // doğrulama başarısızsa taşları geri ver
+    const gecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
+    const toplam = secilenler.reduce((s, g) => s + grupPuan(g), 0);
+    if (!gecerli || toplam < 101) {
+      for (const g of secilenler) oyuncu.el.push(...g);
+      return cb && cb({ hata: `Açma geçersiz (toplam ${toplam}, en az 101 olmalı).` });
+    }
+    if (oyuncu.el.length < 1) {
+      oyuncu.el.push(...secilenler.flat());
+      return cb && cb({ hata: "Açarken elde en az 1 taş kalmalı." });
+    }
+    oyuncu.masa.push(...secilenler);
+    oyuncu.acildi = true;
+    oyunYayinla(oyun);
+  });
+
+  // Bitir: açılmış olmalı, elindeki tüm taşlar geçerli gruplara ayrılmalı
+  socket.on("okey-bitir", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (!oyuncu.acildi) return cb && cb({ hata: "Önce açmalısın." });
+    const gruplar = (data && data.gruplar) || [];
+    if (!Array.isArray(gruplar)) return cb && cb({ hata: "Geçersiz." });
+    const kalanlar = [...oyuncu.el];
+    const secilenler = [];
+    for (const grup of gruplar) {
+      const taslar = [];
+      for (const tid of grup) {
+        const idx = kalanlar.findIndex((t) => t.id === tid);
+        if (idx === -1) return cb && cb({ hata: "Geçersiz taş." });
+        taslar.push(kalanlar.splice(idx, 1)[0]);
+      }
+      secilenler.push(taslar);
+    }
+    if (kalanlar.length > 0) return cb && cb({ hata: "Elindeki tüm taşlar gruplara ayrılmalı." });
+    const gecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
+    if (!gecerli) return cb && cb({ hata: "Gruplar geçersiz." });
+    oyunuBitir(oyun, oyuncu.discordId);
+  });
+});
+
+httpServer.listen(PORT || 3000, () => {
   console.log(`Sunucu çalışıyor: http://localhost:${PORT || 3000}`);
 });
 

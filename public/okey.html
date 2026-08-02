@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Okey — CONGRESS</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='22' fill='%23111113' stroke='%23c9a227' stroke-width='3'/><path d='M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z' fill='%23c9a227'/></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/okey.css" />
+</head>
+<body>
+  <div class="navbar">
+    <div class="nav-icerik">
+      <div class="nav-sol">
+        <a href="/" class="navbar-mark">
+          <svg class="seal" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="#c9a227" stroke-width="1.6"/>
+            <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="1" opacity="0.6"/>
+            <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
+          </svg>
+          <div class="wordmark">CONGRESS<span>TOPLULUK PROFİLLERİ</span></div>
+        </a>
+        <a href="/uyeler">ÜYELER</a>
+        <a href="/okey" class="aktif-link">OKEY</a>
+        <a href="https://congress.archiedux.com" target="_blank" style="color: var(--brass-bright);">CONGRESS WİKİ</a>
+      </div>
+      <div class="nav-sag" id="navSag"></div>
+    </div>
+  </div>
+
+  <div class="mainframe okey-frame">
+    <div class="okey-lobi" id="okeyLobi">
+      <div class="okey-baslik">Okey 101</div>
+      <div class="okey-aciklama">
+        Dört kişilik klasik okey. Açma için elindeki gruplar toplamda en az <strong>101 puan</strong> olmalı.
+        Oda koduyla arkadaşlarını davet et. Oyuncular toplanınca oyun otomatik başlar.
+      </div>
+
+      <div class="okey-odakutu">
+        <input type="text" id="okeyOdaKodu" maxlength="6" placeholder="6 haneli oda kodu" autocomplete="off" />
+        <button class="form-kaydet" onclick="okeyKatil()">Odaya Katıl</button>
+      </div>
+
+      <div class="okey-odakutu">
+        <button class="form-kaydet" onclick="okeyOlustur()">Yeni Oda Oluştur</button>
+      </div>
+
+      <div class="okey-durum" id="okeyDurum"></div>
+
+      <div class="okey-kod-goster" id="okeyKodGoster" style="display:none;">
+        <div>Oda kodu:</div>
+        <div class="okey-kod" id="okeyKod"></div>
+        <div class="okey-kod-ipucu">Arkadaşların bu kodu girerek katılabilir.</div>
+      </div>
+
+      <div class="okey-liderlik">
+        <div class="okey-liderlik-baslik">🏆 Okey Liderlik Tablosu</div>
+        <div class="okey-liderlik-liste" id="okeyLiderlik"></div>
+      </div>
+    </div>
+
+    <div class="okey-oyun" id="okeyOyun" style="display:none;">
+      <div class="okey-info-bar">
+        <div class="okey-gosterge" id="okeyGosterge"></div>
+        <div class="okey-bilgi" id="okeyBilgi"></div>
+        <button class="form-vazgec" onclick="okeyCik()">Odadan Ayrıl</button>
+      </div>
+
+      <div class="okey-rakip okey-rakip-ust" id="okeyRakipUst"></div>
+      <div class="okey-orta">
+        <div class="okey-rakip-sol" id="okeyRakipSol"></div>
+        <div class="okey-masa">
+          <div class="okey-deste" id="okeyDeste">DESTE</div>
+          <div class="okey-cop" id="okeyCop"></div>
+        </div>
+        <div class="okey-rakip-sag" id="okeyRakipSag"></div>
+      </div>
+      <div class="okey-masalar" id="okeyMasalar"></div>
+
+      <div class="okey-kontroller" id="okeyKontroller">
+        <button class="form-kaydet" onclick="okeyDesteCek()" id="okeyCekBtn" style="display:none;">Desteden Çek</button>
+        <button class="form-kaydet" onclick="okeyCopCek()" id="okeyCopCekBtn" style="display:none;">Çöpten Çek</button>
+        <button class="form-vazgec" onclick="okeyGrupEkle()">Gruba Ekle</button>
+        <button class="form-vazgec" onclick="okeyGrupGeri()">Geri Al</button>
+        <button class="form-kaydet" onclick="okeyAc()">Aç</button>
+        <button class="form-kaydet" onclick="okeyBitir()">Bitir</button>
+        <span class="okey-mesaj" id="okeyMesaj"></span>
+      </div>
+
+      <div class="okey-gruplar" id="okeyGruplar"></div>
+      <div class="okey-el" id="okeyEl"></div>
+    </div>
+
+    <div class="okey-sonuc" id="okeySonuc" style="display:none;">
+      <div class="okey-baslik" id="okeySonucBaslik">Oyun Bitti</div>
+      <div class="okey-sonuc-liste" id="okeySonucListe"></div>
+      <div class="okey-odakutu">
+        <button class="form-kaydet" onclick="okeyYeniden()">Tekrar Oyna</button>
+      </div>
+    </div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/app.js"></script>
+<script src="js/okey.js"></script>
+<script>okeySayfasiBaslat();</script>
+</body>
+</html>
