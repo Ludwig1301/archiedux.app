@@ -637,8 +637,8 @@ function cropAc(dosya, hedef) {
   };
   const yardimlar = {
     profil: "",
-    arkaplan: "Görselin hangi bölümünün profil kartında görüneceğini seç.",
-    kapak: "Görselin hangi bölümünün kapakta görüneceğini seç.",
+    arkaplan: "Görselin üzerinde sürükleyerek kırpma alanını seç.",
+    kapak: "Görselin üzerinde sürükleyerek kırpma alanını seç.",
   };
   const oranlar = {
     profil: 1,
@@ -669,7 +669,9 @@ function cropAc(dosya, hedef) {
       aspectRatio: oranlar[hedef] || 1,
       // viewMode 3: görsel konteyneri aşamaz ve kırpma kutusu görselin dışına taşamaz.
       viewMode: 3,
-      autoCropArea: hedef === "profil" ? 1 : 0.9,
+      // Profil fotoğrafında kare alan otomatik seçilir; kapak/arka planda görsel
+      // olduğu gibi gösterilir, kullanıcı sürükleyerek alanı kendisi seçer.
+      autoCropArea: hedef === "profil" ? 1 : 0,
       background: false,
     });
   };
@@ -726,6 +728,18 @@ async function cropUygula() {
   if (durum) durum.innerText = "Yükleniyor...";
   if (kaydetBtn) kaydetBtn.disabled = true;
   try {
+    // Kapak/arka plan için kullanıcı henüz bir alan seçmediyse uyar
+    if (cropHedef !== "profil") {
+      const seckin = cropper.getData();
+      const gorsel = cropper.getImageData();
+      const kucukMu = seckin.width < gorsel.naturalWidth * 0.03 || seckin.height < gorsel.naturalHeight * 0.03;
+      if (kucukMu) {
+        if (kaydetBtn) kaydetBtn.disabled = false;
+        if (durum) durum.innerText = "Önce görselin üzerinde sürükleyerek alan seç";
+        return;
+      }
+    }
+
     let genislik = 400;
     let yukseklik = 400;
     if (cropHedef === "arkaplan" || cropHedef === "kapak") {
