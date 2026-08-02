@@ -6,7 +6,7 @@ let OKEY_GRUPLAR = [];
 
 const RENK_ISARET = { k: "🔴", m: "🔵", s: "⚫", y: "🟢" };
 const RENK_ADI = { k: "kırmızı", m: "mavi", s: "siyah", y: "yeşil" };
-const RENK_RENK = { k: "#e05a5a", m: "#5a8ae0", s: "#d6d6de", y: "#6fd36f" };
+const RENK_RENK = { k: "#d33f3f", m: "#2a6fdb", s: "#2b2b33", y: "#1f9d57" };
 
 function okeySayfasiBaslat() {
   navBarDoldur();
@@ -55,7 +55,7 @@ async function liderlikYukle() {
 function okeyOlustur() {
   okeySocket.emit("okey-olustur", {}, (cevap) => {
     if (cevap && cevap.hata) return mesajGoster(cevap.hata);
-    document.getElementById("okeyKodGoster").style.display = "block";
+    document.getElementById("okeyKodGoster").style.display = "flex";
     document.getElementById("okeyKod").innerText = cevap.kod;
     document.getElementById("okeyDurum").innerText = "";
   });
@@ -70,7 +70,7 @@ function okeyKatil() {
       return;
     }
     document.getElementById("okeyDurum").innerText = "";
-    document.getElementById("okeyKodGoster").style.display = "block";
+    document.getElementById("okeyKodGoster").style.display = "flex";
     document.getElementById("okeyKod").innerText = cevap.kod;
   });
 }
@@ -118,21 +118,43 @@ function mesajGoster(m) {
   const el = document.getElementById("okeyMesaj");
   if (el) {
     el.innerText = m;
-    setTimeout(() => { if (el.innerText === m) el.innerText = ""; }, 2500);
+    setTimeout(() => { if (el.innerText === m) el.innerText = ""; }, 3000);
   }
 }
 
 // ---------- Çizim ----------
-function tasHTML(t) {
+function tasRengi(t) {
+  return RENK_RENK[t.renk] || "#999";
+}
+
+function tasIc(t) {
   if (t.sahte) return `<span class="okey-tas-ic sahte">★</span>`;
-  if (t.okey) return `<span class="okey-tas-ic okey-tasi" style="color:${RENK_RENK[t.renk]}">${t.num}</span>`;
-  return `<span class="okey-tas-ic" style="color:${RENK_RENK[t.renk]}">${RENK_ISARET[t.renk]} ${t.num}</span>`;
+  if (t.okey) return `<span class="okey-tas-ic okey-tasi" style="color:${tasRengi(t)}">${t.num}</span>`;
+  return `<span class="okey-tas-ic" style="color:${tasRengi(t)}">${t.num}</span>`;
+}
+
+function tasKutu(t, ekstra) {
+  return `<div class="okey-tas ${ekstra || ""}" style="--tas-renk:${tasRengi(t)}" title="${tasAd(t)}">${tasIc(t)}</div>`;
 }
 
 function tasAd(t) {
   if (t.sahte) return "Sahte okey";
   if (t.okey) return `OKEY ${RENK_ADI[t.renk]} ${t.num}`;
   return `${RENK_ADI[t.renk]} ${t.num}`;
+}
+
+function oyuncuKartHTML(o, siraMi, kendi) {
+  const avatar = o.avatar || "";
+  return `
+    <div class="okey-oyuncu-kart ${siraMi ? "sira" : ""} ${kendi ? "ben-kart" : ""}">
+      ${avatar ? `<img class="okey-avatar" src="${avatar}" alt="" />` : '<span class="okey-avatar">🤖</span>'}
+      <div class="okey-oyuncu-bilgi">
+        <span class="okey-oyuncu-ad">${kendi ? "Sen" : o.ad}</span>
+        <span class="okey-oyuncu-tas">${o.elSayisi} taş${o.acildi ? " · açtı" : ""}</span>
+      </div>
+      ${siraMi ? '<span class="okey-sira-ok">🎯</span>' : ""}
+    </div>
+  `;
 }
 
 function okeyRender(durum) {
@@ -173,42 +195,52 @@ function okeyTahtaCiz(durum) {
   const ust = durum.oyuncular[(benIdx + 2) % 4];
   const sol = durum.oyuncular[(benIdx + 3) % 4];
 
-  document.getElementById("okeyGosterge").innerHTML = durum.gosterilen
-    ? "Gösterge: " + tasHTML(durum.gosterilen)
-    : "";
-  document.getElementById("okeyBilgi").innerHTML =
-    `Okey: <strong>${RENK_ISARET[durum.okeyRenk]} ${durum.okeyNum}</strong>` +
-    (durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli
-      ? ' <span class="okey-sira-sen">· Sıra sende: çek</span>'
-      : "");
+  const okeyTas = { renk: durum.okeyRenk, num: durum.okeyNum, okey: true };
+  document.getElementById("okeyOkeyTas").innerHTML = tasIc(okeyTas);
+  document.getElementById("okeyOkeyTas").style.setProperty("--tas-renk", RENK_RENK[durum.okeyRenk] || "#999");
 
-  document.getElementById("okeyRakipUst").innerHTML =
-    `🔼 ${ust.ad} <span class="okey-tas-sayisi">${ust.elSayisi}</span>${ust.acildi ? ' <span class="okey-acildi">açtı</span>' : ""}`;
-  document.getElementById("okeyRakipSol").innerHTML =
-    `◀ ${sol.ad} <span class="okey-tas-sayisi">${sol.elSayisi}</span>`;
-  document.getElementById("okeyRakipSag").innerHTML =
-    `${sag.ad} <span class="okey-tas-sayisi">${sag.elSayisi}</span> ▶`;
+  const siraBilgi = document.getElementById("okeySiraBilgi");
+  if (siraBilgi) {
+    if (durum.durum === "oynaniyor" && durum.tur === benIdx) {
+      siraBilgi.innerHTML = durum.cekimGerekli
+        ? '<span class="sen">🎯 Sıra sende — çek!</span>'
+        : '<span class="sen">🎯 Sıra sende — at!</span>';
+    } else {
+      const aktif = durum.oyuncular[durum.tur];
+      siraBilgi.innerHTML = `${aktif ? aktif.ad : "..."} oynuyor...`;
+    }
+  }
+
+  document.getElementById("okeyOyuncuUst").innerHTML = oyuncuKartHTML(ust, durum.tur === (benIdx + 2) % 4, false);
+  document.getElementById("okeyOyuncuSol").innerHTML = oyuncuKartHTML(sol, durum.tur === (benIdx + 3) % 4, false);
+  document.getElementById("okeyOyuncuSag").innerHTML = oyuncuKartHTML(sag, durum.tur === (benIdx + 1) % 4, false);
+  document.getElementById("okeyOyuncuBen").innerHTML = oyuncuKartHTML(ben, durum.tur === benIdx, true);
 
   const desteEl = document.getElementById("okeyDeste");
-  desteEl.innerText = `DESTE (${durum.desteSayisi})`;
+  desteEl.innerText = `DESTE\n${durum.desteSayisi}`;
   desteEl.classList.toggle("tiklanabilir", durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli);
   desteEl.onclick = (durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli) ? okeyDesteCek : null;
 
   const copEl = document.getElementById("okeyCop");
-  copEl.innerHTML = durum.coplerUst ? tasHTML(durum.coplerUst) : "—";
+  copEl.innerHTML = durum.coplerUst ? tasIc(durum.coplerUst) : "—";
+  copEl.style.setProperty("--tas-renk", durum.coplerUst ? tasRengi(durum.coplerUst) : "#999");
   copEl.classList.toggle("tiklanabilir", durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli && durum.coplerUst);
   copEl.onclick = (durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli && durum.coplerUst) ? okeyCopCek : null;
+
+  const gostEl = document.getElementById("okeyGosterge");
+  gostEl.innerHTML = durum.gosterilen ? tasIc(durum.gosterilen) : "—";
+  gostEl.style.setProperty("--tas-renk", durum.gosterilen ? tasRengi(durum.gosterilen) : "#999");
 
   const masaKutu = document.getElementById("okeyMasalar");
   masaKutu.innerHTML = durum.oyuncular
     .map(
       (o) => `
     <div class="okey-masa-satir">
-      <span class="okey-masa-ad">${o.ad}${o.acildi ? ' <span class="okey-acildi">açtı</span>' : ""}</span>
+      <span class="okey-masa-ad">${o.ad}${o.acildi ? ' <span style="color:#6fd36f">açtı</span>' : ""}</span>
       <div class="okey-masa-gruplar">${
         o.masa && o.masa.length
-          ? o.masa.map((g) => `<span class="okey-grup">${g.map(tasHTML).join("")}</span>`).join("")
-          : '<span class="okey-masa-bos">—</span>'
+          ? o.masa.map((g) => `<span class="okey-grup">${g.map((t) => tasKutu(t, "mini")).join("")}</span>`).join("")
+          : '<span style="opacity:0.4">—</span>'
       }</div>
     </div>
   `
@@ -230,7 +262,7 @@ function okeyTahtaCiz(durum) {
     .map(
       (t) => `
     <div class="okey-tas ${OKEY_SECILI.has(t.id) ? "secili" : ""} ${grupta.has(t.id) ? "grupta" : ""} ${benimSira ? "tiklanabilir" : ""}"
-      data-id="${t.id}" onclick="okeyTasTikla(${t.id})" title="${tasAd(t)}">${tasHTML(t)}</div>
+      style="--tas-renk:${tasRengi(t)}" data-id="${t.id}" onclick="okeyTasTikla(${t.id})" title="${tasAd(t)}">${tasIc(t)}</div>
   `
     )
     .join("");
@@ -241,7 +273,7 @@ function okeyTahtaCiz(durum) {
         (g) => `<span class="okey-grup">${g
           .map((tid) => {
             const t = (ben.el || []).find((x) => x.id === tid);
-            return t ? tasHTML(t) : "";
+            return t ? tasKutu(t, "mini") : "";
           })
           .join("")}</span>`
       ).join("")
