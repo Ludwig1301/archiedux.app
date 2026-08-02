@@ -892,6 +892,7 @@ function oyunuBitir(oyun, kazananId) {
   db.okeySonuclar = Array.isArray(db.okeySonuclar) ? db.okeySonuclar : [];
   for (const oyuncu of oyun.oyuncular) {
     const derece = dereceler[oyuncu.discordId] || 4;
+    if (oyuncu.bot) continue; // botlara XP/liderlik kaydı yok
     const kazanilan = XP[derece] || 10;
     db.profiles[oyuncu.discordId] = db.profiles[oyuncu.discordId] || {};
     db.profiles[oyuncu.discordId].xp = (db.profiles[oyuncu.discordId].xp || 0) + kazanilan;
@@ -916,6 +917,36 @@ function oyunuBitir(oyun, kazananId) {
     kazanilan: XP[dereceler[o.discordId] || 4] || 10,
   }));
   oyunYayinla(oyun);
+}
+
+// Test amaçlı: boş slotları botlarla doldur; bot sırası gelince çeker + rastgele atar
+const BOT_ADLARI = ["Bot 1", "Bot 2", "Bot 3"];
+function botSira(oyun) {
+  if (!oyun || oyun.durum !== "oynaniyor") return;
+  const oyuncu = oyun.oyuncular[oyun.tur];
+  if (!oyuncu || !oyuncu.bot) return;
+  setTimeout(() => {
+    if (!oyun || oyun.durum !== "oynaniyor") return;
+    const o = oyun.oyuncular[oyun.tur];
+    if (!o || !o.bot) return;
+    if (oyun.deste.length > 0) {
+      o.el.push(oyun.deste.pop());
+    } else if (oyun.copler.length > 0) {
+      o.el.push(oyun.copler.pop());
+    } else {
+      const sirali = [...oyun.oyuncular].sort((a, b) => elPuan(a.el) - elPuan(b.el));
+      oyunuBitir(oyun, sirali[0].discordId);
+      return;
+    }
+    oyun.cekimGerekli = false;
+    const idx = Math.floor(Math.random() * o.el.length);
+    const [tas] = o.el.splice(idx, 1);
+    oyun.copler.push(tas);
+    oyun.tur = (oyun.tur + 1) % oyun.oyuncular.length;
+    oyun.cekimGerekli = true;
+    oyunYayinla(oyun);
+    botSira(oyun);
+  }, 900);
 }
 
 // ---------- Leaderboard ----------
@@ -1027,7 +1058,32 @@ io.on("connection", (socket) => {
     if (oyun.oyuncular.length === 4) {
       oyunBaslat(oyun);
       oyunYayinla(oyun);
+      botSira(oyun);
     }
+  });
+
+  // Test amaçlı: boş koltukları botlarla doldur
+  socket.on("okey-bot-ekle", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    if (!oyun) return cb && cb({ hata: "Önce oda oluştur." });
+    if (oyun.durum !== "bekliyor") return cb && cb({ hata: "Oyun çoktan başlamış." });
+    let n = 0;
+    while (oyun.oyuncular.length < 4) {
+      n++;
+      oyun.oyuncular.push({
+        discordId: "bot-" + n,
+        ad: BOT_ADLARI[n - 1] || "Bot " + n,
+        avatar: "",
+        bot: true,
+        socketId: null,
+        el: [],
+        masa: [],
+        acildi: false,
+      });
+    }
+    oyunBaslat(oyun);
+    oyunYayinla(oyun);
+    botSira(oyun);
   });
 
   socket.on("okey-cik", () => {
@@ -1082,6 +1138,7 @@ io.on("connection", (socket) => {
     oyun.tur = (oyun.tur + 1) % oyun.oyuncular.length;
     oyun.cekimGerekli = true;
     oyunYayinla(oyun);
+    botSira(oyun);
   });
 
   // Aç: elinden seçtiği gruplar toplamda >= 101 puan olmalı

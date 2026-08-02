@@ -75,6 +75,12 @@ function okeyKatil() {
   });
 }
 
+function okeyBotEkle() {
+  okeySocket.emit("okey-bot-ekle", {}, (cevap) => {
+    if (cevap && cevap.hata) mesajGoster(cevap.hata);
+  });
+}
+
 function okeyCik() {
   okeySocket.emit("okey-cik");
   location.reload();
