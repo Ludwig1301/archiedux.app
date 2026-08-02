@@ -1325,7 +1325,7 @@ async function uyeListesiYukle() {
     .map(
       (u) => `
     <a href="/profil?id=${u.id}" class="uye-kart">
-      <img src="${u.avatar}" />
+      <img src="${u.profilAvatar || u.avatar}" />
       <div class="uye-ad">${u.kullaniciAdi}</div>
     </a>
   `

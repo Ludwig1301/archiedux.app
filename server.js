@@ -568,7 +568,11 @@ app.get("/api/members", async (req, res) => {
   const liste = [];
   for (const id of idler) {
     const uyeBilgisi = await discordUyeBilgisiCek(id);
-    if (uyeBilgisi) liste.push(uyeBilgisi);
+    if (uyeBilgisi) {
+      // Kullanıcı özel profil fotoğrafı yüklemişse onu da gönder (üye listesi bunu göstersin)
+      const profil = db.profiles[id] || {};
+      liste.push({ ...uyeBilgisi, profilAvatar: profil.avatar || "" });
+    }
   }
   res.json(liste);
 });
