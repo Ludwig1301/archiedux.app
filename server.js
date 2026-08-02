@@ -3,6 +3,14 @@ const path = require("path");
 const dotenv = require("dotenv");
 const express = require("express");
 const session = require("express-session");
+const { createClient } = require("redis");
+const { RedisStore } = require("connect-redis");
+
+// Oturumlar Redis'te saklanır; sunucu yeniden başlasa bile üyeler çıkış yapmaz.
+const redisClient = createClient({
+  url: process.env.REDIS_URL || "redis://127.0.0.1:6379",
+});
+redisClient.connect().catch((e) => console.error("Redis bağlantı hatası:", e));
 
 for (const envFile of [path.join(__dirname, ".env"), path.join(__dirname, ".env.example")]) {
   if (fs.existsSync(envFile)) {
@@ -186,6 +194,7 @@ const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 app.use(
   session({
+    store: new RedisStore({ client: redisClient }),
     secret: SESSION_SECRET || "gelistirme-icin-gecici-anahtar",
     resave: false,
     saveUninitialized: false,
