@@ -297,8 +297,21 @@ app.get("/api/profile/:id", async (req, res) => {
   if (!uyeBilgisi) {
     return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
   }
+  const db = okuDB();
   const profil = profilGetir(req.params.id);
-  res.json({ ...uyeBilgisi, profil });
+  // Yorumlarda yazarın GÜNCEL adı + profil fotoğrafı gösterilsin (özel pp öncelikli)
+  const yorumlar = await Promise.all(
+    (profil.yorumlar || []).map(async (y) => {
+      const uye = await discordUyeBilgisiCek(y.yazanId);
+      const hedefProfil = db.profiles[y.yazanId] || {};
+      return {
+        ...y,
+        yazanAd: uye ? uye.kullaniciAdi : y.yazanAd,
+        yazanAvatar: hedefProfil.avatar || (uye ? uye.avatar : y.yazanAvatar),
+      };
+    })
+  );
+  res.json({ ...uyeBilgisi, profil: { ...profil, yorumlar } });
 });
 
 app.get("/api/profile/:id/gallery", async (req, res) => {
