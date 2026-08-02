@@ -206,10 +206,21 @@ function gorunumUygula(mainframeEl, kapakEl, profil) {
 // ---------- Profil sayfası ----------
 let GORUNTULENEN_ID = null;
 let BENIM_ID = null;
+let BENIM_ADMIN = false;
 let DISCORD_AVATAR = "";
 let GUNCEL_PROFIL_FOTO = "";
 let GUNCEL_HAYVAN_RESMI = "";
 let cropper = null;
+
+// Admin ya da profil sahibi profili düzenleyebilir
+function buProfiliDuzenleyebilir() {
+  return BENIM_ID === GORUNTULENEN_ID || BENIM_ADMIN;
+}
+
+// Kayıt hedefi: admin başkasının profilini düzenliyorsa o profilin id'si döner
+function kayitHedefi() {
+  return BENIM_ADMIN && BENIM_ID !== GORUNTULENEN_ID ? GORUNTULENEN_ID : null;
+}
 
 function urlIdOku() {
   return new URLSearchParams(window.location.search).get("id");
@@ -218,6 +229,7 @@ function urlIdOku() {
 async function profilSayfasiBaslat() {
   const ben = await navBarDoldur();
   BENIM_ID = ben && ben.girisYapti ? ben.id : null;
+  BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
 
   GORUNTULENEN_ID = urlIdOku() || BENIM_ID;
 
@@ -299,18 +311,18 @@ async function profilSayfasiBaslat() {
     galeriLink.href = `/galeri?id=${GORUNTULENEN_ID}`;
   }
 
-  // sadece kendi profiliyse düzenle butonu ve yorum formu görünsün
-  if (BENIM_ID === GORUNTULENEN_ID) {
+  // sahibi veya admin ise düzenle butonu ve yorum formu görünsün
+  if (buProfiliDuzenleyebilir()) {
     document.getElementById("duzenleBtn").style.display = "inline-block";
     document.getElementById("kapakDegistirBtn").style.display = "flex";
   }
   if (BENIM_ID) {
     document.getElementById("yorumFormAlani").style.display = "flex";
   }
-  // "Sevimli Dost" butonu yalnızca profil sahibine gösterilir
+  // "Sevimli Dost" butonu yalnızca profil sahibine/admin'e gösterilir
   const hayvanBtn = document.getElementById("hayvanBtn");
   if (hayvanBtn) {
-    hayvanBtn.style.display = BENIM_ID === GORUNTULENEN_ID ? "flex" : "none";
+    hayvanBtn.style.display = buProfiliDuzenleyebilir() ? "flex" : "none";
   }
   hayvanSilBtnGuncelle();
 
@@ -688,7 +700,7 @@ function yorumlariCiz(yorumlar) {
     kutu.innerHTML = '<span class="bos-hint">Henüz yorum yok.</span>';
     return;
   }
-  const benimProfili = BENIM_ID === GORUNTULENEN_ID;
+  const benimProfili = buProfiliDuzenleyebilir();
   kutu.innerHTML = yorumlar
     .map(
       (y) => `
@@ -712,7 +724,7 @@ function yorumlariCiz(yorumlar) {
 }
 
 async function yorumSil(commentId) {
-  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!buProfiliDuzenleyebilir()) return;
   if (!confirm("Bu yorumu silmek istiyor musun?")) return;
   try {
     const res = await fetch(`/api/profile/${GORUNTULENEN_ID}/comments/${encodeURIComponent(commentId)}`, {
@@ -902,6 +914,9 @@ function profilCanliGuncelle(veri) {
 // Form değişikliklerini debounce ile sunucuya kaydeder.
 function profilOtomatikKaydet() {
   const veri = profilVerileriniTopla();
+  // Admin başkasının profilini düzenliyorsa hedef profili gönder
+  const hedef = kayitHedefi();
+  if (hedef) veri.hedefId = hedef;
   profilCanliGuncelle(veri); // önce görünümü anında yansıt
 
   if (kayitZamanlayici) clearTimeout(kayitZamanlayici);
@@ -929,14 +944,14 @@ function profilOtomatikKaydet() {
 
 // Yalnızca kendi profilin düzenlenirken kaydetme tetikler.
 function canliKaydiTetikle() {
-  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!buProfiliDuzenleyebilir()) return;
   if (!document.getElementById("formUnvan")) return;
   profilOtomatikKaydet();
 }
 
 // Form elemanlarına canlı kayıt dinleyicileri bağlar.
 function canliKayitDinleyicileriEkle() {
-  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!buProfiliDuzenleyebilir()) return;
   const dinlenecekler = [
     "formUnvan", "formBio",
     "formVitrinBaslik", "formVitrinAciklama", "formVitrinResim",
@@ -1176,7 +1191,7 @@ async function cropUygula() {
       const kaydetRes = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avatar: url }),
+        body: JSON.stringify({ avatar: url, ...(kayitHedefi() ? { hedefId: kayitHedefi() } : {}) }),
       });
       if (!kaydetRes.ok) throw new Error("Profil fotoğrafı kaydedilemedi.");
 
@@ -1230,7 +1245,7 @@ async function profilFotoSil() {
     const kaydetRes = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ avatar: "" }),
+      body: JSON.stringify({ avatar: "", ...(kayitHedefi() ? { hedefId: kayitHedefi() } : {}) }),
     });
     if (!kaydetRes.ok) throw new Error("Kaldırılamadı.");
 
@@ -1248,11 +1263,11 @@ async function profilFotoSil() {
 function hayvanSilBtnGuncelle() {
   const btn = document.getElementById("hayvanSilBtn");
   if (!btn) return;
-  btn.style.display = BENIM_ID === GORUNTULENEN_ID && GUNCEL_HAYVAN_RESMI ? "flex" : "none";
+  btn.style.display = buProfiliDuzenleyebilir() && GUNCEL_HAYVAN_RESMI ? "flex" : "none";
 }
 
 async function hayvanFotoSil() {
-  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!buProfiliDuzenleyebilir()) return;
   if (!GUNCEL_HAYVAN_RESMI) return;
   if (!confirm("Evcil dost fotoğrafını kaldırmak istiyor musun?")) return;
   const durumEl = document.getElementById("hayvanDurum");
@@ -1270,7 +1285,7 @@ async function hayvanFotoSil() {
     const kaydetRes = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hayvanResmi: "", kediResmi: "" }),
+      body: JSON.stringify({ hayvanResmi: "", kediResmi: "", ...(kayitHedefi() ? { hedefId: kayitHedefi() } : {}) }),
     });
     if (!kaydetRes.ok) throw new Error("Kaldırılamadı.");
 
@@ -1294,7 +1309,7 @@ async function hayvanFotoSil() {
 }
 
 function hayvanFotoSec() {
-  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!buProfiliDuzenleyebilir()) return;
   const input = document.getElementById("dosyaHayvan");
   if (input) input.click();
 }
@@ -1338,7 +1353,7 @@ async function hayvanFotoYukle(dosya) {
     const kaydetRes = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hayvanResmi: url }),
+      body: JSON.stringify({ hayvanResmi: url, ...(kayitHedefi() ? { hedefId: kayitHedefi() } : {}) }),
     });
     if (!kaydetRes.ok) throw new Error("Kaydedilemedi.");
 
@@ -1365,7 +1380,7 @@ function galeriListesiCiz(entries) {
   const kutu = document.getElementById("galleryContent");
   if (!kutu) return;
 
-  const allowEdit = BENIM_ID === GORUNTULENEN_ID;
+  const allowEdit = buProfiliDuzenleyebilir();
   const bosMesaji = allowEdit
     ? "Henüz bir başarı eklenmemiş. Yukarıdaki alanı kullanarak ilk görselini ekle."
     : "Bu üyenin galerisi henüz boş.";
@@ -1497,6 +1512,7 @@ async function galeriEkle() {
 async function gallerySayfasiBaslat() {
   const ben = await navBarDoldur();
   BENIM_ID = ben && ben.girisYapti ? ben.id : null;
+  BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
   GORUNTULENEN_ID = urlIdOku() || BENIM_ID;
 
   const ownerEl = document.getElementById("galleryOwnerName");
@@ -1522,7 +1538,7 @@ async function gallerySayfasiBaslat() {
   document.title = `${veri.uye.kullaniciAdi} · Galeri`;
   const backEl = document.getElementById("galleryBack");
   if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
-  const allowEdit = BENIM_ID === GORUNTULENEN_ID;
+  const allowEdit = buProfiliDuzenleyebilir();
   if (formEl) formEl.style.display = allowEdit ? "flex" : "none";
   if (formHintEl) {
     formHintEl.innerText = allowEdit

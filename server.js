@@ -22,6 +22,16 @@ const {
 
 const DB_PATH = path.join(__dirname, "data", "db.json");
 
+// Yöneticiler: bu kişiler herkesin profilini düzenleyebilir (örn. uygunsuz içeriği temizlemek için)
+const ADMIN_IDS = (process.env.ADMIN_DISCORD_IDS || "152414566133792769")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function adminMi(discordId) {
+  return !!discordId && ADMIN_IDS.includes(String(discordId));
+}
+
 function getDiscordConfig() {
   const clientId = DISCORD_CLIENT_ID || "";
   const clientSecret = DISCORD_CLIENT_SECRET || "";
@@ -286,7 +296,7 @@ app.get("/api/me", async (req, res) => {
       roller: [],
     };
   }
-  res.json({ girisYapti: true, ...uyeBilgisi });
+  res.json({ girisYapti: true, admin: adminMi(req.session.discordId), ...uyeBilgisi });
 });
 
 // Herkese açık profil görüntüleme (Discord bilgisi canlı, profil verisi DB'den)
@@ -462,6 +472,11 @@ function gorselUrlTemizle(deger) {
 }
 
 app.post("/api/profile", girisGerekli, (req, res) => {
+  // Admin başka bir profili düzenlemek istiyorsa hedefId gönderir; aksi halde kendi profili
+  const hedefId =
+    adminMi(req.session.discordId) && typeof req.body.hedefId === "string" && req.body.hedefId
+      ? req.body.hedefId
+      : req.session.discordId;
   const izinliAlanlar = [
     "bio",
     "unvan",
@@ -521,7 +536,7 @@ app.post("/api/profile", girisGerekli, (req, res) => {
     }
   }
 
-  const guncel = profilGuncelle(req.session.discordId, gelenVeri);
+  const guncel = profilGuncelle(hedefId, gelenVeri);
   res.json({ basarili: true, profil: guncel });
 });
 
