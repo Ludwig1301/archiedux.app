@@ -136,7 +136,7 @@
                 <span>PNG, JPG, GIF veya WEBP</span>
               </div>
             </div>
-            <input type="file" id="dosyaArkaplan" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="arkaplanFotoSecildi(this.files[0])" />
+            <input type="file" id="dosyaArkaplan" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formArkaplanResim', 'onizlemeArkaplan')" />
             <input type="hidden" id="formArkaplanResim" value="" />
 
             <div class="blur-alani">
@@ -173,7 +173,7 @@
           </div>
         </div>
 
-        <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="kapakFotoSecildi(this.files[0])" />
+        <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formKapakFoto', null, kapakOnizlemeGuncelle)" />
         <input type="hidden" id="formKapakFoto" value="" />
         <input type="file" id="dosyaProfilFoto" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="profilFotoSecildi(this.files[0])" />
 
