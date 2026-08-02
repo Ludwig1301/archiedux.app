@@ -40,6 +40,37 @@ function adminMi(discordId) {
   return !!discordId && ADMIN_IDS.includes(String(discordId));
 }
 
+// ---------- Seviye / XP ----------
+// Steam benzeri: seviye N'den N+1'e geçmek için N*100 XP gerekir (1->2: 100, 2->3: 200, ...)
+function seviyeHesapla(xp) {
+  xp = Math.max(0, xp || 0);
+  let seviye = 1;
+  let kalan = xp;
+  while (kalan >= seviye * 100) {
+    kalan -= seviye * 100;
+    seviye++;
+  }
+  return { seviye, mevcut: kalan, gerekli: seviye * 100 };
+}
+
+// Profil bölümleri ilk kez tamamlandığında kazanılan XP (farming'i önlemek için bir kez)
+const XP_KURALLARI = {
+  avatar: 50,
+  bio: 50,
+  unvan: 30,
+  vitrinBaslik: 50,
+  kapakFoto: 30,
+  arkaplanResim: 30,
+  hayvanResmi: 30,
+};
+
+// ---------- Easter egg rozetleri ----------
+const EASTER_EGGS = {
+  "muhr-bekcisi": { ad: "Mühür Bekçisi", aciklama: "Navbardaki mühre 5 kez tıkladın.", ikon: "🛡️", xp: 100 },
+  "retro-oyuncu": { ad: "Retro Oyuncu", aciklama: "Konami kodunu girdin (↑↑↓↓←→←→B A).", ikon: "🎮", xp: 100 },
+  "gizli-kelime": { ad: "Gizli Kelime", aciklama: "Sitede 'congress' kelimesini yazdın.", ikon: "🔍", xp: 100 },
+};
+
 function getDiscordConfig() {
   const clientId = DISCORD_CLIENT_ID || "";
   const clientSecret = DISCORD_CLIENT_SECRET || "";
@@ -91,6 +122,7 @@ function profilGetir(discordId) {
       galleryEntries: [],
       okunmamisYorum: 0,
       bildirimler: [],
+      xp: 0,
       katilimTarihi: new Date().toISOString(),
     };
     yazDB(db);
@@ -545,8 +577,61 @@ app.post("/api/profile", girisGerekli, (req, res) => {
     }
   }
 
-  const guncel = profilGuncelle(hedefId, gelenVeri);
-  res.json({ basarili: true, profil: guncel });
+  // Profili güncelle ve XP kuralına göre ilk kez tamamlanan bölümler için XP kazandır
+  profilGetir(hedefId); // yoksa oluştur
+  const db = okuDB();
+  const onceki = db.profiles[hedefId] || {};
+  let kazanilanXp = 0;
+  for (const [alan, xp] of Object.entries(XP_KURALLARI)) {
+    const oncekiDeger = (onceki[alan] || "").toString().trim();
+    const yeniDeger = (gelenVeri[alan] || "").toString().trim();
+    if (!oncekiDeger && yeniDeger) {
+      kazanilanXp += xp;
+    }
+  }
+  db.profiles[hedefId] = { ...onceki, ...gelenVeri };
+  if (kazanilanXp > 0) {
+    db.profiles[hedefId].xp = (onceki.xp || 0) + kazanilanXp;
+  }
+  yazDB(db);
+
+  const guncel = db.profiles[hedefId];
+  res.json({ basarili: true, kazanilanXp, seviye: seviyeHesapla(guncel.xp || 0), profil: guncel });
+});
+
+// Easter egg rozetini talep et (bulunan gizli şey için XP + rozet kazan)
+app.post("/api/rozet/kod", girisGerekli, (req, res) => {
+  const kod = String(req.body.kod || "").trim();
+  const egg = EASTER_EGGS[kod];
+  if (!egg) return res.status(404).json({ hata: "Böyle bir rozet bulunamadı." });
+
+  const db = okuDB();
+  const profil = profilGetir(req.session.discordId);
+  const rozetler = Array.isArray(profil.rozetler) ? profil.rozetler : [];
+  const zatenVar = rozetler.some((r) => r.kod === kod);
+
+  if (zatenVar) {
+    return res.json({ basarili: true, zatenVar: true, rozetler, seviye: seviyeHesapla(profil.xp || 0) });
+  }
+
+  const rozet = {
+    kod,
+    ad: egg.ad,
+    aciklama: egg.aciklama,
+    ikon: egg.ikon,
+    tarih: new Date().toISOString(),
+  };
+  db.profiles[req.session.discordId].rozetler = [rozet, ...rozetler].slice(0, 30);
+  db.profiles[req.session.discordId].xp = (profil.xp || 0) + egg.xp;
+  yazDB(db);
+
+  res.json({
+    basarili: true,
+    kazanilanXp: egg.xp,
+    rozet,
+    rozetler: db.profiles[req.session.discordId].rozetler,
+    seviye: seviyeHesapla(db.profiles[req.session.discordId].xp || 0),
+  });
 });
 
 // Yorum (guestbook) - herhangi bir üye, giriş yapmış olmak şartıyla

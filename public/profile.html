@@ -41,6 +41,11 @@
       </div>
       <div class="name">
         <h1 id="pIsim">—</h1>
+        <div class="seviye-satir">
+          <span class="seviye-rozet" id="pSeviye">Lv. 1</span>
+          <span class="seviye-xp" id="pSeviyeIlerleme">0/100 XP</span>
+        </div>
+        <div class="seviye-cubugu"><div class="seviye-doluluk" id="pSeviyeDoluluk" style="width:0%"></div></div>
         <p id="pUnvan">Ünvan yok</p>
       </div>
       <div class="header-sag-panel">
@@ -236,10 +241,15 @@
           </div>
         </div>
 
+        <div class="rozetler-alani">
+          <div class="vitrin-baslik">Rozetler</div>
+          <div class="vitrin-icerik rozetler-icerik" id="pRozetler"></div>
+        </div>
+
         <div class="yorumlar-alani">
           <div class="yorumlar-baslik">Yorumlar</div>
           <div class="yorum-form" id="yorumFormAlani" style="display:none;">
-            <textarea id="yorumMetni" placeholder="Bir şeyler yaz..."></textarea>
+            <textarea id="yorumMetni" placeholder="Bir şeyler yaz... (Enter ile gönder)" oninput="yorumMetniBoyutlandir()" onkeydown="yorumMetniKeydown(event)"></textarea>
             <button class="gonder-btn" onclick="yorumGonder()">Gönder</button>
           </div>
           <div class="yorum-listesi" id="yorumListesi"></div>
@@ -250,7 +260,7 @@
       <div class="sag">
         <div class="onlinestatus">Profil</div>
 
-        <div id="spotifyKutusu" class="spotify-container" style="display: none">
+        <div id="spotifyKutusu" class="spotify-container">
           <div class="spotify-header">Spotify'da Dinliyor</div>
           <div class="spotify-body">
             <img id="spotifyResim" src="" class="spotify-album-art" />

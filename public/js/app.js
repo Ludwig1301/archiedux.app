@@ -131,25 +131,47 @@ async function removeUploadedImage(hiddenInputId, previewElId) {
 }
 
 // ---------- Spotify (kendi Lanyard kurulumumuz) - herhangi bir Discord ID için ----------
+// Kutu her zaman görünür; dinlemiyorsa "müzik dinlemiyor" durumu gösterir.
 async function spotifyYukle(discordId) {
+  const kutu = document.getElementById("spotifyKutusu");
+  if (!kutu) return;
+  const resim = document.getElementById("spotifyResim");
+  const sarki = document.getElementById("spotifySarki");
+  const sanatci = document.getElementById("spotifySanatci");
+  const baslik = kutu.querySelector(".spotify-header");
+  const equalizer = kutu.querySelector(".equalizer");
+
   try {
     const res = await fetch(`/lanyard/v1/users/${discordId}`);
     const json = await res.json();
     const veri = json.data;
 
-    const kutu = document.getElementById("spotifyKutusu");
-    if (!kutu) return;
-
+    kutu.style.display = "block";
     if (veri && veri.listening_to_spotify) {
-      kutu.style.display = "block";
-      document.getElementById("spotifyResim").src = veri.spotify.album_art_url;
-      document.getElementById("spotifySarki").innerText = veri.spotify.song;
-      document.getElementById("spotifySanatci").innerText = veri.spotify.artist;
+      resim.src = veri.spotify.album_art_url;
+      resim.style.display = "block";
+      sarki.innerText = veri.spotify.song;
+      sanatci.innerText = veri.spotify.artist;
+      sarki.style.color = "";
+      sanatci.style.color = "";
+      baslik.innerText = "Spotify'da Dinliyor";
+      equalizer.style.display = "flex";
     } else {
-      kutu.style.display = "none";
+      resim.style.display = "none";
+      sarki.innerText = "Şu an müzik dinlemiyor";
+      sanatci.innerText = "";
+      sarki.style.color = "var(--ink-text-dim)";
+      baslik.innerText = "Spotify";
+      equalizer.style.display = "none";
     }
   } catch (e) {
-    console.warn("Lanyard verisi alınamadı (kullanıcı Lanyard'a kayıtlı olmayabilir):", e);
+    kutu.style.display = "block";
+    resim.style.display = "none";
+    sarki.innerText = "Spotify durumu alınamadı";
+    sanatci.innerText = "";
+    sarki.style.color = "var(--ink-text-dim)";
+    baslik.innerText = "Spotify";
+    equalizer.style.display = "none";
   }
 }
 
@@ -222,6 +244,123 @@ function kayitHedefi() {
   return BENIM_ADMIN && BENIM_ID !== GORUNTULENEN_ID ? GORUNTULENEN_ID : null;
 }
 
+// ---------- Seviye / XP / Rozetler ----------
+let GUNCEL_XP = 0;
+let GUNCEL_ROZETLER = [];
+
+function seviyeBilgisi(xp) {
+  xp = Math.max(0, xp || 0);
+  let seviye = 1;
+  let kalan = xp;
+  while (kalan >= seviye * 100) {
+    kalan -= seviye * 100;
+    seviye++;
+  }
+  return { seviye, mevcut: kalan, gerekli: seviye * 100 };
+}
+
+function seviyeGoster() {
+  const bilgi = seviyeBilgisi(GUNCEL_XP);
+  const rozet = document.getElementById("pSeviye");
+  if (rozet) rozet.innerText = "Lv. " + bilgi.seviye;
+  const ilerleme = document.getElementById("pSeviyeIlerleme");
+  if (ilerleme) ilerleme.innerText = `${bilgi.mevcut}/${bilgi.gerekli} XP`;
+  const doluluk = document.getElementById("pSeviyeDoluluk");
+  if (doluluk) doluluk.style.width = Math.min(100, Math.round((bilgi.mevcut / bilgi.gerekli) * 100)) + "%";
+}
+
+function rozetlerGoster() {
+  const kutu = document.getElementById("pRozetler");
+  if (!kutu) return;
+  const list = Array.isArray(GUNCEL_ROZETLER) ? GUNCEL_ROZETLER : [];
+  if (!list.length) {
+    kutu.innerHTML = '<span class="bos-hint">Henüz rozet bulunmamış. Gizli sürprizleri keşfet!</span>';
+    return;
+  }
+  kutu.innerHTML = list
+    .map(
+      (r) => `
+      <span class="rozet-oge" title="${r.ad} — ${r.aciklama}">
+        <span class="rozet-ikon">${r.ikon}</span>
+        <span class="rozet-ad">${r.ad}</span>
+      </span>
+    `
+    )
+    .join("");
+}
+
+// Bulunan easter egg rozetini sunucudan talep et (XP + rozet)
+async function rozetTalepEt(kod) {
+  if (!BENIM_ID) return;
+  try {
+    const res = await fetch("/api/rozet/kod", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kod }),
+    });
+    if (!res.ok) return;
+    const veri = await res.json();
+    if (veri.zatenVar) return;
+    alert(`🎉 Rozet kazandın: ${veri.rozet.ad} (+${veri.kazanilanXp} XP)`);
+    if (BENIM_ID === GORUNTULENEN_ID) {
+      GUNCEL_XP = (GUNCEL_XP || 0) + (veri.kazanilanXp || 0);
+      GUNCEL_ROZETLER = veri.rozetler || GUNCEL_ROZETLER;
+      seviyeGoster();
+      rozetlerGoster();
+    }
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+// Easter egg tetikleyicileri
+(function easterEggler() {
+  // 1) Navbardaki mühre 5 kez tıkla
+  let muhrSayac = 0;
+  let muhrSonTik = 0;
+  document.addEventListener("click", (e) => {
+    const seal = e.target.closest(".navbar-mark .seal");
+    if (!seal) return;
+    const now = Date.now();
+    if (now - muhrSonTik > 2500) muhrSayac = 0;
+    muhrSonTik = now;
+    muhrSayac++;
+    if (muhrSayac >= 5) {
+      muhrSayac = 0;
+      rozetTalepEt("muhr-bekcisi");
+    }
+  });
+
+  // 2) Konami kodu (↑↑↓↓←→←→B A)
+  const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+  let konamiIndex = 0;
+  document.addEventListener("keydown", (e) => {
+    const k = e.key;
+    if (k === KONAMI[konamiIndex]) {
+      konamiIndex++;
+      if (konamiIndex === KONAMI.length) {
+        konamiIndex = 0;
+        rozetTalepEt("retro-oyuncu");
+      }
+    } else {
+      konamiIndex = k === KONAMI[0] ? 1 : 0;
+    }
+  });
+
+  // 3) Sitede "congress" yaz
+  let kelimeBuf = "";
+  document.addEventListener("keydown", (e) => {
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      kelimeBuf += e.key.toLowerCase();
+      if (kelimeBuf.length > 8) kelimeBuf = kelimeBuf.slice(-8);
+      if (kelimeBuf === "congress") {
+        kelimeBuf = "";
+        rozetTalepEt("gizli-kelime");
+      }
+    }
+  });
+})();
+
 function urlIdOku() {
   return new URLSearchParams(window.location.search).get("id");
 }
@@ -280,6 +419,12 @@ async function profilSayfasiBaslat() {
   document.getElementById("pUnvan").innerText = veri.profil.unvan || "Ünvan belirtilmemiş";
   document.getElementById("pBio").innerText =
     veri.profil.bio || "Bu kişi henüz kendini tanıtmamış.";
+
+  // Seviye ve rozetleri göster
+  GUNCEL_XP = veri.profil.xp || 0;
+  GUNCEL_ROZETLER = veri.profil.rozetler || [];
+  seviyeGoster();
+  rozetlerGoster();
 
   gorunumUygula(
     document.getElementById("profilAlani"),
@@ -738,6 +883,24 @@ async function yorumSil(commentId) {
   }
 }
 
+// Yorum yazı alanı içeriğe göre otomatik büyür (scroll çubuğu çıkmaz)
+function yorumMetniBoyutlandir() {
+  const ta = document.getElementById("yorumMetni");
+  if (!ta) return;
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
+}
+
+// Enter ile yorumu gönder (Shift+Enter alt satıra geçirir)
+function yorumMetniKeydown(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    yorumGonder();
+  } else {
+    yorumMetniBoyutlandir();
+  }
+}
+
 async function yorumGonder() {
   const metin = document.getElementById("yorumMetni").value.trim();
   if (!metin) return;
@@ -930,7 +1093,16 @@ function profilOtomatikKaydet() {
         body: JSON.stringify(veri),
       });
       if (!res.ok) throw new Error("Kayıt başarısız");
-      if (durum) {
+      const kayitVeri = await res.json();
+      // İlk kez tamamlanan bölümler için XP kazanıldıysa göster
+      if (kayitVeri && kayitVeri.kazanilanXp > 0 && BENIM_ID === GORUNTULENEN_ID) {
+        GUNCEL_XP = (GUNCEL_XP || 0) + kayitVeri.kazanilanXp;
+        seviyeGoster();
+        if (durum) {
+          durum.innerText = `+${kayitVeri.kazanilanXp} XP kazandın ✓`;
+          setTimeout(() => { if (durum && durum.innerText.startsWith("+")) durum.innerText = ""; }, 2200);
+        }
+      } else if (durum) {
         durum.innerText = "Kaydedildi ✓";
         setTimeout(() => {
           if (durum.innerText === "Kaydedildi ✓") durum.innerText = "";

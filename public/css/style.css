@@ -735,6 +735,101 @@ a {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
+/* ---------- Seviye (Steam benzeri) ---------- */
+
+.seviye-satir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.seviye-rozet {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--profil-accent), color-mix(in srgb, var(--profil-accent) 60%, #fff));
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 70%, transparent);
+  padding: 3px 10px;
+  border-radius: 20px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.seviye-xp {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+.seviye-cubugu {
+  width: 180px;
+  max-width: 70vw;
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--ink-line);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.seviye-doluluk {
+  height: 100%;
+  background: linear-gradient(90deg, var(--profil-accent), color-mix(in srgb, var(--profil-accent) 55%, #fff));
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+/* ---------- Rozetler (easter egg) ---------- */
+
+.rozetler-alani {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 22px;
+}
+
+.rozetler-icerik {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rozet-oge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 74px;
+  padding: 10px 6px;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 30%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--profil-accent) 6%, rgba(0,0,0,0.3));
+  cursor: default;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.rozet-oge:hover {
+  border-color: var(--profil-accent);
+  transform: translateY(-2px);
+}
+
+.rozet-ikon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.rozet-ad {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-text);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
 .duzenle-btn {
   background-color: var(--ink);
   border: 1px solid var(--profil-accent);
@@ -1265,7 +1360,10 @@ a {
   background-color: var(--ink);
   color: var(--parchment);
   outline: none;
-  height: 44px;
+  min-height: 44px;
+  height: auto;
+  overflow: hidden;
+  line-height: 1.5;
 }
 
 button.gonder-btn {
@@ -1285,8 +1383,6 @@ button.gonder-btn:hover {
 }
 
 .yorum-listesi {
-  max-height: 320px;
-  overflow-y: auto;
   padding-right: 5px;
 }
 
