@@ -915,6 +915,7 @@ function oyunuBitir(oyun, kazananId) {
     ad: o.ad,
     derece: dereceler[o.discordId] || 4,
     kazanilan: XP[dereceler[o.discordId] || 4] || 10,
+    puan: elPuan(o.el),
   }));
   oyunYayinla(oyun);
 }

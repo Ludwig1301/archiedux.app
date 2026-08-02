@@ -82,45 +82,52 @@
           <button class="okey-cik-btn" onclick="okeyCik()">Odadan Ayrıl</button>
         </div>
 
-        <div class="okey-sahne">
-          <div class="okey-oyuncu-koltuk" id="okeyOyuncuUst"></div>
+        <!-- Rakip (üst) -->
+        <div class="okey-koltuk okey-koltuk-ust" id="okeyOyuncuUst"></div>
 
-          <div class="okey-orta-satir">
-            <div class="okey-oyuncu-koltuk yan" id="okeyOyuncuSol"></div>
-            <div class="okey-merkez">
-              <div class="okey-deste" id="okeyDeste"></div>
-              <div class="okey-cop-alani">
-                <span class="okey-mini-etiket">Çöp</span>
-                <div class="okey-cop" id="okeyCop"></div>
-              </div>
-              <div class="okey-gosterge-alani">
-                <span class="okey-mini-etiket">Gösterge</span>
-                <div class="okey-gosterge" id="okeyGosterge"></div>
-              </div>
+        <!-- Orta: rakipler + merkez -->
+        <div class="okey-orta-satir">
+          <div class="okey-koltuk okey-koltuk-sol" id="okeyOyuncuSol"></div>
+          <div class="okey-merkez">
+            <div class="okey-gosterge-alani">
+              <span class="okey-mini-etiket">Gösterge</span>
+              <div class="okey-gosterge" id="okeyGosterge"></div>
             </div>
-            <div class="okey-oyuncu-koltuk yan" id="okeyOyuncuSag"></div>
+            <div class="okey-deste" id="okeyDeste"></div>
+          </div>
+          <div class="okey-koltuk okey-koltuk-sag" id="okeyOyuncuSag"></div>
+        </div>
+
+        <!-- Alt: benim ıstakam -->
+        <div class="okey-alt-alan">
+          <div class="okey-bolge okey-cop-bolge" id="okeyCopBolge" title="Çöpten çek">
+            <span class="okey-mini-etiket">Çöp</span>
+            <div class="okey-cop" id="okeyCop"></div>
           </div>
 
-          <div class="okey-oyuncu-koltuk ben" id="okeyOyuncuBen"></div>
+          <div class="okey-istaka">
+            <div class="okey-gruplar" id="okeyGruplar"></div>
+            <div class="okey-el-sarici">
+              <div class="okey-el" id="okeyEl"></div>
+            </div>
+          </div>
+
+          <div class="okey-bolge okey-atis-bolge" id="okeyAtisBolge" title="Buraya sürükleyerek taş at">
+            <span class="okey-mini-etiket">Taş At</span>
+            <div class="okey-atis">📤</div>
+          </div>
         </div>
 
-        <div class="okey-masalar" id="okeyMasalar"></div>
-
-        <div class="okey-kontroller" id="okeyKontroller">
-          <button class="okey-btn okey-btn-cik" onclick="okeyDesteCek()" id="okeyCekBtn" style="display:none;">🎴 Desteden Çek</button>
-          <button class="okey-btn okey-btn-cik" onclick="okeyCopCek()" id="okeyCopCekBtn" style="display:none;">♻️ Çöpten Çek</button>
-          <span class="okey-btn-ayirici"></span>
-          <button class="okey-btn" onclick="okeyGrupEkle()">Gruba Ekle</button>
-          <button class="okey-btn" onclick="okeyGrupGeri()">Geri Al</button>
-          <button class="okey-btn okey-btn-ac" onclick="okeyAc()">Aç</button>
-          <button class="okey-btn okey-btn-bitir" onclick="okeyBitir()">Bitir</button>
+        <!-- Alt kontroller -->
+        <div class="okey-alt-kontroller">
+          <div class="okey-sirala">
+            <button class="okey-btn okey-btn-kucuk" onclick="okeySiraladiz()">🔢 Sıralı Diz</button>
+            <button class="okey-btn okey-btn-kucuk" onclick="okeyCiftDiz()">👯 Çift Diz</button>
+            <button class="okey-btn okey-btn-kucuk" onclick="okeyGrupGeri()">↩ Geri Al</button>
+            <button class="okey-btn okey-btn-kucuk okey-btn-ac" onclick="okeyAc()">Aç</button>
+            <button class="okey-btn okey-btn-kucuk okey-btn-bitir" onclick="okeyBitir()">Bitir</button>
+          </div>
           <span class="okey-mesaj" id="okeyMesaj"></span>
-        </div>
-
-        <div class="okey-gruplar" id="okeyGruplar"></div>
-
-        <div class="okey-el-sarici">
-          <div class="okey-el" id="okeyEl"></div>
         </div>
       </div>
     </div>
