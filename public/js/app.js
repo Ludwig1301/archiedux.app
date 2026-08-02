@@ -8,7 +8,7 @@ async function navBarDoldur() {
 
   if (veri.girisYapti) {
     navSag.innerHTML = `
-      <a href="profile.html?id=${veri.id}">${veri.kullaniciAdi}</a>
+      <a href="/profil?id=${veri.id}">${veri.kullaniciAdi}</a>
       <a href="/auth/logout" class="cikis-link">Çıkış</a>
     `;
   } else {
@@ -165,7 +165,7 @@ async function profilSayfasiBaslat() {
         </svg>
         <h2>Üye Bulunamadı</h2>
         <p>Bu üye sunucuda değil ya da artık sunucuda bulunmuyor.</p>
-        <a href="members.html" class="discord-giris-btn buyuk">Üye Listesine Git</a>
+        <a href="/uyeler" class="discord-giris-btn buyuk">Üye Listesine Git</a>
       </div>`;
     return;
   }
@@ -213,7 +213,7 @@ async function profilSayfasiBaslat() {
 
   const galeriLink = document.getElementById("galeriLink");
   if (galeriLink) {
-    galeriLink.href = `gallery.html?id=${GORUNTULENEN_ID}`;
+    galeriLink.href = `/galeri?id=${GORUNTULENEN_ID}`;
   }
 
   // sadece kendi profiliyse düzenle butonu ve yorum formu görünsün
@@ -1136,7 +1136,7 @@ async function gallerySayfasiBaslat() {
 
   if (ownerEl) ownerEl.innerText = veri.uye.kullaniciAdi + " · Galeri";
   const backEl = document.getElementById("galleryBack");
-  if (backEl) backEl.href = `profile.html?id=${GORUNTULENEN_ID}`;
+  if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
   const allowEdit = BENIM_ID === GORUNTULENEN_ID;
   if (formEl) formEl.style.display = allowEdit ? "flex" : "none";
   if (formHintEl) {
@@ -1165,7 +1165,7 @@ async function uyeListesiYukle() {
   grid.innerHTML = uyeler
     .map(
       (u) => `
-    <a href="profile.html?id=${u.id}" class="uye-kart">
+    <a href="/profil?id=${u.id}" class="uye-kart">
       <img src="${u.avatar}" />
       <div class="uye-ad">${u.kullaniciAdi}</div>
     </a>
