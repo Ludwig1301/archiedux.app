@@ -223,11 +223,15 @@ app.use(
   })
 );
 
-// Temiz adresler (URL'lerde .html görünmesin)
-app.get("/profil", (req, res) => res.sendFile(path.join(__dirname, "public", "profile.html")));
-app.get("/galeri", (req, res) => res.sendFile(path.join(__dirname, "public", "gallery.html")));
-app.get("/uyeler", (req, res) => res.sendFile(path.join(__dirname, "public", "members.html")));
-app.get("/okey", (req, res) => res.sendFile(path.join(__dirname, "public", "okey.html")));
+// Temiz adresler (URL'lerde .html görünmesin) — önbellek kapalı, güncellemeler anında görünsün
+const temizSayfa = (dosya) => (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(path.join(__dirname, "public", dosya));
+};
+app.get("/profil", temizSayfa("profile.html"));
+app.get("/galeri", temizSayfa("gallery.html"));
+app.get("/uyeler", temizSayfa("members.html"));
+app.get("/okey", temizSayfa("okey.html"));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });

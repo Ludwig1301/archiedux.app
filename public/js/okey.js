@@ -288,12 +288,13 @@ function okeyRender(durum) {
 }
 
 function okeyTahtaCiz(durum) {
-  const benIdx = durum.oyuncular.findIndex((o) => o.ben);
-  if (benIdx === -1) return;
-  const ben = durum.oyuncular[benIdx];
-  const sag = durum.oyuncular[(benIdx + 1) % 4];
-  const ust = durum.oyuncular[(benIdx + 2) % 4];
-  const sol = durum.oyuncular[(benIdx + 3) % 4];
+  try {
+    const benIdx = durum.oyuncular.findIndex((o) => o.ben);
+    if (benIdx === -1) return;
+    const ben = durum.oyuncular[benIdx];
+    const sag = durum.oyuncular[(benIdx + 1) % 4];
+    const ust = durum.oyuncular[(benIdx + 2) % 4];
+    const sol = durum.oyuncular[(benIdx + 3) % 4];
 
   const okeyTas = { renk: durum.okeyRenk, num: durum.okeyNum, okey: true };
   document.getElementById("okeyOkeyTas").innerHTML = tasIc(okeyTas);
@@ -352,7 +353,9 @@ function okeyTahtaCiz(durum) {
   const grupta = new Set(OKEY_GRUPLAR.flat());
   const harita = {};
   for (const t of ben.el || []) harita[t.id] = t;
-  const siraliIdler = OKEY_EL_SIRASI.filter((id) => harita[id]);
+  // sıra korunmadıysa bile el mutlaka gösterilsin
+  let siraliIdler = OKEY_EL_SIRASI.filter((id) => harita[id]);
+  if (!siraliIdler.length) siraliIdler = (ben.el || []).map((t) => t.id);
   el.innerHTML = siraliIdler
     .map(
       (id) => {
@@ -379,6 +382,9 @@ function okeyTahtaCiz(durum) {
           .join("")}</span>`
       ).join("")
     : "";
+  } catch (e) {
+    console.error("Okey render hatası:", e);
+  }
 }
 
 function okeySonucCiz(durum) {
