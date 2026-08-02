@@ -264,7 +264,7 @@ async function profilSayfasiBaslat() {
   document.getElementById("profilFotoOnizleme").src = profilFoto;
   document.getElementById("profilFotoSilBtn").style.display = GUNCEL_PROFIL_FOTO ? "inline-block" : "none";
   document.getElementById("pIsim").innerText = veri.kullaniciAdi;
-  document.title = `${veri.kullaniciAdi} — ARCH`;
+  document.title = veri.kullaniciAdi;
   document.getElementById("pUnvan").innerText = veri.profil.unvan || "Ünvan belirtilmemiş";
   document.getElementById("pBio").innerText =
     veri.profil.bio || "Bu kişi henüz kendini tanıtmamış.";
@@ -1274,7 +1274,7 @@ async function gallerySayfasiBaslat() {
   const veri = await res.json();
 
   if (ownerEl) ownerEl.innerText = veri.uye.kullaniciAdi + " · Galeri";
-  document.title = `${veri.uye.kullaniciAdi} · Galeri — ARCH`;
+  document.title = `${veri.uye.kullaniciAdi} · Galeri`;
   const backEl = document.getElementById("galleryBack");
   if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
   const allowEdit = BENIM_ID === GORUNTULENEN_ID;

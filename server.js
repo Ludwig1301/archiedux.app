@@ -92,11 +92,11 @@ function profilGuncelle(discordId, alanlar) {
 // Üye bilgisi Discord'dan çekilir; kısa süreli önbellekleme yapılır ki
 // F5 ya da geçici Discord hatasında kullanıcı oturum dışına atılmasın.
 const UYE_ONBELLEK = new Map();
-const UYE_ONBELLEK_SURE = 5 * 60 * 1000; // 5 dakika
+const UYE_ONBELLEK_SURE = 60 * 1000; // 1 dakika (isim değişiklikleri hızlı yansısın)
 
-async function discordUyeBilgisiCek(discordId) {
+async function discordUyeBilgisiCek(discordId, yenile) {
   const onbellek = UYE_ONBELLEK.get(discordId);
-  if (onbellek && Date.now() - onbellek.zaman < UYE_ONBELLEK_SURE) {
+  if (!yenile && onbellek && Date.now() - onbellek.zaman < UYE_ONBELLEK_SURE) {
     return onbellek.veri;
   }
 
@@ -261,7 +261,9 @@ app.get("/auth/logout", (req, res) => {
 app.get("/api/me", async (req, res) => {
   if (!req.session.discordId) return res.json({ girisYapti: false });
 
-  let uyeBilgisi = await discordUyeBilgisiCek(req.session.discordId);
+  // Kendi bilgisi her zaman canlı çekilir ki Discord'da isim/avatar değişince
+  // navbar ve profil anında güncellensin.
+  let uyeBilgisi = await discordUyeBilgisiCek(req.session.discordId, true);
   if (!uyeBilgisi) {
     // Discord canlı bilgisi hiç alınamıyorsa bile oturumu sürdür (F5'te çıkış yaptırma)
     const profil = profilGetir(req.session.discordId);
@@ -277,7 +279,9 @@ app.get("/api/me", async (req, res) => {
 
 // Herkese açık profil görüntüleme (Discord bilgisi canlı, profil verisi DB'den)
 app.get("/api/profile/:id", async (req, res) => {
-  const uyeBilgisi = await discordUyeBilgisiCek(req.params.id);
+  // Kendi profilini görüntülüyorsa önbelleği atlayıp canlı bilgi çek
+  const kendiProfilim = req.session.discordId === req.params.id;
+  const uyeBilgisi = await discordUyeBilgisiCek(req.params.id, kendiProfilim);
   if (!uyeBilgisi) {
     return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
   }
