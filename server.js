@@ -72,6 +72,7 @@ function profilGetir(discordId) {
       yorumlar: [],
       galleryEntries: [],
       okunmamisYorum: 0,
+      bildirimler: [],
       katilimTarihi: new Date().toISOString(),
     };
     yazDB(db);
@@ -495,22 +496,38 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
   if (req.params.id !== req.session.discordId) {
     db.profiles[req.params.id].okunmamisYorum =
       (db.profiles[req.params.id].okunmamisYorum || 0) + 1;
+    db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler || [];
+    db.profiles[req.params.id].bildirimler.unshift({
+      id: `bildirim-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      yazanId: yazan.id,
+      yazanAd: yazan.kullaniciAdi,
+      yorumMetni: metin.slice(0, 90),
+      tarih: new Date().toISOString(),
+      okundu: false,
+    });
+    db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler.slice(0, 20);
   }
   yazDB(db);
   res.json({ basarili: true, yorumlar: db.profiles[req.params.id].yorumlar });
 });
 
-// Bildirimler: giriş yapan üyenin okunmamış yorum sayısı
+// Bildirimler: giriş yapan üyenin bildirim listesi + okunmamış sayısı
 app.get("/api/bildirimler", girisGerekli, (req, res) => {
   const profil = profilGetir(req.session.discordId);
-  res.json({ sayi: profil.okunmamisYorum || 0 });
+  const liste = profil.bildirimler || [];
+  const sayi = liste.filter((b) => !b.okundu).length;
+  res.json({ sayi, liste, id: req.session.discordId });
 });
 
-// Bildirimler okundu olarak işaretlenir
+// Bildirimler okundu olarak işaretlenir (geçmiş listesi kalır)
 app.post("/api/bildirimler/okundu", girisGerekli, (req, res) => {
   const db = okuDB();
-  db.profiles[req.session.discordId].okunmamisYorum = 0;
-  yazDB(db);
+  const profil = db.profiles[req.session.discordId];
+  if (profil) {
+    (profil.bildirimler || []).forEach((b) => { b.okundu = true; });
+    profil.okunmamisYorum = 0;
+    yazDB(db);
+  }
   res.json({ basarili: true });
 });
 

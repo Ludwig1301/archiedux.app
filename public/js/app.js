@@ -14,7 +14,8 @@ async function navBarDoldur() {
           <span class="bildirim-rozet" id="bildirimRozet" style="display:none;">0</span>
         </button>
         <div class="bildirim-panel" id="bildirimPanel" style="display:none;">
-          <div class="bildirim-mesaj" id="bildirimMesaj"></div>
+          <div class="bildirim-baslik">Bildirimler</div>
+          <div class="bildirim-listesi" id="bildirimListesi"></div>
         </div>
       </div>
       <a href="/profil?id=${veri.id}">${veri.kullaniciAdi}</a>
@@ -45,15 +46,32 @@ async function bildirimYukle() {
       rozet.innerText = sayi > 9 ? "9+" : String(sayi);
       rozet.style.display = sayi > 0 ? "flex" : "none";
     }
-    const mesaj = document.getElementById("bildirimMesaj");
-    if (mesaj) {
-      mesaj.innerText = sayi > 0
-        ? (sayi === 1 ? "Profilinizde 1 yeni yorum var." : `Profilinizde ${sayi} yeni yorum var.`)
-        : "Yeni bildiriminiz yok.";
-    }
+    bildirimListesiCiz(veri.liste || [], veri.id);
   } catch (e) {
     /* yoksay */
   }
+}
+
+function bildirimListesiCiz(liste, kendiId) {
+  const kutu = document.getElementById("bildirimListesi");
+  if (!kutu) return;
+  if (!liste.length) {
+    kutu.innerHTML = '<div class="bildirim-bos">Yeni bildiriminiz yok.</div>';
+    return;
+  }
+  kutu.innerHTML = liste
+    .map(
+      (b) => `
+      <a class="bildirim-ogesi ${b.okundu ? "" : "yeni"}" href="/profil?id=${kendiId}">
+        <span class="bildirim-oge-nokta"></span>
+        <span class="bildirim-oge-metin">
+          <strong>${b.yazanAd}</strong> profiline yorum yaptı
+          ${b.yorumMetni ? `<span class="bildirim-oge-yorum">"${b.yorumMetni}"</span>` : ""}
+        </span>
+      </a>
+    `
+    )
+    .join("");
 }
 
 async function bildirimPanelAcKapat(evt) {
@@ -66,15 +84,12 @@ async function bildirimPanelAcKapat(evt) {
   }
   panel.style.display = "block";
   const rozet = document.getElementById("bildirimRozet");
-  const sayi = rozet && rozet.style.display !== "none" ? parseInt(rozet.innerText, 10) || 0 : 0;
-  if (sayi > 0) {
+  const okunmamis = rozet && rozet.style.display !== "none";
+  if (okunmamis) {
     try {
       await fetch("/api/bildirimler/okundu", { method: "POST" });
       if (rozet) rozet.style.display = "none";
-      const mesaj = document.getElementById("bildirimMesaj");
-      if (mesaj) {
-        mesaj.innerText = sayi === 1 ? "Profilinizde 1 yeni yorum var." : `Profilinizde ${sayi} yeni yorum var.`;
-      }
+      bildirimYukle();
     } catch (e) {
       /* yoksay */
     }
@@ -475,9 +490,13 @@ function yorumlariCiz(yorumlar) {
     .map(
       (y) => `
       <div class="yorum">
-        <img src="${y.yazanAvatar}" class="yorum-avatar" />
+        <a href="/profil?id=${y.yazanId}" class="yorum-avatar-link">
+          <img src="${y.yazanAvatar}" class="yorum-avatar" alt="${y.yazanAd}" />
+        </a>
         <div>
-          <div class="yorum-yazar">${y.yazanAd}</div>
+          <a href="/profil?id=${y.yazanId}" class="yorum-yazar-link">
+            <div class="yorum-yazar">${y.yazanAd}</div>
+          </a>
           <div class="yorum-metin">${y.metin}</div>
         </div>
       </div>
