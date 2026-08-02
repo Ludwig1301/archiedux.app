@@ -798,6 +798,11 @@ async function dosyaYukle(dosya, hedefInputId, onizlemeElId, ekstraGeriCagirma) 
     }
 
     document.getElementById(hedefInputId).value = veri.url;
+    // Arka plan görseli yüklenince tür otomatik "resim" olsun ki kayıtta kaçmasın
+    if (hedefInputId === "formArkaplanResim") {
+      const turEl = document.getElementById("formArkaplanTuru");
+      if (turEl) turEl.value = "resim";
+    }
     if (onizlemeElId) onizlemeElGuncelle(onizlemeElId, veri.url);
     if (typeof ekstraGeriCagirma === "function") ekstraGeriCagirma();
     canliKaydiTetikle();
