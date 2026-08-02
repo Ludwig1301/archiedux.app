@@ -138,6 +138,13 @@ async function discordUyeBilgisiCek(discordId) {
 // ---------- Express kurulumu ----------
 const app = express();
 app.use(express.json({ limit: "9mb" })); // base64 görsel yüklemeleri için büyütüldü
+
+// Eski .html adresleri temiz adreslere yönlendirilsin (URL'de .html görünmesin).
+app.get("/profile.html", (req, res) => res.redirect("/profil"));
+app.get("/gallery.html", (req, res) => res.redirect("/galeri"));
+app.get("/members.html", (req, res) => res.redirect("/uyeler"));
+app.get("/index.html", (req, res) => res.redirect("/"));
+
 // Statik dosyalar hiç önbelleğe alınmasın; güncellemeler anında görünsün.
 app.use(
   express.static(path.join(__dirname, "public"), {
