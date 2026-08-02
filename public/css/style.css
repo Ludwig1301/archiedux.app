@@ -1342,6 +1342,40 @@ button.gonder-btn:hover {
   margin-bottom: 3px;
 }
 
+.yorum-ic {
+  flex: 1;
+  min-width: 0;
+}
+
+.yorum-baslik-satir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.yorum-sil {
+  background: none;
+  border: none;
+  color: var(--ink-text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: color 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.yorum:hover .yorum-sil {
+  opacity: 1;
+}
+
+.yorum-sil:hover {
+  color: var(--record-red);
+  background: rgba(139, 34, 34, 0.15);
+}
+
 .yorum-metin {
   color: var(--parchment);
   font-size: 13px;

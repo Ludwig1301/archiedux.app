@@ -486,6 +486,7 @@ function yorumlariCiz(yorumlar) {
     kutu.innerHTML = '<span class="bos-hint">Henüz yorum yok.</span>';
     return;
   }
+  const benimProfili = BENIM_ID === GORUNTULENEN_ID;
   kutu.innerHTML = yorumlar
     .map(
       (y) => `
@@ -493,16 +494,34 @@ function yorumlariCiz(yorumlar) {
         <a href="/profil?id=${y.yazanId}" class="yorum-avatar-link">
           <img src="${y.yazanAvatar}" class="yorum-avatar" alt="${y.yazanAd}" />
         </a>
-        <div>
-          <a href="/profil?id=${y.yazanId}" class="yorum-yazar-link">
-            <div class="yorum-yazar">${y.yazanAd}</div>
-          </a>
+        <div class="yorum-ic">
+          <div class="yorum-baslik-satir">
+            <a href="/profil?id=${y.yazanId}" class="yorum-yazar-link">
+              <div class="yorum-yazar">${y.yazanAd}</div>
+            </a>
+            ${benimProfili && y.id ? `<button type="button" class="yorum-sil" title="Yorumu sil" onclick="yorumSil('${y.id}')">×</button>` : ""}
+          </div>
           <div class="yorum-metin">${y.metin}</div>
         </div>
       </div>
     `
     )
     .join("");
+}
+
+async function yorumSil(commentId) {
+  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!confirm("Bu yorumu silmek istiyor musun?")) return;
+  try {
+    const res = await fetch(`/api/profile/${GORUNTULENEN_ID}/comments/${encodeURIComponent(commentId)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Yorum silinemedi.");
+    const veri = await res.json();
+    yorumlariCiz(veri.yorumlar || []);
+  } catch (e) {
+    alert(e.message || "Yorum silinemedi.");
+  }
 }
 
 async function yorumGonder() {

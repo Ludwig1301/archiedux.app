@@ -77,7 +77,19 @@ function profilGetir(discordId) {
     };
     yazDB(db);
   }
-  return db.profiles[discordId];
+  // Eski (id'siz) yorumlara silinebilmeleri için birer id ekle
+  const profil = db.profiles[discordId];
+  if (Array.isArray(profil.yorumlar)) {
+    let degisti = false;
+    for (const y of profil.yorumlar) {
+      if (!y.id) {
+        y.id = `yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+        degisti = true;
+      }
+    }
+    if (degisti) yazDB(db);
+  }
+  return profil;
 }
 
 function profilGuncelle(discordId, alanlar) {
@@ -490,6 +502,7 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
   const db = okuDB();
   profilGetir(req.params.id); // hedef profili garantiye al
   db.profiles[req.params.id].yorumlar.unshift({
+    id: `yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
     yazanId: yazan.id,
     yazanAd: yazan.kullaniciAdi,
     yazanAvatar: yazan.avatar,
@@ -511,6 +524,19 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     });
     db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler.slice(0, 20);
   }
+  yazDB(db);
+  res.json({ basarili: true, yorumlar: db.profiles[req.params.id].yorumlar });
+});
+
+// Yorum silme (sadece profil sahibi kendi profilindeki yorumları silebilir)
+app.delete("/api/profile/:id/comments/:commentId", girisGerekli, (req, res) => {
+  if (req.session.discordId !== req.params.id) {
+    return res.status(403).json({ hata: "Sadece profil sahibi yorum silebilir." });
+  }
+  const db = okuDB();
+  const profil = profilGetir(req.params.id);
+  const yorumlar = Array.isArray(profil.yorumlar) ? profil.yorumlar : [];
+  db.profiles[req.params.id].yorumlar = yorumlar.filter((y) => y.id !== req.params.commentId);
   yazDB(db);
   res.json({ basarili: true, yorumlar: db.profiles[req.params.id].yorumlar });
 });
