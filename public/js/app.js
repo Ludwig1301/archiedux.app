@@ -130,10 +130,10 @@ async function removeUploadedImage(hiddenInputId, previewElId) {
   canliKaydiTetikle();
 }
 
-// ---------- Spotify (Lanyard) - herhangi bir Discord ID için ----------
+// ---------- Spotify (kendi Lanyard kurulumumuz) - herhangi bir Discord ID için ----------
 async function spotifyYukle(discordId) {
   try {
-    const res = await fetch(`https://api.lanyard.rest/v1/users/${discordId}`);
+    const res = await fetch(`/lanyard/v1/users/${discordId}`);
     const json = await res.json();
     const veri = json.data;
 
