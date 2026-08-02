@@ -229,6 +229,7 @@ async function profilSayfasiBaslat() {
   if (hayvanBtn) {
     hayvanBtn.style.display = BENIM_ID === GORUNTULENEN_ID ? "flex" : "none";
   }
+  hayvanSilBtnGuncelle();
 
   yorumlariCiz(veri.profil.yorumlar || []);
   spotifyYukle(GORUNTULENEN_ID);
@@ -551,6 +552,7 @@ function profilCanliGuncelle(veri) {
   }
   const hayvanBosHint = document.getElementById("hayvanBosHint");
   if (hayvanBosHint) hayvanBosHint.style.display = hayvanResim ? "none" : "block";
+  hayvanSilBtnGuncelle();
 
   gorunumUygula(document.getElementById("profilAlani"), document.getElementById("pKapak"), {
     aksanRenk: veri.aksanRenk,
@@ -910,6 +912,55 @@ async function profilFotoSil() {
 }
 
 // ---------- Sevimli bir dost: fotoğraf seçme + yükleme ----------
+// "Kaldır" butonu yalnızca profil sahibi ve fotoğraf varsa görünür.
+function hayvanSilBtnGuncelle() {
+  const btn = document.getElementById("hayvanSilBtn");
+  if (!btn) return;
+  btn.style.display = BENIM_ID === GORUNTULENEN_ID && GUNCEL_HAYVAN_RESMI ? "flex" : "none";
+}
+
+async function hayvanFotoSil() {
+  if (BENIM_ID !== GORUNTULENEN_ID) return;
+  if (!GUNCEL_HAYVAN_RESMI) return;
+  if (!confirm("Evcil dost fotoğrafını kaldırmak istiyor musun?")) return;
+  const durumEl = document.getElementById("hayvanDurum");
+  if (durumEl) durumEl.innerText = "Kaldırılıyor...";
+  try {
+    if (GUNCEL_HAYVAN_RESMI.startsWith("/uploads/")) {
+      try {
+        await fetch("/api/delete-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: GUNCEL_HAYVAN_RESMI }),
+        });
+      } catch (e) { /* yoksay */ }
+    }
+    const kaydetRes = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hayvanResmi: "", kediResmi: "" }),
+    });
+    if (!kaydetRes.ok) throw new Error("Kaldırılamadı.");
+
+    GUNCEL_HAYVAN_RESMI = "";
+    const imgEl = document.getElementById("pHayvanResmi");
+    const bosHint = document.getElementById("hayvanBosHint");
+    if (imgEl) {
+      imgEl.src = "";
+      imgEl.style.display = "none";
+    }
+    if (bosHint) bosHint.style.display = "block";
+    hayvanSilBtnGuncelle();
+    if (durumEl) {
+      durumEl.innerText = "Kaldırıldı ✓";
+      setTimeout(() => { if (durumEl.innerText === "Kaldırıldı ✓") durumEl.innerText = ""; }, 2000);
+    }
+  } catch (e) {
+    if (durumEl) durumEl.innerText = "";
+    alert(e.message || "Fotoğraf kaldırılamadı.");
+  }
+}
+
 function hayvanFotoSec() {
   if (BENIM_ID !== GORUNTULENEN_ID) return;
   const input = document.getElementById("dosyaHayvan");
@@ -967,6 +1018,7 @@ async function hayvanFotoYukle(dosya) {
       imgEl.style.display = "block";
     }
     if (bosHint) bosHint.style.display = "none";
+    hayvanSilBtnGuncelle();
     if (durumEl) {
       durumEl.innerText = "Eklendi ✓";
       setTimeout(() => { if (durumEl.innerText === "Eklendi ✓") durumEl.innerText = ""; }, 2000);

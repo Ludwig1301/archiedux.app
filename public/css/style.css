@@ -851,8 +851,14 @@ a {
   display: block;
 }
 
-.hayvan-ekle-btn {
-  width: 100%;
+.hayvan-butonlar {
+  display: flex;
+  gap: 8px;
+}
+
+.hayvan-ekle-btn,
+.hayvan-sil-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -868,10 +874,22 @@ a {
   cursor: pointer;
   transition: border-color 0.15s ease, border-style 0.15s ease, background-color 0.15s ease;
 }
-.hayvan-ekle-btn:hover {
-  border-color: var(--profil-accent);
+.hayvan-ekle-btn:hover,
+.hayvan-sil-btn:hover {
   border-style: solid;
   background-color: color-mix(in srgb, var(--profil-accent) 8%, transparent);
+}
+.hayvan-ekle-btn:hover {
+  border-color: var(--profil-accent);
+}
+
+.hayvan-sil-btn {
+  border-color: color-mix(in srgb, var(--record-red) 50%, transparent);
+  color: #d98a8a;
+}
+.hayvan-sil-btn:hover {
+  border-color: var(--record-red);
+  background-color: color-mix(in srgb, var(--record-red) 12%, transparent);
 }
 
 .hayvan-durum {
