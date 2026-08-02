@@ -1592,6 +1592,10 @@ body.duzenleme-acik .duzenleme-paneli {
   transition: transform 0.12s ease, border-color 0.12s ease;
 }
 
+.renk-son-gradyan {
+  border: 2px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
+}
+
 .renk-son:hover {
   transform: scale(1.15);
 }

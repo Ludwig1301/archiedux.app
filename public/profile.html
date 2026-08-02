@@ -103,6 +103,46 @@
           </div>
 
           <div class="form-alani">
+            <label>İsim Rengi</label>
+            <select id="formIsimRenkTuru" onchange="isimRenkSecimDegisti()">
+              <option value="">Varsayılan</option>
+              <option value="renk">Sabit Renk</option>
+              <option value="gradyan">Gradyan</option>
+            </select>
+          </div>
+          <div class="form-alani" id="formIsimRenkAlani" style="display:none;">
+            <div class="renk-secici">
+              <div class="renk-sonlar" id="isimRenkSonlar"></div>
+              <div class="renk-picker-blok">
+                <input id="formIsimRenk1" class="renk-native" type="color" value="#c9a227" oninput="isimRenkDegisti()" onchange="isimRenkBitti()" />
+                <input id="formIsimRenk2" class="renk-native" type="color" value="#c9a227" style="display:none;" oninput="isimRenkDegisti()" onchange="isimRenkBitti()" />
+                <button type="button" class="renk-sifirla" onclick="isimRenkSifirla()">Sıfırla</button>
+              </div>
+            </div>
+            <span class="form-yardim">İsim yazısını sabit renk veya iki renkli gradyan yap.</span>
+          </div>
+
+          <div class="form-alani">
+            <label>Ünvan Rengi</label>
+            <select id="formUnvanRenkTuru" onchange="unvanRenkSecimDegisti()">
+              <option value="">Varsayılan</option>
+              <option value="renk">Sabit Renk</option>
+              <option value="gradyan">Gradyan</option>
+            </select>
+          </div>
+          <div class="form-alani" id="formUnvanRenkAlani" style="display:none;">
+            <div class="renk-secici">
+              <div class="renk-sonlar" id="unvanRenkSonlar"></div>
+              <div class="renk-picker-blok">
+                <input id="formUnvanRenk1" class="renk-native" type="color" value="#a1a1aa" oninput="unvanRenkDegisti()" onchange="unvanRenkBitti()" />
+                <input id="formUnvanRenk2" class="renk-native" type="color" value="#a1a1aa" style="display:none;" oninput="unvanRenkDegisti()" onchange="unvanRenkBitti()" />
+                <button type="button" class="renk-sifirla" onclick="unvanRenkSifirla()">Sıfırla</button>
+              </div>
+            </div>
+            <span class="form-yardim">Ünvan yazısını sabit renk veya iki renkli gradyan yap.</span>
+          </div>
+
+          <div class="form-alani">
             <label>Arka Plan</label>
             <select id="formArkaplanTuru" onchange="arkaplanSecimDegisti()">
               <option value="renk">Özel Renk (gradyan)</option>

@@ -480,6 +480,10 @@ app.post("/api/profile", girisGerekli, (req, res) => {
     "arkaplanRenk1",
     "arkaplanRenk2",
     "arkaplanBlur",
+    "isimRenk1",
+    "isimRenk2",
+    "unvanRenk1",
+    "unvanRenk2",
     "avatar",
   ];
   const gelenVeri = {};
@@ -500,6 +504,21 @@ app.post("/api/profile", girisGerekli, (req, res) => {
   // arkaplan türü: sadece izin verilen seçeneklerden biri olabilir
   if (typeof req.body.arkaplanTuru === "string" && ARKAPLAN_TURLERI.includes(req.body.arkaplanTuru)) {
     gelenVeri.arkaplanTuru = req.body.arkaplanTuru;
+  }
+
+  // İsim / ünvan rengi: tür boş, "renk" veya "gradyan"; renkler geçerli hex olmalı
+  const METIN_RENK_TURLERI = ["", "renk", "gradyan"];
+  for (const alan of ["isimRenkTuru", "unvanRenkTuru"]) {
+    if (typeof req.body[alan] === "string" && METIN_RENK_TURLERI.includes(req.body[alan])) {
+      gelenVeri[alan] = req.body[alan];
+    }
+  }
+  for (const alan of ["isimRenk1", "isimRenk2", "unvanRenk1", "unvanRenk2"]) {
+    if (typeof req.body[alan] === "string") {
+      gelenVeri[alan] = HEX_RENK_REGEX.test(req.body[alan].trim())
+        ? req.body[alan].trim()
+        : "";
+    }
   }
 
   const guncel = profilGuncelle(req.session.discordId, gelenVeri);

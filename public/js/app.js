@@ -348,6 +348,28 @@ async function profilSayfasiBaslat() {
   renkSonlariniCiz();
   arkaplanSecimDegisti();
 
+  // İsim / Ünvan renklerini forma yükle
+  const isimTuruEl = document.getElementById("formIsimRenkTuru");
+  if (isimTuruEl) isimTuruEl.value = veri.profil.isimRenkTuru || "";
+  const isimR1El = document.getElementById("formIsimRenk1");
+  if (isimR1El) isimR1El.value = veri.profil.isimRenk1 || "#c9a227";
+  const isimR2El = document.getElementById("formIsimRenk2");
+  if (isimR2El) isimR2El.value = veri.profil.isimRenk2 || "#c9a227";
+  isimRenkAlanAcKapat();
+  isimRenkUygula();
+
+  const unvanTuruEl = document.getElementById("formUnvanRenkTuru");
+  if (unvanTuruEl) unvanTuruEl.value = veri.profil.unvanRenkTuru || "";
+  const unvanR1El = document.getElementById("formUnvanRenk1");
+  if (unvanR1El) unvanR1El.value = veri.profil.unvanRenk1 || "#a1a1aa";
+  const unvanR2El = document.getElementById("formUnvanRenk2");
+  if (unvanR2El) unvanR2El.value = veri.profil.unvanRenk2 || "#a1a1aa";
+  unvanRenkAlanAcKapat();
+  unvanRenkUygula();
+
+  renkCiftleriniCiz(ISIM_RENK_ANAHTARI, "isimRenkSonlar", "isimRenkSonSec");
+  renkCiftleriniCiz(UNVAN_RENK_ANAHTARI, "unvanRenkSonlar", "unvanRenkSonSec");
+
   onizlemeElGuncelle("onizlemeVitrin", veri.profil.vitrinResim);
   onizlemeElGuncelle("onizlemeArkaplan", veri.profil.arkaplanResim);
 
@@ -457,6 +479,186 @@ function aksanRenkSifirla() {
   if (goster) goster.innerText = VARSAYILAN_RENK;
   renkSonlariniCiz();
   canliKaydiTetikle();
+}
+
+// ---------- İsim / Ünvan yazısı rengi (sabit veya gradyan) ----------
+const ISIM_RENK_ANAHTARI = "congress.isim-renkler";
+const UNVAN_RENK_ANAHTARI = "congress.unvan-renkler";
+
+function metinRengiUygula(el, tur, r1, r2) {
+  if (!el) return;
+  if (tur === "gradyan" && r1 && r2) {
+    el.style.color = "transparent";
+    el.style.backgroundImage = `linear-gradient(90deg, ${r1}, ${r2})`;
+    el.style.webkitBackgroundClip = "text";
+    el.style.backgroundClip = "text";
+    el.style.webkitTextFillColor = "transparent";
+    el.style.textShadow = "none";
+  } else if (tur === "renk" && r1) {
+    el.style.color = r1;
+    el.style.backgroundImage = "none";
+    el.style.webkitBackgroundClip = "initial";
+    el.style.backgroundClip = "initial";
+    el.style.webkitTextFillColor = "initial";
+    el.style.textShadow = "";
+  } else {
+    el.style.color = "";
+    el.style.backgroundImage = "";
+    el.style.webkitBackgroundClip = "";
+    el.style.backgroundClip = "";
+    el.style.webkitTextFillColor = "";
+    el.style.textShadow = "";
+  }
+}
+
+function renkCiftleriOku(anahtar) {
+  try {
+    const l = JSON.parse(localStorage.getItem(anahtar) || "[]");
+    return Array.isArray(l) ? l : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function renkCiftleriniKaydet(anahtar, liste) {
+  try {
+    localStorage.setItem(anahtar, JSON.stringify(liste));
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+function renkCiftiEkle(anahtar, r1, r2) {
+  const cift = { r1: r1.toLowerCase(), r2: (r2 || "").toLowerCase() };
+  let liste = renkCiftleriOku(anahtar).filter(
+    (c) => !(c.r1 === cift.r1 && (c.r2 || "") === cift.r2)
+  );
+  liste.unshift(cift);
+  liste = liste.slice(0, 8);
+  renkCiftleriniKaydet(anahtar, liste);
+}
+
+// Kaydedilen renkleri gradyan yuvarlaklar olarak gösterir; tıklayınca iki rengi de uygular.
+function renkCiftleriniCiz(anahtar, kutuId, tiklaFn) {
+  const kutu = document.getElementById(kutuId);
+  if (!kutu) return;
+  const liste = renkCiftleriOku(anahtar);
+  kutu.innerHTML =
+    `<span class="renk-son-baslik">Son kullanılanlar</span>` +
+    (liste.length
+      ? liste
+          .map(
+            (c, i) => `
+          <button type="button" class="renk-son renk-son-gradyan"
+            style="background: linear-gradient(135deg, ${c.r1}, ${c.r2 || c.r1});"
+            title="${c.r2 ? c.r1 + " → " + c.r2 : c.r1}"
+            onclick="${tiklaFn}(${i})"></button>
+        `
+          )
+          .join("")
+      : `<span class="renk-son-bos">Henüz renk kaydedilmedi</span>`);
+}
+
+function isimRenkAlanAcKapat() {
+  const tur = document.getElementById("formIsimRenkTuru").value;
+  const alan = document.getElementById("formIsimRenkAlani");
+  if (alan) alan.style.display = tur ? "block" : "none";
+  const r2 = document.getElementById("formIsimRenk2");
+  if (r2) r2.style.display = tur === "gradyan" ? "block" : "none";
+}
+
+function isimRenkUygula() {
+  const tur = document.getElementById("formIsimRenkTuru").value;
+  const r1 = document.getElementById("formIsimRenk1").value;
+  const r2 = document.getElementById("formIsimRenk2").value;
+  metinRengiUygula(document.getElementById("pIsim"), tur, r1, tur === "gradyan" ? r2 : "");
+}
+
+function isimRenkDegisti() {
+  isimRenkUygula();
+  canliKaydiTetikle();
+}
+
+function isimRenkSecimDegisti() {
+  isimRenkAlanAcKapat();
+  isimRenkDegisti();
+}
+
+function isimRenkBitti() {
+  isimRenkDegisti();
+  const tur = document.getElementById("formIsimRenkTuru").value;
+  const r1 = document.getElementById("formIsimRenk1").value;
+  const r2 = document.getElementById("formIsimRenk2").value;
+  renkCiftiEkle(ISIM_RENK_ANAHTARI, r1, tur === "gradyan" ? r2 : "");
+  renkCiftleriniCiz(ISIM_RENK_ANAHTARI, "isimRenkSonlar", "isimRenkSonSec");
+}
+
+function isimRenkSonSec(i) {
+  const liste = renkCiftleriOku(ISIM_RENK_ANAHTARI);
+  const c = liste[i];
+  if (!c) return;
+  document.getElementById("formIsimRenk1").value = c.r1;
+  document.getElementById("formIsimRenk2").value = c.r2 || c.r1;
+  document.getElementById("formIsimRenkTuru").value = c.r2 ? "gradyan" : "renk";
+  isimRenkSecimDegisti();
+}
+
+function isimRenkSifirla() {
+  document.getElementById("formIsimRenkTuru").value = "";
+  document.getElementById("formIsimRenk1").value = "#c9a227";
+  document.getElementById("formIsimRenk2").value = "#c9a227";
+  isimRenkSecimDegisti();
+}
+
+function unvanRenkAlanAcKapat() {
+  const tur = document.getElementById("formUnvanRenkTuru").value;
+  const alan = document.getElementById("formUnvanRenkAlani");
+  if (alan) alan.style.display = tur ? "block" : "none";
+  const r2 = document.getElementById("formUnvanRenk2");
+  if (r2) r2.style.display = tur === "gradyan" ? "block" : "none";
+}
+
+function unvanRenkUygula() {
+  const tur = document.getElementById("formUnvanRenkTuru").value;
+  const r1 = document.getElementById("formUnvanRenk1").value;
+  const r2 = document.getElementById("formUnvanRenk2").value;
+  metinRengiUygula(document.getElementById("pUnvan"), tur, r1, tur === "gradyan" ? r2 : "");
+}
+
+function unvanRenkDegisti() {
+  unvanRenkUygula();
+  canliKaydiTetikle();
+}
+
+function unvanRenkSecimDegisti() {
+  unvanRenkAlanAcKapat();
+  unvanRenkDegisti();
+}
+
+function unvanRenkBitti() {
+  unvanRenkDegisti();
+  const tur = document.getElementById("formUnvanRenkTuru").value;
+  const r1 = document.getElementById("formUnvanRenk1").value;
+  const r2 = document.getElementById("formUnvanRenk2").value;
+  renkCiftiEkle(UNVAN_RENK_ANAHTARI, r1, tur === "gradyan" ? r2 : "");
+  renkCiftleriniCiz(UNVAN_RENK_ANAHTARI, "unvanRenkSonlar", "unvanRenkSonSec");
+}
+
+function unvanRenkSonSec(i) {
+  const liste = renkCiftleriOku(UNVAN_RENK_ANAHTARI);
+  const c = liste[i];
+  if (!c) return;
+  document.getElementById("formUnvanRenk1").value = c.r1;
+  document.getElementById("formUnvanRenk2").value = c.r2 || c.r1;
+  document.getElementById("formUnvanRenkTuru").value = c.r2 ? "gradyan" : "renk";
+  unvanRenkSecimDegisti();
+}
+
+function unvanRenkSifirla() {
+  document.getElementById("formUnvanRenkTuru").value = "";
+  document.getElementById("formUnvanRenk1").value = "#a1a1aa";
+  document.getElementById("formUnvanRenk2").value = "#a1a1aa";
+  unvanRenkSecimDegisti();
 }
 
 function arkaplanSecimDegisti() {
@@ -628,6 +830,12 @@ function profilVerileriniTopla() {
     arkaplanRenk1: document.getElementById("formArkaplanRenk1").value,
     arkaplanRenk2: document.getElementById("formArkaplanRenk2").value,
     arkaplanBlur: document.getElementById("formArkaplanBlur").value,
+    isimRenkTuru: document.getElementById("formIsimRenkTuru").value,
+    isimRenk1: document.getElementById("formIsimRenk1").value,
+    isimRenk2: document.getElementById("formIsimRenk2").value,
+    unvanRenkTuru: document.getElementById("formUnvanRenkTuru").value,
+    unvanRenk1: document.getElementById("formUnvanRenk1").value,
+    unvanRenk2: document.getElementById("formUnvanRenk2").value,
   };
 }
 
@@ -636,6 +844,19 @@ function profilCanliGuncelle(veri) {
   document.getElementById("pUnvan").innerText = veri.unvan || "Ünvan belirtilmemiş";
   document.getElementById("pBio").innerText =
     veri.bio || "Bu kişi henüz kendini tanıtmamış.";
+
+  metinRengiUygula(
+    document.getElementById("pIsim"),
+    veri.isimRenkTuru,
+    veri.isimRenk1,
+    veri.isimRenk2
+  );
+  metinRengiUygula(
+    document.getElementById("pUnvan"),
+    veri.unvanRenkTuru,
+    veri.unvanRenk1,
+    veri.unvanRenk2
+  );
 
   const vitrin = document.getElementById("pVitrin");
   if (veri.vitrinBaslik) {
