@@ -637,13 +637,8 @@ function cropAc(dosya, hedef) {
   };
   const yardimlar = {
     profil: "",
-    arkaplan: "Görselin üzerinde sürükleyerek kırpma alanını seç.",
-    kapak: "Görselin üzerinde sürükleyerek kırpma alanını seç.",
-  };
-  const oranlar = {
-    profil: 1,
-    arkaplan: arkaplanCropOrani(),
-    kapak: kapakCropOrani(),
+    arkaplan: "Görselin üzerinde sürükleyerek kırpmak istediğin bölgeyi seç. Gerekirse tekerlekle yakınlaş.",
+    kapak: "Görselin üzerinde sürükleyerek kırpmak istediğin bölgeyi seç. Gerekirse tekerlekle yakınlaş.",
   };
   const okuyucu = new FileReader();
   okuyucu.onload = () => {
@@ -665,12 +660,13 @@ function cropAc(dosya, hedef) {
     }
     if (cropper) cropper.destroy();
     cropHedef = hedef;
+    // Profil fotoğrafında kare oran zorunlu; kapak/arka planda serbest oran —
+    // görsel olduğu gibi gösterilir, kullanıcı sürükleyerek istediği bölgeyi seçer.
     cropper = new Cropper(cropResim, {
-      aspectRatio: oranlar[hedef] || 1,
+      aspectRatio: hedef === "profil" ? 1 : NaN,
       // viewMode 3: görsel konteyneri aşamaz ve kırpma kutusu görselin dışına taşamaz.
       viewMode: 3,
-      // Profil fotoğrafında kare alan otomatik seçilir; kapak/arka planda görsel
-      // olduğu gibi gösterilir, kullanıcı sürükleyerek alanı kendisi seçer.
+      // Kapak/arka planda otomatik kırpma kutusu seçme (görseli kesme) yok.
       autoCropArea: hedef === "profil" ? 1 : 0,
       background: false,
     });

@@ -138,11 +138,11 @@ async function discordUyeBilgisiCek(discordId) {
 // ---------- Express kurulumu ----------
 const app = express();
 app.use(express.json({ limit: "9mb" })); // base64 görsel yüklemeleri için büyütüldü
-// Statik dosyalar her istekte yeniden doğrulansın; güncellemeler anında görünsün.
+// Statik dosyalar hiç önbelleğe alınmasın; güncellemeler anında görünsün.
 app.use(
   express.static(path.join(__dirname, "public"), {
     maxAge: 0,
-    setHeaders: (res) => res.setHeader("Cache-Control", "no-cache"),
+    setHeaders: (res) => res.setHeader("Cache-Control", "no-store"),
   })
 );
 
