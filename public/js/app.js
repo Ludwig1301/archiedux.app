@@ -619,8 +619,8 @@ function canliKayitDinleyicileriEkle() {
 // ---------- Görsel seçim + kırpma (profil fotoğrafı, kapak ve arka plan) ----------
 let cropHedef = null; // "profil", "arkaplan" veya "kapak"
 
-// Seçilen dosyayı kırpma penceresinde açar. Profil için kare, kapak ve arka plan
-// için ilgili alanın en/boy oranı kullanılır.
+// Seçilen dosyayı kırpma penceresinde açar. Profil için kare; kapak/arka plan için
+// Discord tarzı: sabit banner çerçevesi + fotoğrafı sürükleyip yakınlaşarak seçim.
 function cropAc(dosya, hedef) {
   const inputId = hedef === "profil" ? "dosyaProfilFoto" : hedef === "arkaplan" ? "dosyaArkaplan" : "dosyaKapak";
   const inputEl = document.getElementById(inputId);
@@ -637,9 +637,27 @@ function cropAc(dosya, hedef) {
   };
   const yardimlar = {
     profil: "",
-    arkaplan: "Fotoğrafın üzerinde seçim çerçevesi hazır. Köşelerinden sürükleyerek istediğin bölgeyi seç; tekerlekle yakınlaşabilirsin.",
-    kapak: "Fotoğrafın üzerinde seçim çerçevesi hazır. Köşelerinden sürükleyerek istediğin bölgeyi seç; tekerlekle yakınlaşabilirsin.",
+    arkaplan: "Fotoğrafı sürükleyerek konumlandır, tekerlekle yakınlaş; alttaki önizlemede kartta nasıl görüneceğini gör.",
+    kapak: "Fotoğrafı sürükleyerek konumlandır, tekerlekle yakınlaş; alttaki önizlemede banner'ın nasıl görüneceğini gör.",
   };
+  const oranlar = {
+    profil: 1,
+    arkaplan: arkaplanCropOrani(),
+    kapak: kapakCropOrani(),
+  };
+
+  const cropAlan = document.getElementById("cropAlan");
+  const onizleme = document.getElementById("cropPreview");
+  if (cropAlan) {
+    if (hedef === "profil") {
+      cropAlan.style.height = "";
+    } else {
+      const genislik = cropAlan.clientWidth || 560;
+      const hedefYukseklik = Math.min(Math.max(genislik / oranlar[hedef], 160), 380);
+      cropAlan.style.height = hedefYukseklik + "px";
+    }
+  }
+
   const okuyucu = new FileReader();
   okuyucu.onload = () => {
     const cropResim = document.getElementById("cropResim");
@@ -652,6 +670,7 @@ function cropAc(dosya, hedef) {
       yardim.style.display = hedef === "profil" ? "none" : "block";
       yardim.innerText = yardimlar[hedef] || "";
     }
+    if (onizleme) onizleme.style.display = hedef === "profil" ? "none" : "block";
     document.getElementById("cropOverlay").style.display = "flex";
     if (typeof Cropper === "undefined") {
       alert("Kırpma aracı yüklenemedi (internet bağlantısı gerekli).");
@@ -660,30 +679,72 @@ function cropAc(dosya, hedef) {
     }
     if (cropper) cropper.destroy();
     cropHedef = hedef;
-    // Profil fotoğrafında kare oran; kapak/arka planda serbest oran ve fotoğrafın
-    // üzerinde görünür bir seçim çerçevesi. Böylece fotoğraf kesilmiş/küçük görünmez.
+    const oran = oranlar[hedef] || 1;
     cropper = new Cropper(cropResim, {
-      aspectRatio: hedef === "profil" ? 1 : NaN,
-      // viewMode 3: görsel konteyneri aşamaz ve kırpma kutusu görselin dışına taşamaz.
-      viewMode: 3,
-      autoCropArea: hedef === "profil" ? 1 : 0.8,
+      aspectRatio: oran,
+      // viewMode 1: kırpma kutusu görselin içinde kalır; görsel çerçeveyi kaplayacak
+      // şekilde büyüyüp sürüklenebilir (Discord tarzı pan/yakınlaşma).
+      viewMode: 1,
+      autoCropArea: hedef === "profil" ? 1 : 0,
+      dragMode: hedef === "profil" ? "crop" : "move",
       background: false,
+      ready() {
+        if (hedef === "profil") return;
+        // Görseli önce tüm alanı kaplayacak kadar yakınlaştır, sonra kırpma
+        // kutusunu banner şeklinde sabitle.
+        const konteyner = this.getContainerData();
+        const tuval = this.getCanvasData();
+        const olcek = Math.max(konteyner.width / tuval.width, konteyner.height / tuval.height);
+        this.zoomTo(tuval.scaleX * olcek);
+        const kutuGenislik = konteyner.width;
+        const kutuYukseklik = kutuGenislik / oran;
+        this.setCropBoxData({
+          left: 0,
+          top: Math.max(0, (konteyner.height - kutuYukseklik) / 2),
+          width: kutuGenislik,
+          height: kutuYukseklik,
+        });
+        cropOnizlemeGuncelle();
+      },
+      cropend() {
+        if (hedef !== "profil") cropOnizlemeGuncelle();
+      },
     });
   };
   okuyucu.readAsDataURL(dosya);
 }
 
+// Kırpma seçiminin banner'daki sonucunu alttaki önizleme kutusunda gösterir.
+function cropOnizlemeGuncelle() {
+  const el = document.getElementById("cropPreview");
+  if (!el || !cropper || cropHedef === "profil") return;
+  try {
+    const veri = cropper.getData();
+    const oran = veri.width / veri.height;
+    const genislik = 900;
+    const yukseklik = Math.max(1, Math.round(genislik / oran));
+    const kanvas = cropper.getCroppedCanvas({
+      width: genislik,
+      height: yukseklik,
+      imageSmoothingQuality: "medium",
+    });
+    el.style.backgroundImage = `url(${kanvas.toDataURL("image/jpeg", 0.85)})`;
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
 // Arka plan görselinin profil kartında kaplayacağı görünür alanın en/boy oranı.
-// Kapak fotoğrafının altında kalan bölge ölçülür; ölçüm alınamazsa 1.8 kullanılır.
 function arkaplanCropOrani() {
   const mainframeEl = document.getElementById("profilAlani");
   const kapakEl = document.getElementById("pKapak");
-  if (!mainframeEl) return 1.8;
+  if (!mainframeEl) return 1.5;
   const w = mainframeEl.clientWidth || 950;
   const kapakH = kapakEl ? kapakEl.offsetHeight : 190;
   const h = mainframeEl.clientHeight || 600;
   const gorselH = Math.max(h - kapakH, 80);
-  return Math.min(Math.max(w / gorselH, 0.4), 3);
+  const oran = w / gorselH;
+  return oran >= 0.5 && oran <= 3 ? oran : 1.5;
 }
 
 // Kapak fotoğrafının görünür alanının en/boy oranı (geniş yatay şerit).
@@ -692,7 +753,8 @@ function kapakCropOrani() {
   if (!kapakEl) return 5;
   const w = kapakEl.clientWidth || 950;
   const h = kapakEl.clientHeight || 190;
-  return Math.min(Math.max(w / h, 1), 8);
+  const oran = w / h;
+  return oran >= 2 && oran <= 8 ? oran : 5;
 }
 
 function profilFotoSecildi(dosya) {
@@ -714,6 +776,13 @@ function cropKapat() {
     cropper = null;
   }
   cropHedef = null;
+  const cropAlan = document.getElementById("cropAlan");
+  if (cropAlan) cropAlan.style.height = "";
+  const onizleme = document.getElementById("cropPreview");
+  if (onizleme) {
+    onizleme.style.backgroundImage = "";
+    onizleme.style.display = "none";
+  }
 }
 
 async function cropUygula() {

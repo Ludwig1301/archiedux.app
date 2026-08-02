@@ -136,7 +136,7 @@
                 <span>PNG, JPG, GIF veya WEBP</span>
               </div>
             </div>
-            <input type="file" id="dosyaArkaplan" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formArkaplanResim', 'onizlemeArkaplan')" />
+            <input type="file" id="dosyaArkaplan" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="arkaplanFotoSecildi(this.files[0])" />
             <input type="hidden" id="formArkaplanResim" value="" />
 
             <div class="blur-alani">
@@ -173,7 +173,7 @@
           </div>
         </div>
 
-        <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formKapakFoto', null, kapakOnizlemeGuncelle)" />
+        <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="kapakFotoSecildi(this.files[0])" />
         <input type="hidden" id="formKapakFoto" value="" />
         <input type="file" id="dosyaProfilFoto" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="profilFotoSecildi(this.files[0])" />
 
@@ -252,10 +252,11 @@
         <span id="cropBaslik">Profil Fotoğrafını Kırp</span>
         <button type="button" class="duzenleme-kapat" aria-label="Kapat" onclick="cropKapat()">×</button>
       </div>
-      <div class="crop-alan">
+      <div class="crop-alan" id="cropAlan">
         <img id="cropResim" alt="Kırpılacak görsel" />
       </div>
-      <div class="crop-yardim" id="cropYardim" style="display:none;">Görselin hangi bölümünün profil kartında görüneceğini seç. Kırpma alanı, kartın görünür oranına göre ayarlanır.</div>
+      <div class="crop-yardim" id="cropYardim" style="display:none;">Fotoğrafı sürükleyerek konumlandır, tekerlekle yakınlaş; altındaki önizlemede banner'ın nasıl görüneceğini gör.</div>
+      <div class="crop-preview" id="cropPreview" style="display:none;"></div>
       <div class="crop-butonlar">
         <span class="dp-durum" id="cropDurum"></span>
         <button class="form-vazgec" onclick="cropKapat()">Vazgeç</button>
