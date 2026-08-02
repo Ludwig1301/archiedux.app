@@ -153,6 +153,10 @@ async function spotifyYukle(discordId) {
       sarki.innerText = veri.spotify.song;
       sanatci.innerText = veri.spotify.artist;
       sarki.style.color = "";
+      sarki.style.whiteSpace = "nowrap";
+      sarki.style.overflow = "hidden";
+      sarki.style.textOverflow = "ellipsis";
+      sarki.style.maxWidth = "140px";
       sanatci.style.color = "";
       baslik.innerText = "Spotify'da Dinliyor";
       equalizer.style.display = "flex";
@@ -161,6 +165,10 @@ async function spotifyYukle(discordId) {
       sarki.innerText = "Şu an müzik dinlemiyor";
       sanatci.innerText = "";
       sarki.style.color = "var(--ink-text-dim)";
+      sarki.style.whiteSpace = "normal";
+      sarki.style.overflow = "visible";
+      sarki.style.textOverflow = "clip";
+      sarki.style.maxWidth = "none";
       baslik.innerText = "Spotify";
       equalizer.style.display = "none";
     }
@@ -170,6 +178,10 @@ async function spotifyYukle(discordId) {
     sarki.innerText = "Spotify durumu alınamadı";
     sanatci.innerText = "";
     sarki.style.color = "var(--ink-text-dim)";
+    sarki.style.whiteSpace = "normal";
+    sarki.style.overflow = "visible";
+    sarki.style.textOverflow = "clip";
+    sarki.style.maxWidth = "none";
     baslik.innerText = "Spotify";
     equalizer.style.display = "none";
   }
@@ -315,17 +327,14 @@ async function rozetTalepEt(kod) {
 
 // Easter egg tetikleyicileri
 (function easterEggler() {
-  // 1) Navbardaki mühre 5 kez tıkla
+  // 1) Navbardaki mühre 3 kez sağ tıkla (logo link olduğu için sol tık ana sayfaya atar)
   let muhrSayac = 0;
-  let muhrSonTik = 0;
-  document.addEventListener("click", (e) => {
-    const seal = e.target.closest(".navbar-mark .seal");
-    if (!seal) return;
-    const now = Date.now();
-    if (now - muhrSonTik > 2500) muhrSayac = 0;
-    muhrSonTik = now;
+  document.addEventListener("contextmenu", (e) => {
+    const mark = e.target.closest(".navbar-mark");
+    if (!mark) return;
+    e.preventDefault();
     muhrSayac++;
-    if (muhrSayac >= 5) {
+    if (muhrSayac >= 3) {
       muhrSayac = 0;
       rozetTalepEt("muhr-bekcisi");
     }

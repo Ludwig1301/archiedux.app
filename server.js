@@ -66,7 +66,7 @@ const XP_KURALLARI = {
 
 // ---------- Easter egg rozetleri ----------
 const EASTER_EGGS = {
-  "muhr-bekcisi": { ad: "Mühür Bekçisi", aciklama: "Navbardaki mühre 5 kez tıkladın.", ikon: "🛡️", xp: 100 },
+  "muhr-bekcisi": { ad: "Mühür Bekçisi", aciklama: "Navbardaki mühür logosuna 3 kez sağ tıkladın.", ikon: "🛡️", xp: 100 },
   "retro-oyuncu": { ad: "Retro Oyuncu", aciklama: "Konami kodunu girdin (↑↑↓↓←→←→B A).", ikon: "🎮", xp: 100 },
   "gizli-kelime": { ad: "Gizli Kelime", aciklama: "Sitede 'congress' kelimesini yazdın.", ikon: "🔍", xp: 100 },
 };
