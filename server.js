@@ -1092,26 +1092,31 @@ io.on("connection", (socket) => {
     if (oyuncu.acildi) return cb && cb({ hata: "Zaten açıldın." });
     const gruplar = (data && data.gruplar) || [];
     if (!Array.isArray(gruplar) || gruplar.length === 0) return cb && cb({ hata: "Grup seçmelisin." });
+
+    const alinanlar = [];
     const secilenler = [];
+    let hata = null;
     for (const grup of gruplar) {
       const taslar = [];
       for (const tid of grup) {
         const idx = oyuncu.el.findIndex((t) => t.id === tid);
-        if (idx === -1) return cb && cb({ hata: "Geçersiz taş." });
-        taslar.push(oyuncu.el.splice(idx, 1)[0]);
+        if (idx === -1) { hata = "Geçersiz taş."; break; }
+        const [t] = oyuncu.el.splice(idx, 1);
+        taslar.push(t);
+        alinanlar.push(t);
       }
+      if (hata) break;
       secilenler.push(taslar);
     }
-    // doğrulama başarısızsa taşları geri ver
+    if (hata) {
+      oyuncu.el.push(...alinanlar);
+      return cb && cb({ hata });
+    }
     const gecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
     const toplam = secilenler.reduce((s, g) => s + grupPuan(g), 0);
-    if (!gecerli || toplam < 101) {
-      for (const g of secilenler) oyuncu.el.push(...g);
-      return cb && cb({ hata: `Açma geçersiz (toplam ${toplam}, en az 101 olmalı).` });
-    }
-    if (oyuncu.el.length < 1) {
-      oyuncu.el.push(...secilenler.flat());
-      return cb && cb({ hata: "Açarken elde en az 1 taş kalmalı." });
+    if (!gecerli || toplam < 101 || oyuncu.el.length < 1) {
+      oyuncu.el.push(...alinanlar);
+      return cb && cb({ hata: `Açma geçersiz (toplam ${toplam}; en az 101 olmalı, elde 1 taş kalmalı).` });
     }
     oyuncu.masa.push(...secilenler);
     oyuncu.acildi = true;
@@ -1126,17 +1131,21 @@ io.on("connection", (socket) => {
     if (!oyuncu.acildi) return cb && cb({ hata: "Önce açmalısın." });
     const gruplar = (data && data.gruplar) || [];
     if (!Array.isArray(gruplar)) return cb && cb({ hata: "Geçersiz." });
+
     const kalanlar = [...oyuncu.el];
     const secilenler = [];
+    let hata = null;
     for (const grup of gruplar) {
       const taslar = [];
       for (const tid of grup) {
         const idx = kalanlar.findIndex((t) => t.id === tid);
-        if (idx === -1) return cb && cb({ hata: "Geçersiz taş." });
+        if (idx === -1) { hata = "Geçersiz taş."; break; }
         taslar.push(kalanlar.splice(idx, 1)[0]);
       }
+      if (hata) break;
       secilenler.push(taslar);
     }
+    if (hata) return cb && cb({ hata });
     if (kalanlar.length > 0) return cb && cb({ hata: "Elindeki tüm taşlar gruplara ayrılmalı." });
     const gecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
     if (!gecerli) return cb && cb({ hata: "Gruplar geçersiz." });
