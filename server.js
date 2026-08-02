@@ -71,6 +71,7 @@ function profilGetir(discordId) {
       rozetler: [],
       yorumlar: [],
       galleryEntries: [],
+      okunmamisYorum: 0,
       katilimTarihi: new Date().toISOString(),
     };
     yazDB(db);
@@ -490,8 +491,27 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     metin,
     tarih: new Date().toISOString(),
   });
+  // Kendi profiline yorum yazmıyorsa, profil sahibi için okunmamış yorum sayısını artır
+  if (req.params.id !== req.session.discordId) {
+    db.profiles[req.params.id].okunmamisYorum =
+      (db.profiles[req.params.id].okunmamisYorum || 0) + 1;
+  }
   yazDB(db);
   res.json({ basarili: true, yorumlar: db.profiles[req.params.id].yorumlar });
+});
+
+// Bildirimler: giriş yapan üyenin okunmamış yorum sayısı
+app.get("/api/bildirimler", girisGerekli, (req, res) => {
+  const profil = profilGetir(req.session.discordId);
+  res.json({ sayi: profil.okunmamisYorum || 0 });
+});
+
+// Bildirimler okundu olarak işaretlenir
+app.post("/api/bildirimler/okundu", girisGerekli, (req, res) => {
+  const db = okuDB();
+  db.profiles[req.session.discordId].okunmamisYorum = 0;
+  yazDB(db);
+  res.json({ basarili: true });
 });
 
 // Kayıtlı (en az bir kez giriş yapmış) tüm üyelerin listesi

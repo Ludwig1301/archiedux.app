@@ -201,6 +201,70 @@ a {
   font-size: 12px !important;
 }
 
+/* ---------- Bildirim çanı ---------- */
+
+.bildirim-kutu {
+  position: relative;
+}
+
+.bildirim-can {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--ink-text);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.bildirim-can:hover {
+  color: var(--parchment);
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.bildirim-rozet {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 10px;
+  background: var(--record-red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px var(--ink-card);
+}
+
+.bildirim-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  max-width: 90vw;
+  background: var(--ink-card);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  padding: 14px;
+  z-index: 600;
+}
+
+.bildirim-mesaj {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--parchment);
+  line-height: 1.5;
+}
+
 /* ---------- profil: yükleme / giriş uyarısı ekranı ---------- */
 .hero {
   min-height: 62vh;
@@ -823,7 +887,7 @@ a {
 }
 
 .hayvan-alani {
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 .hayvan-baslik {
@@ -1085,7 +1149,7 @@ a {
   text-decoration: none;
   font-size: 14px;
   font-family: var(--mono);
-  margin-top: 15px;
+  margin-top: 6px;
   transition: color 0.2s;
 }
 

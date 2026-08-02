@@ -8,9 +8,19 @@ async function navBarDoldur() {
 
   if (veri.girisYapti) {
     navSag.innerHTML = `
+      <div class="bildirim-kutu" id="bildirimKutu">
+        <button type="button" class="bildirim-can" id="bildirimCan" onclick="bildirimPanelAcKapat(event)" aria-label="Bildirimler">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="bildirim-rozet" id="bildirimRozet" style="display:none;">0</span>
+        </button>
+        <div class="bildirim-panel" id="bildirimPanel" style="display:none;">
+          <div class="bildirim-mesaj" id="bildirimMesaj"></div>
+        </div>
+      </div>
       <a href="/profil?id=${veri.id}">${veri.kullaniciAdi}</a>
       <a href="/auth/logout" class="cikis-link">Çıkış</a>
     `;
+    bildirimYukle();
   } else {
     navSag.innerHTML = `<a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a>`;
   }
@@ -22,6 +32,63 @@ async function navBarDoldur() {
   }
   return veri;
 }
+
+// ---------- Bildirim çanı (okunmamış yorum) ----------
+
+async function bildirimYukle() {
+  try {
+    const res = await fetch("/api/bildirimler");
+    const veri = await res.json();
+    const sayi = veri.sayi || 0;
+    const rozet = document.getElementById("bildirimRozet");
+    if (rozet) {
+      rozet.innerText = sayi > 9 ? "9+" : String(sayi);
+      rozet.style.display = sayi > 0 ? "flex" : "none";
+    }
+    const mesaj = document.getElementById("bildirimMesaj");
+    if (mesaj) {
+      mesaj.innerText = sayi > 0
+        ? (sayi === 1 ? "Profilinizde 1 yeni yorum var." : `Profilinizde ${sayi} yeni yorum var.`)
+        : "Yeni bildiriminiz yok.";
+    }
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+async function bildirimPanelAcKapat(evt) {
+  if (evt) evt.stopPropagation();
+  const panel = document.getElementById("bildirimPanel");
+  if (!panel) return;
+  if (panel.style.display === "block") {
+    panel.style.display = "none";
+    return;
+  }
+  panel.style.display = "block";
+  const rozet = document.getElementById("bildirimRozet");
+  const sayi = rozet && rozet.style.display !== "none" ? parseInt(rozet.innerText, 10) || 0 : 0;
+  if (sayi > 0) {
+    try {
+      await fetch("/api/bildirimler/okundu", { method: "POST" });
+      if (rozet) rozet.style.display = "none";
+      const mesaj = document.getElementById("bildirimMesaj");
+      if (mesaj) {
+        mesaj.innerText = sayi === 1 ? "Profilinizde 1 yeni yorum var." : `Profilinizde ${sayi} yeni yorum var.`;
+      }
+    } catch (e) {
+      /* yoksay */
+    }
+  }
+}
+
+// Çan dışına tıklanınca panel kapanır
+document.addEventListener("click", (e) => {
+  const kutu = document.getElementById("bildirimKutu");
+  const panel = document.getElementById("bildirimPanel");
+  if (panel && kutu && !kutu.contains(e.target)) {
+    panel.style.display = "none";
+  }
+});
 
 // Kullanıcının yüklediği görseli (önizleme + gizli input) temizler.
 // Eğer görsel `/uploads/...` dizinindeyse sunucudan silme isteği gönderir.
@@ -182,6 +249,7 @@ async function profilSayfasiBaslat() {
   document.getElementById("profilFotoOnizleme").src = profilFoto;
   document.getElementById("profilFotoSilBtn").style.display = GUNCEL_PROFIL_FOTO ? "inline-block" : "none";
   document.getElementById("pIsim").innerText = veri.kullaniciAdi;
+  document.title = `${veri.kullaniciAdi} — ARCH`;
   document.getElementById("pUnvan").innerText = veri.profil.unvan || "Ünvan belirtilmemiş";
   document.getElementById("pBio").innerText =
     veri.profil.bio || "Bu kişi henüz kendini tanıtmamış.";
@@ -1187,6 +1255,7 @@ async function gallerySayfasiBaslat() {
   const veri = await res.json();
 
   if (ownerEl) ownerEl.innerText = veri.uye.kullaniciAdi + " · Galeri";
+  document.title = `${veri.uye.kullaniciAdi} · Galeri — ARCH`;
   const backEl = document.getElementById("galleryBack");
   if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
   const allowEdit = BENIM_ID === GORUNTULENEN_ID;
