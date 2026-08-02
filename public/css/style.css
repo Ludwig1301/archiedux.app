@@ -1481,8 +1481,8 @@ body.duzenleme-acik .duzenleme-paneli {
 .crop-alan {
   /* Sabit yükseklik: uzun görsellerde Cropper'ın konteyneri olduğundan büyük
      sanmasını ve kırpma kutusunun görünür görselin dışına taşmasını engeller. */
-  height: min(55vh, 440px);
-  min-height: 240px;
+  height: min(68vh, 520px);
+  min-height: 280px;
   overflow: hidden;
   background-color: var(--ink);
   border: 1px solid var(--ink-line);
