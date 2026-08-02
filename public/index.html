@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CONGRESS — Topluluk Profilleri</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="navbar">
+    <div class="nav-icerik">
+      <div class="nav-sol">
+        <a href="index.html" class="navbar-mark">
+          <svg class="seal" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="#c9a227" stroke-width="1.6"/>
+            <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="1" opacity="0.6"/>
+            <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
+          </svg>
+          <div class="wordmark">CONGRESS<span>TOPLULUK PROFİLLERİ</span></div>
+        </a>
+        <a href="#">TOPLULUK</a>
+        <a href="members.html">ÜYELER</a>
+        <a href="https://congress.archiedux.com" target="_blank" style="color: var(--brass-bright);">CONGRESS WİKİ</a>
+      </div>
+      <div class="nav-sag" id="navSag"></div>
+    </div>
+  </div>
+
+  <div class="masthead-hero">
+    <svg class="seal-bg" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke="#c9a227" stroke-width="1"/>
+      <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="0.6"/>
+      <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
+    </svg>
+
+    <div class="masthead-hero-inner">
+      <div class="eyebrow-tag">⬢ Üye Kayıt Sistemi</div>
+
+      <div class="hata-banner" id="hataBanner"></div>
+
+      <h1>Topluluk Profilleri</h1>
+      <p>
+        Sunucumuzdaki Discord hesabınla giriş yap; profilini kişiselleştir,
+        Spotify'ını canlı göster, öne çıkan projeni sergile ve rozetlerini kazan.
+      </p>
+
+      <a href="/auth/login" class="discord-giris-btn buyuk">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.927 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.001-3.03.077.077 0 0 0 .032-.055c.5-5.177-.838-9.674-3.548-13.66a.06.06 0 0 0-.031-.028z"/></svg>
+        Discord ile Giriş Yap
+      </a>
+
+      <div class="record-tags">
+        <span>DURUM: AKTİF</span>
+        <span>GİRİŞ: DISCORD OAUTH2</span>
+        <span>YALNIZCA SUNUCU ÜYELERİ</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ozellik-bolumu">
+    <div class="ozellik-baslik">§ Profilinle ne yapabilirsin</div>
+    <div class="ozellik-grid">
+      <div class="ozellik-kart">
+        <span class="ozellik-no">01</span>
+        <h3>Canlı Spotify</h3>
+        <p>Anlık dinlediğin şarkı otomatik olarak profilinde görünür, kimseye link atman gerekmez.</p>
+      </div>
+      <div class="ozellik-kart">
+        <span class="ozellik-no">02</span>
+        <h3>Proje Vitrini</h3>
+        <p>Üzerinde çalıştığın işi, portfolyonu ya da en sevdiğin projeyi profilinde sergile.</p>
+      </div>
+      <div class="ozellik-kart">
+        <span class="ozellik-no">03</span>
+        <h3>Rozetler &amp; Yorumlar</h3>
+        <p>Topluluktaki diğer üyeler profiline gerçek Discord kimliğiyle yorum bırakabilir.</p>
+      </div>
+    </div>
+  </div>
+
+<script src="js/app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const hata = params.get("hata");
+  const mesajlar = {
+    uye_degil: "Bu hesap sunucumuzun üyesi değil. Profil oluşturmak için önce Discord sunucumuza katılman gerekiyor.",
+    kod_yok: "Giriş işlemi tamamlanamadı, lütfen tekrar dene.",
+    token_alinamadi: "Discord ile bağlantı kurulamadı, lütfen tekrar dene.",
+    kullanici_alinamadi: "Kullanıcı bilgisi alınamadı, lütfen tekrar dene.",
+    sunucu_hatasi: "Beklenmeyen bir hata oluştu, lütfen tekrar dene.",
+  };
+  if (hata && mesajlar[hata]) {
+    const banner = document.getElementById("hataBanner");
+    banner.textContent = mesajlar[hata];
+    banner.style.display = "block";
+  }
+
+  navBarDoldur();
+</script>
+</body>
+</html>

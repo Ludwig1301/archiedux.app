@@ -1,0 +1,7 @@
+node_modules/
+.env
+_srv_out.txt
+_srv_err.txt
+data/db.json
+public/uploads/*
+!public/uploads/.gitkeep

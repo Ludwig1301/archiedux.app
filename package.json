@@ -1,0 +1,21 @@
+{
+  "name": "archiedux-app",
+  "version": "1.0.0",
+  "description": "Congress temalı, Discord OAuth2 ile giriş yapılan üye profil sistemi",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "stop": "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'server\\.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }\"",
+    "restart": "npm stop && npm start"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  }
+}
