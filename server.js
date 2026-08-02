@@ -531,13 +531,17 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
   if (!metin) return res.status(400).json({ hata: "Boş yorum gönderilemez." });
 
   const yazan = await discordUyeBilgisiCek(req.session.discordId);
+  // Üyelik bilgisi anlık çekilemezse bile yorum kaybolmasın (isim/avatar varsayılan)
+  const yazanId = yazan ? yazan.id : req.session.discordId;
+  const yazanAd = yazan ? yazan.kullaniciAdi : "Üye";
+  const yazanAvatar = yazan ? yazan.avatar : "";
   const db = okuDB();
   profilGetir(req.params.id); // hedef profili garantiye al
   db.profiles[req.params.id].yorumlar.unshift({
     id: `yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-    yazanId: yazan.id,
-    yazanAd: yazan.kullaniciAdi,
-    yazanAvatar: yazan.avatar,
+    yazanId,
+    yazanAd,
+    yazanAvatar,
     metin,
     tarih: new Date().toISOString(),
   });
@@ -611,4 +615,11 @@ app.get("/api/members", async (req, res) => {
 
 app.listen(PORT || 3000, () => {
   console.log(`Sunucu çalışıyor: http://localhost:${PORT || 3000}`);
+});
+
+// Beklenmedik hatalar isteği asılı bırakmasın; JSON hata dönsün
+app.use((err, req, res, next) => {
+  console.error("Sunucu hatası:", err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ hata: "Beklenmeyen bir hata oluştu." });
 });
