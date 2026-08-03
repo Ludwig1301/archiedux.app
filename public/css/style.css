@@ -1260,11 +1260,24 @@ a {
 .hayvan-baslik {
   font-family: var(--serif);
   font-size: 15px;
+  font-weight: 600;
   color: var(--profil-accent);
   margin-bottom: 10px;
   padding-bottom: 10px;
   border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
   letter-spacing: 0.02em;
+}
+
+/* Profildeki tıklanabilir bölüm başlıkları (Film & Dizi, Galeri) */
+.vitrin-link {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.vitrin-link:hover {
+  color: var(--parchment);
 }
 
 .hayvan-gosterim {
@@ -2780,43 +2793,8 @@ body.duzenleme-acik .duzenleme-paneli {
 }
 
 /* Profildeki "Film & Dizi" başlığı: tıklayınca günlük sayfasına götürür */
-/* Profildeki sağ panel gezinme butonları (Film & Dizi Günlüğü / Galeri) */
-.yan-buton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--profil-accent) 8%, transparent);
-  color: var(--profil-accent);
-  font-family: var(--serif);
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
-}
-
-.yan-buton:hover {
-  border-color: var(--profil-accent);
-  background: color-mix(in srgb, var(--profil-accent) 16%, transparent);
-  transform: translateY(-1px);
-}
-
-.yan-buton svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
+/* Profildeki sağ panel gezinme başlıkları */
 .linkler {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   margin-top: 2px;
 }
 
