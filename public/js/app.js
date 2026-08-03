@@ -245,6 +245,10 @@ let DISCORD_AVATAR = "";
 let GUNCEL_PROFIL_FOTO = "";
 let GUNCEL_HAYVAN_RESMI = "";
 let cropper = null;
+let YORUM_SAYFA = 1;
+let YORUM_SAYFALAMA = { sayfa: 1, toplam: 0, toplamSayfa: 1 };
+let GALLERY_ENTRIES = [];
+let AKTIF_GALERI_ENTRY = null;
 
 // Admin ya da profil sahibi profili düzenleyebilir
 function buProfiliDuzenleyebilir() {
@@ -293,12 +297,21 @@ function rozetlerGoster() {
     .map(
       (r) => `
       <span class="rozet-oge" title="${r.ad} — ${r.aciklama}">
-        <span class="rozet-ikon">${r.ikon}</span>
+        <span class="rozet-ikon">${rozetIkonu(r)}</span>
         <span class="rozet-ad">${r.ad}</span>
       </span>
     `
     )
     .join("");
+}
+
+function rozetIkonu(rozet) {
+  const ikonlar = {
+    "muhr-bekcisi": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4l5 7 8-1-1 8 7 5-7 5 1 8-8-1-5 7-5-7-8 1 1-8-7-5 7-5-1-8 8 1 5-7z"/><path d="M17 24l5 5 10-11"/></svg>',
+    "retro-oyuncu": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="13" width="36" height="22" rx="8"/><path d="M15 24h8m-4-4v8m12-3h.01m5-4h.01"/><path d="M12 38l5-5m19 5l-5-5"/></svg>',
+    "gizli-kelime": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="12"/><path d="M30 30l10 10M17 21h8m-4-4v8"/></svg>',
+  };
+  return ikonlar[rozet.kod] || '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5l15 6v10c0 10-6 17-15 22C15 38 9 31 9 21V11l15-6z"/><path d="M16 24l5 5 11-12"/></svg>';
 }
 
 // Bulunan easter egg rozetini sunucudan talep et (XP + rozet)
@@ -396,7 +409,7 @@ async function profilSayfasiBaslat() {
     return;
   }
 
-  const res = await fetch(`/api/profile/${GORUNTULENEN_ID}`);
+  const res = await fetch(`/api/profile/${GORUNTULEN_ID}?yorumSayfa=1&yorumLimit=10`);
   if (!res.ok) {
     document.getElementById("yukleniyorAlani").innerHTML = `
       <div class="giris-uyari">
@@ -480,7 +493,9 @@ async function profilSayfasiBaslat() {
   }
   hayvanSilBtnGuncelle();
 
-  yorumlariCiz(veri.profil.yorumlar || []);
+  YORUM_SAYFA = veri.profil.yorumSayfalama?.sayfa || 1;
+  YORUM_SAYFALAMA = veri.profil.yorumSayfalama || YORUM_SAYFALAMA;
+  yorumlariCiz(veri.profil.yorumlar || [], YORUM_SAYFALAMA);
   spotifyYukle(GORUNTULENEN_ID);
 
   // düzenleme formunu mevcut verilerle önceden doldur
@@ -847,7 +862,7 @@ function arkaplanBlurDegisti(deger) {
   canliKaydiTetikle();
 }
 
-function yorumlariCiz(yorumlar) {
+function yorumlariCiz(yorumlar, sayfalama = YORUM_SAYFALAMA) {
   const kutu = document.getElementById("yorumListesi");
   if (!kutu) return;
   if (yorumlar.length === 0) {
@@ -859,22 +874,45 @@ function yorumlariCiz(yorumlar) {
     .map(
       (y) => `
       <div class="yorum">
-        <a href="/profil?id=${y.yazanId}" class="yorum-avatar-link">
-          <img src="${y.yazanAvatar}" class="yorum-avatar" alt="${y.yazanAd}" />
+        <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="yorum-avatar-link">
+          <img src="${htmlEsc(y.yazanAvatar)}" class="yorum-avatar" alt="${htmlEsc(y.yazanAd)}" loading="lazy" />
         </a>
         <div class="yorum-ic">
           <div class="yorum-baslik-satir">
-            <a href="/profil?id=${y.yazanId}" class="yorum-yazar-link">
-              <div class="yorum-yazar">${y.yazanAd}</div>
+            <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="yorum-yazar-link">
+              <div class="yorum-yazar">${htmlEsc(y.yazanAd)}</div>
             </a>
             ${benimProfili && y.id ? `<button type="button" class="yorum-sil" title="Yorumu sil" onclick="yorumSil('${y.id}')">×</button>` : ""}
           </div>
-          <div class="yorum-metin">${y.metin}</div>
+          <div class="yorum-metin">${htmlEsc(y.metin)}</div>
         </div>
       </div>
     `
     )
-    .join("");
+    .join("") + yorumSayfalariHTML(sayfalama);
+}
+
+function yorumSayfalariHTML(sayfalama) {
+  if (!sayfalama || sayfalama.toplamSayfa <= 1) return "";
+  let html = '<nav class="yorum-sayfalama" aria-label="Yorum sayfaları">';
+  for (let i = 1; i <= sayfalama.toplamSayfa; i++) {
+    html += `<button type="button" class="yorum-sayfa ${i === sayfalama.sayfa ? "aktif" : ""}" onclick="yorumSayfasinaGit(${i})">${i}</button>`;
+  }
+  return html + "</nav>";
+}
+
+async function yorumSayfasinaGit(sayfa) {
+  if (!GORUNTULENEN_ID) return;
+  try {
+    const res = await fetch(`/api/profile/${GORUNTULENEN_ID}?yorumSayfa=${sayfa}&yorumLimit=10`);
+    if (!res.ok) throw new Error("Yorumlar yüklenemedi.");
+    const veri = await res.json();
+    YORUM_SAYFA = veri.profil.yorumSayfalama?.sayfa || sayfa;
+    YORUM_SAYFALAMA = veri.profil.yorumSayfalama || YORUM_SAYFALAMA;
+    yorumlariCiz(veri.profil.yorumlar || [], YORUM_SAYFALAMA);
+  } catch (e) {
+    alert(e.message || "Yorumlar yüklenemedi.");
+  }
 }
 
 async function yorumSil(commentId) {
@@ -885,8 +923,7 @@ async function yorumSil(commentId) {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Yorum silinemedi.");
-    const veri = await res.json();
-    yorumlariCiz(veri.yorumlar || []);
+    await yorumSayfasinaGit(1);
   } catch (e) {
     alert(e.message || "Yorum silinemedi.");
   }
@@ -925,9 +962,8 @@ async function yorumGonder() {
     return;
   }
 
-  const veri = await res.json();
   document.getElementById("yorumMetni").value = "";
-  yorumlariCiz(veri.yorumlar);
+  await yorumSayfasinaGit(1);
 }
 
 // ---------- Düzenleme paneli (sol taraftan açılan modal) ----------
@@ -1287,7 +1323,56 @@ function kapakCropOrani() {
   return oran >= 2 && oran <= 8 ? oran : 5;
 }
 
+async function gifGorselYukle(dosya, hedef) {
+  const durum = document.getElementById("dpDurum");
+  if (durum) durum.innerText = "GIF yükleniyor...";
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const okuyucu = new FileReader();
+      okuyucu.onload = () => resolve(okuyucu.result);
+      okuyucu.onerror = () => reject(new Error("Dosya okunamadı."));
+      okuyucu.readAsDataURL(dosya);
+    });
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl }),
+    });
+    const veri = await res.json();
+    if (!res.ok) throw new Error(veri.hata || "GIF yüklenemedi.");
+
+    if (hedef === "profil") {
+      const kaydet = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: veri.url, ...(kayitHedefi() ? { hedefId: kayitHedefi() } : {}) }),
+      });
+      if (!kaydet.ok) throw new Error("GIF profil fotoğrafı kaydedilemedi.");
+      if (GUNCEL_PROFIL_FOTO.startsWith("/uploads/")) {
+        fetch("/api/delete-upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: GUNCEL_PROFIL_FOTO }) }).catch(() => {});
+      }
+      GUNCEL_PROFIL_FOTO = veri.url;
+      document.getElementById("pAvatar").src = veri.url;
+      document.getElementById("profilFotoOnizleme").src = veri.url;
+      document.getElementById("profilFotoSilBtn").style.display = "inline-block";
+    } else {
+      const eskiKapak = document.getElementById("formKapakFoto").value;
+      document.getElementById("formKapakFoto").value = veri.url;
+      kapakOnizlemeGuncelle();
+      canliKaydiTetikle();
+      if (eskiKapak && eskiKapak.startsWith("/uploads/")) {
+        fetch("/api/delete-upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: eskiKapak }) }).catch(() => {});
+      }
+    }
+    if (durum) durum.innerText = "GIF kaydedildi ✓";
+  } catch (e) {
+    alert(e.message || "GIF yüklenemedi.");
+    if (durum) durum.innerText = "";
+  }
+}
+
 function profilFotoSecildi(dosya) {
+  if (dosya && dosya.type === "image/gif") return gifGorselYukle(dosya, "profil");
   cropAc(dosya, "profil");
 }
 
@@ -1296,6 +1381,7 @@ function arkaplanFotoSecildi(dosya) {
 }
 
 function kapakFotoSecildi(dosya) {
+  if (dosya && dosya.type === "image/gif") return gifGorselYukle(dosya, "kapak");
   cropAc(dosya, "kapak");
 }
 
@@ -1557,9 +1643,16 @@ async function hayvanFotoYukle(dosya) {
   }
 }
 
+function htmlEsc(deger) {
+  return String(deger || "").replace(/[&<>'"]/g, (karakter) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  }[karakter]));
+}
+
 function galeriListesiCiz(entries) {
   const kutu = document.getElementById("galleryContent");
   if (!kutu) return;
+  GALLERY_ENTRIES = Array.isArray(entries) ? entries : [];
 
   const allowEdit = buProfiliDuzenleyebilir();
   const bosMesaji = allowEdit
@@ -1575,17 +1668,85 @@ function galeriListesiCiz(entries) {
     .map(
       (entry) => `
         <div class="gallery-card">
-          <div class="gallery-card-media">
-            <img src="${entry.imageUrl}" alt="${entry.description || "Galeri fotoğrafı"}" />
-            ${allowEdit ? `<button type="button" class="gallery-card-delete" title="Sil" onclick="galeriSil('${entry.id}', '${entry.imageUrl}')">×</button>` : ""}
+          <div class="gallery-card-media" onclick="galeriLightboxAc('${htmlEsc(entry.id)}')">
+            <img src="${htmlEsc(entry.imageUrl)}" alt="${htmlEsc(entry.description || "Galeri fotoğrafı")}" loading="lazy" />
+            <span class="gallery-zoom-hint">Büyüt</span>
+            ${allowEdit ? `<button type="button" class="gallery-card-delete" title="Sil" onclick="event.stopPropagation(); galeriSil('${htmlEsc(entry.id)}', '${htmlEsc(entry.imageUrl)}')">×</button>` : ""}
           </div>
           <div class="gallery-card-body">
-            <p>${entry.description || "Açıklama yok."}</p>
+            <p>${htmlEsc(entry.description || "Açıklama yok.")}</p>
+            <span class="gallery-comment-count">${Array.isArray(entry.comments) ? entry.comments.length : 0} yorum</span>
           </div>
         </div>
       `
     )
     .join("");
+}
+
+function galeriLightboxAc(entryId) {
+  const entry = GALLERY_ENTRIES.find((item) => item.id === entryId);
+  if (!entry) return;
+  AKTIF_GALERI_ENTRY = entry;
+  document.getElementById("galleryLightboxImage").src = entry.imageUrl;
+  document.getElementById("galleryLightboxImage").alt = entry.description || "Galeri görseli";
+  document.getElementById("galleryLightboxTitle").innerText = "Galeri görseli";
+  document.getElementById("galleryLightboxDescription").innerText = entry.description || "Açıklama yok.";
+  galeriYorumlariniCiz(entry.comments || []);
+  const form = document.getElementById("galleryCommentForm");
+  const hint = document.getElementById("galleryCommentHint");
+  if (form) form.style.display = BENIM_ID ? "flex" : "none";
+  if (hint) hint.innerText = BENIM_ID ? "" : "Yorum yapmak için giriş yapmalısın.";
+  document.getElementById("galleryLightbox").style.display = "flex";
+  document.body.classList.add("lightbox-acik");
+}
+
+function galeriLightboxKapat(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const lightbox = document.getElementById("galleryLightbox");
+  if (lightbox) lightbox.style.display = "none";
+  document.body.classList.remove("lightbox-acik");
+  AKTIF_GALERI_ENTRY = null;
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") galeriLightboxKapat();
+});
+
+function galeriYorumlariniCiz(comments) {
+  const kutu = document.getElementById("galleryComments");
+  if (!kutu) return;
+  if (!comments.length) {
+    kutu.innerHTML = '<span class="gallery-comment-empty">Henüz yorum yok.</span>';
+    return;
+  }
+  kutu.innerHTML = comments.map((comment) => `
+    <div class="gallery-comment">
+      <img src="${htmlEsc(comment.yazanAvatar)}" alt="" />
+      <div><strong>${htmlEsc(comment.yazanAd)}</strong><p>${htmlEsc(comment.metin)}</p></div>
+    </div>
+  `).join("");
+}
+
+async function galeriYorumGonder() {
+  if (!AKTIF_GALERI_ENTRY || !BENIM_ID) return;
+  const input = document.getElementById("galleryCommentText");
+  const metin = input ? input.value.trim() : "";
+  if (!metin) return;
+  try {
+    const res = await fetch(`/api/profile/${GORUNTULENEN_ID}/gallery/${encodeURIComponent(AKTIF_GALERI_ENTRY.id)}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metin }),
+    });
+    const veri = await res.json();
+    if (!res.ok) throw new Error(veri.hata || "Yorum gönderilemedi.");
+    AKTIF_GALERI_ENTRY.comments = veri.comments || [];
+    galeriYorumlariniCiz(AKTIF_GALERI_ENTRY.comments);
+    if (input) input.value = "";
+    galeriListesiCiz(GALLERY_ENTRIES);
+  } catch (e) {
+    alert(e.message || "Yorum gönderilemedi.");
+  }
 }
 
 // Galeride seçilen dosyanın küçük önizlemesini gösterir.
@@ -1735,23 +1896,27 @@ async function gallerySayfasiBaslat() {
 async function uyeListesiYukle() {
   const grid = document.getElementById("uyelerGrid");
   if (!grid) return;
+  grid.innerHTML = '<span class="bos-hint uye-yukleniyor">Üyeler yükleniyor…</span>';
+  try {
+    const controller = new AbortController();
+    const zamanlayici = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch("/api/members", { signal: controller.signal });
+    clearTimeout(zamanlayici);
+    if (!res.ok) throw new Error("Üyeler alınamadı.");
+    const uyeler = await res.json();
 
-  const res = await fetch("/api/members");
-  const uyeler = await res.json();
+    if (uyeler.length === 0) {
+      grid.innerHTML = '<span class="bos-hint">Henüz hiç kimse giriş yapmadı.</span>';
+      return;
+    }
 
-  if (uyeler.length === 0) {
-    grid.innerHTML = '<span class="bos-hint">Henüz hiç kimse giriş yapmadı.</span>';
-    return;
+    grid.innerHTML = uyeler.map((u) => `
+      <a href="/profil?id=${encodeURIComponent(u.id)}" class="uye-kart">
+        <img src="${htmlEsc(u.profilAvatar || u.avatar)}" alt="${htmlEsc(u.kullaniciAdi)}" loading="lazy" />
+        <div class="uye-ad">${htmlEsc(u.kullaniciAdi)}</div>
+      </a>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = '<span class="bos-hint uye-yukleniyor">Üyeler şu anda yüklenemedi. Tekrar dene.</span>';
   }
-
-  grid.innerHTML = uyeler
-    .map(
-      (u) => `
-    <a href="/profil?id=${u.id}" class="uye-kart">
-      <img src="${u.profilAvatar || u.avatar}" />
-      <div class="uye-ad">${u.kullaniciAdi}</div>
-    </a>
-  `
-    )
-    .join("");
 }

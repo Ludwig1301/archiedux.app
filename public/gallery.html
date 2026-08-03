@@ -51,6 +51,24 @@
     </div>
   </div>
 
+  <div class="gallery-lightbox" id="galleryLightbox" style="display:none;" onclick="galeriLightboxKapat(event)">
+    <div class="gallery-lightbox-card" onclick="event.stopPropagation()">
+      <button type="button" class="gallery-lightbox-close" onclick="galeriLightboxKapat()" aria-label="Kapat">×</button>
+      <div class="gallery-lightbox-media"><img id="galleryLightboxImage" src="" alt="" /></div>
+      <aside class="gallery-lightbox-side">
+        <h2 id="galleryLightboxTitle">Galeri görseli</h2>
+        <p id="galleryLightboxDescription"></p>
+        <div class="gallery-comments-title">Yorumlar</div>
+        <div id="galleryComments" class="gallery-comments"></div>
+        <div id="galleryCommentForm" class="gallery-comment-form" style="display:none;">
+          <textarea id="galleryCommentText" maxlength="300" placeholder="Bu görsel hakkında yorum yaz..."></textarea>
+          <button type="button" onclick="galeriYorumGonder()">Yorum Yap</button>
+        </div>
+        <div id="galleryCommentHint" class="gallery-comment-hint"></div>
+      </aside>
+    </div>
+  </div>
+
 <script src="js/app.js"></script>
 <script>
   gallerySayfasiBaslat();

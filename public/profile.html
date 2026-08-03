@@ -41,14 +41,16 @@
       </div>
       <div class="name">
         <h1 id="pIsim">—</h1>
-        <div class="seviye-satir">
-          <span class="seviye-rozet" id="pSeviye">Lv. 1</span>
-          <span class="seviye-xp" id="pSeviyeIlerleme">0/100 XP</span>
-        </div>
-        <div class="seviye-cubugu"><div class="seviye-doluluk" id="pSeviyeDoluluk" style="width:0%"></div></div>
         <p id="pUnvan">Ünvan yok</p>
       </div>
       <div class="header-sag-panel">
+        <div class="seviye-paneli">
+          <div class="seviye-satir">
+            <span class="seviye-rozet" id="pSeviye">Lv. 1</span>
+            <span class="seviye-xp" id="pSeviyeIlerleme">0/100 XP</span>
+          </div>
+          <div class="seviye-cubugu"><div class="seviye-doluluk" id="pSeviyeDoluluk" style="width:0%"></div></div>
+        </div>
         <button class="duzenle-btn" id="duzenleBtn" style="display:none;" onclick="duzenlemePaneliAcKapat()">
           <span id="duzenleBtnMetin">Profili Düzenle</span>
         </button>
@@ -220,7 +222,7 @@
 
         <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="kapakFotoSecildi(this.files[0])" />
         <input type="hidden" id="formKapakFoto" value="" />
-        <input type="file" id="dosyaProfilFoto" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="profilFotoSecildi(this.files[0])" />
+        <input type="file" id="dosyaProfilFoto" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="profilFotoSecildi(this.files[0])" />
 
         <div class="form-butonlar">
           <span class="dp-durum" id="dpDurum"></span>

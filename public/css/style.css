@@ -1309,6 +1309,315 @@ a {
   }
 }
 
+/* Üyeler: dengeli kart ızgarası ve yükleme durumu */
+.uyeler-baslik {
+  padding: 22px 25px 0;
+  color: var(--parchment);
+  font: 700 22px var(--serif);
+  letter-spacing: 0.01em;
+}
+
+.uyeler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 14px;
+  padding: 25px;
+  align-items: stretch;
+}
+
+.uye-kart {
+  width: auto;
+  min-width: 0;
+  min-height: 142px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.uye-yukleniyor {
+  grid-column: 1 / -1;
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+}
+
+/* Seviye kartı düzenleme butonunun üstünde, sağ panelde */
+.seviye-paneli {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.header-sag-panel .seviye-satir {
+  margin-top: 0;
+}
+
+.header-sag-panel .seviye-cubugu {
+  width: 180px;
+  margin-top: 0;
+}
+
+/* Daha karakterli, SVG rozetler */
+.rozet-ikon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--profil-accent);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+}
+
+.rozet-ikon svg {
+  width: 100%;
+  height: 100%;
+  fill: rgba(201, 162, 39, 0.16);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Galeri lightbox */
+.gallery-card-media {
+  cursor: zoom-in;
+}
+
+.gallery-zoom-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font: 10px var(--mono);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.gallery-card-media:hover .gallery-zoom-hint {
+  opacity: 1;
+}
+
+.gallery-comment-count {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink-text-dim);
+  font: 11px var(--mono);
+}
+
+.gallery-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 5, 8, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.gallery-lightbox-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  width: min(1100px, 94vw);
+  max-height: 90vh;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 35%, transparent);
+  border-radius: 14px;
+  background: #111115;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+}
+
+.gallery-lightbox-media {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+  background: #08080b;
+}
+
+.gallery-lightbox-media img {
+  display: block;
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+.gallery-lightbox-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  border-left: 1px solid var(--ink-line);
+}
+
+.gallery-lightbox-side h2 {
+  margin: 0 0 10px;
+  color: var(--parchment);
+  font: 700 20px var(--serif);
+}
+
+#galleryLightboxDescription {
+  margin: 0 0 20px;
+  color: var(--ink-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.gallery-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gallery-comments-title {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--ink-line);
+  color: var(--profil-accent);
+  font: 700 13px var(--serif);
+}
+
+.gallery-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 60px;
+}
+
+.gallery-comment {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--parchment);
+  font-size: 12px;
+}
+
+.gallery-comment img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--ink-line);
+}
+
+.gallery-comment strong {
+  color: var(--profil-accent);
+}
+
+.gallery-comment p {
+  margin: 3px 0 0;
+  color: var(--ink-text);
+  line-height: 1.45;
+}
+
+.gallery-comment-empty,
+.gallery-comment-hint {
+  color: var(--ink-text-dim);
+  font-size: 12px;
+}
+
+.gallery-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.gallery-comment-form textarea {
+  min-height: 64px;
+  resize: vertical;
+  padding: 9px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--parchment);
+  font: 12px var(--sans);
+}
+
+.gallery-comment-form button {
+  align-self: flex-end;
+  padding: 8px 12px;
+  border: 1px solid var(--profil-accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--profil-accent);
+  cursor: pointer;
+}
+
+.yorum-sayfalama {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 15px;
+}
+
+.yorum-sayfa {
+  min-width: 30px;
+  height: 30px;
+  border: 1px solid var(--ink-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-text);
+  cursor: pointer;
+}
+
+.yorum-sayfa:hover,
+.yorum-sayfa.aktif {
+  border-color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 14%, transparent);
+  color: var(--profil-accent);
+}
+
+@media (max-width: 700px) {
+  .gallery-lightbox {
+    padding: 10px;
+  }
+
+  .gallery-lightbox-card {
+    grid-template-columns: 1fr;
+    max-height: 94vh;
+    overflow-y: auto;
+  }
+
+  .gallery-lightbox-media {
+    min-height: 220px;
+    max-height: 48vh;
+  }
+
+  .gallery-lightbox-side {
+    border-top: 1px solid var(--ink-line);
+    border-left: none;
+    padding: 18px;
+  }
+
+  .header-sag-panel .seviye-cubugu {
+    width: 130px;
+  }
+
+  .header-sag-panel .seviye-paneli {
+    align-items: flex-start;
+  }
+}
+
 .linkler a {
   display: block;
   color: var(--ink-text);

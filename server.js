@@ -356,9 +356,16 @@ app.get("/api/profile/:id", async (req, res) => {
   }
   const db = okuDB();
   const profil = profilGetir(req.params.id);
+  const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, ...profilTemiz } = profil;
+  const tumYorumlar = Array.isArray(profil.yorumlar) ? profil.yorumlar : [];
+  const sayfa = Math.max(1, parseInt(req.query.yorumSayfa, 10) || 1);
+  const limit = Math.min(20, Math.max(1, parseInt(req.query.yorumLimit, 10) || 10));
+  const toplamSayfa = Math.max(1, Math.ceil(tumYorumlar.length / limit));
+  const guvenliSayfa = Math.min(sayfa, toplamSayfa);
+  const sayfaYorumlari = tumYorumlar.slice((guvenliSayfa - 1) * limit, guvenliSayfa * limit);
   // Yorumlarda yazarın GÜNCEL adı + profil fotoğrafı gösterilsin (özel pp öncelikli)
   const yorumlar = await Promise.all(
-    (profil.yorumlar || []).map(async (y) => {
+    sayfaYorumlari.map(async (y) => {
       const uye = await discordUyeBilgisiCek(y.yazanId);
       const hedefProfil = db.profiles[y.yazanId] || {};
       return {
@@ -368,7 +375,14 @@ app.get("/api/profile/:id", async (req, res) => {
       };
     })
   );
-  res.json({ ...uyeBilgisi, profil: { ...profil, yorumlar } });
+  res.json({
+    ...uyeBilgisi,
+    profil: {
+      ...profilTemiz,
+      yorumlar,
+      yorumSayfalama: { sayfa: guvenliSayfa, limit, toplam: tumYorumlar.length, toplamSayfa },
+    },
+  });
 });
 
 app.get("/api/profile/:id/gallery", async (req, res) => {
@@ -377,11 +391,26 @@ app.get("/api/profile/:id/gallery", async (req, res) => {
     return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
   }
   const profil = profilGetir(req.params.id);
+  const db = okuDB();
+  const entries = Array.isArray(profil.galleryEntries) ? profil.galleryEntries : [];
+  const galleryEntries = await Promise.all(entries.map(async (entry) => {
+    const comments = Array.isArray(entry.comments) ? entry.comments.slice(0, 50) : [];
+    const enrichedComments = await Promise.all(comments.map(async (comment) => {
+      const uye = await discordUyeBilgisiCek(comment.yazanId);
+      const yazanProfil = db.profiles[comment.yazanId] || {};
+      return {
+        ...comment,
+        yazanAd: uye ? uye.kullaniciAdi : comment.yazanAd,
+        yazanAvatar: yazanProfil.avatar || (uye ? uye.avatar : comment.yazanAvatar),
+      };
+    }));
+    return { ...entry, comments: enrichedComments };
+  }));
   res.json({
     uye: uyeBilgisi,
     profil: {
       ...profil,
-      galleryEntries: Array.isArray(profil.galleryEntries) ? profil.galleryEntries : [],
+      galleryEntries,
     },
   });
 });
@@ -407,11 +436,35 @@ app.post("/api/profile/:id/gallery", girisGerekli, async (req, res) => {
     imageUrl: temizUrl,
     description: metin,
     createdAt: new Date().toISOString(),
+    comments: [],
   });
 
   db.profiles[req.params.id].galleryEntries = entries;
   yazDB(db);
   res.json({ basarili: true, galleryEntries: entries });
+});
+
+app.post("/api/profile/:id/gallery/:entryId/comments", girisGerekli, async (req, res) => {
+  const metin = String(req.body.metin || "").trim().slice(0, 300);
+  if (!metin) return res.status(400).json({ hata: "Boş yorum gönderilemez." });
+  const db = okuDB();
+  const profil = profilGetir(req.params.id);
+  const entry = (profil.galleryEntries || []).find((item) => item.id === req.params.entryId);
+  if (!entry) return res.status(404).json({ hata: "Galeri görseli bulunamadı." });
+  const yazan = await discordUyeBilgisiCek(req.session.discordId);
+  entry.comments = Array.isArray(entry.comments) ? entry.comments : [];
+  entry.comments.unshift({
+    id: `galeri-yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    yazanId: req.session.discordId,
+    yazanAd: yazan ? yazan.kullaniciAdi : "Üye",
+    yazanAvatar: yazan ? yazan.avatar : "",
+    metin,
+    tarih: new Date().toISOString(),
+  });
+  entry.comments = entry.comments.slice(0, 50);
+  db.profiles[req.params.id].galleryEntries = profil.galleryEntries;
+  yazDB(db);
+  res.json({ basarili: true, comments: entry.comments });
 });
 
 // Galeri öğesi silme (sadece profil sahibi)
@@ -660,6 +713,7 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     metin,
     tarih: new Date().toISOString(),
   });
+  db.profiles[req.params.id].yorumlar = db.profiles[req.params.id].yorumlar.slice(0, 500);
   // Kendi profiline yorum yazmıyorsa, profil sahibi için okunmamış yorum sayısını artır
   if (req.params.id !== req.session.discordId) {
     db.profiles[req.params.id].okunmamisYorum =
@@ -717,13 +771,14 @@ app.get("/api/members", async (req, res) => {
   const db = okuDB();
   const idler = Object.keys(db.profiles);
   const liste = [];
-  for (const id of idler) {
-    const uyeBilgisi = await discordUyeBilgisiCek(id);
-    if (uyeBilgisi) {
-      // Kullanıcı özel profil fotoğrafı yüklemişse onu da gönder (üye listesi bunu göstersin)
+  for (let i = 0; i < idler.length; i += 8) {
+    const parca = await Promise.all(idler.slice(i, i + 8).map(async (id) => {
+      const uyeBilgisi = await discordUyeBilgisiCek(id);
+      if (!uyeBilgisi) return null;
       const profil = db.profiles[id] || {};
-      liste.push({ ...uyeBilgisi, profilAvatar: profil.avatar || "" });
-    }
+      return { ...uyeBilgisi, profilAvatar: profil.avatar || "" };
+    }));
+    liste.push(...parca.filter(Boolean));
   }
   res.json(liste);
 });
