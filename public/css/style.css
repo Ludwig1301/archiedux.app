@@ -1191,15 +1191,22 @@ a {
   right: 16px;
   bottom: 16px;
   z-index: 800;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  width: 236px;
   background: rgba(17, 17, 19, 0.92);
   border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
   border-radius: 12px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(6px);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.profil-player-ust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .profil-player-video {
@@ -1221,16 +1228,17 @@ a {
   background: var(--ink);
 }
 
-/* LED tabela tarzı akan şarkı adı */
+/* LED tabela tarzı akan şarkı adı (kontrollerin altındaki satır) */
 .profil-player-marquee {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   overflow: hidden;
   white-space: nowrap;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-text);
-  padding: 2px 0;
+  border-top: 1px dashed var(--ink-line);
+  padding-top: 6px;
+  text-align: center;
 }
 
 .profil-player-marquee-ic {
@@ -1238,8 +1246,7 @@ a {
   white-space: nowrap;
 }
 
-.profil-player-marquee-ic span {
-  display: inline-block;
+.profil-player-marquee.kayiyor .profil-player-marquee-ic span {
   padding-right: 48px;
 }
 

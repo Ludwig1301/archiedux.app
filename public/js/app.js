@@ -759,14 +759,16 @@ function profilPlayerOlustur() {
   kutu.id = "profilPlayer";
   kutu.style.display = "none";
   kutu.innerHTML = `
-    <div id="profilPlayerVideo" class="profil-player-video"></div>
-    <img class="profil-player-thumb" id="profilPlayerThumb" src="" alt="" />
+    <div class="profil-player-ust">
+      <img class="profil-player-thumb" id="profilPlayerThumb" src="" alt="" />
+      <button type="button" class="profil-player-btn" id="profilPlayerToggle" onclick="profilPlayerToggle()" title="Oynat / Durdur"></button>
+      <input type="range" class="profil-player-ses" id="profilPlayerSes" min="0" max="100" value="70" oninput="profilPlayerSesDegistir(this.value)" title="Ses seviyesi" />
+      <button type="button" class="profil-player-btn profil-player-kapat" onclick="profilPlayerKapat()" title="Kapat">×</button>
+    </div>
     <div class="profil-player-marquee" id="profilPlayerMarquee">
       <div class="profil-player-marquee-ic" id="profilPlayerMarqueeIc"></div>
     </div>
-    <button type="button" class="profil-player-btn" id="profilPlayerToggle" onclick="profilPlayerToggle()" title="Oynat / Durdur"></button>
-    <input type="range" class="profil-player-ses" id="profilPlayerSes" min="0" max="100" value="70" oninput="profilPlayerSesDegistir(this.value)" title="Ses seviyesi" />
-    <button type="button" class="profil-player-btn profil-player-kapat" onclick="profilPlayerKapat()" title="Kapat">×</button>`;
+    <div id="profilPlayerVideo" class="profil-player-video"></div>`;
   document.body.appendChild(kutu);
   profilPlayerIkonGuncelle();
   profilSarkiRestore();
@@ -824,15 +826,17 @@ async function muzikBaslikGetir(videoId) {
   }
 }
 
-// LED tabela tarzı akan şarkı adı
+// LED tabela tarzı akan şarkı adı (kısa isimse tek kopya, uzunsa kayan çift kopya)
 function profilPlayerAdGoster(ad) {
   const ic = document.getElementById("profilPlayerMarqueeIc");
   const kutu = document.getElementById("profilPlayerMarquee");
   if (!ic || !kutu) return;
-  ic.innerHTML = ad ? `<span>${htmlEsc(ad)}</span><span>${htmlEsc(ad)}</span>` : "";
-  const tasar = ic.scrollWidth / 2;
-  if (ad && tasar > kutu.clientWidth) kutu.classList.add("kayiyor");
-  else kutu.classList.remove("kayiyor");
+  ic.innerHTML = ad ? `<span>${htmlEsc(ad)}</span>` : "";
+  kutu.classList.remove("kayiyor");
+  if (ad && ic.scrollWidth > kutu.clientWidth) {
+    ic.innerHTML = `<span>${htmlEsc(ad)}</span><span>${htmlEsc(ad)}</span>`;
+    kutu.classList.add("kayiyor");
+  }
 }
 
 function profilPlayerIkonGuncelle() {
