@@ -720,6 +720,7 @@ let GUNCEL_PLAYER_OYNUYOR = false;
 let GUNCEL_PLAYER_ISTEK = false; // kullanıcı müziğin çalmasını istiyor mu
 let GUNCEL_PLAYER_ID = "";
 let GUNCEL_PLAYER_AD = "";
+let GUNCEL_MUZIK_SAHIPI = ""; // hangi üyenin şarkısı çalıyor
 let YT_HAZIR_CALLBACK = null;
 window.onYouTubeIframeAPIReady = function () {
   if (YT_HAZIR_CALLBACK) YT_HAZIR_CALLBACK();
@@ -772,7 +773,6 @@ function profilPlayerOlustur() {
     <div id="profilPlayerVideo" class="profil-player-video"></div>`;
   document.body.appendChild(kutu);
   profilPlayerIkonGuncelle();
-  profilSarkiRestore();
 }
 
 function muzikKaydet() {
@@ -782,6 +782,7 @@ function muzikKaydet() {
       ad: GUNCEL_PLAYER_AD,
       position: GUNCEL_PLAYER ? Math.floor(GUNCEL_PLAYER.getCurrentTime() || 0) : 0,
       volume: GUNCEL_PLAYER ? GUNCEL_PLAYER.getVolume() : 70,
+      sahip: GUNCEL_MUZIK_SAHIPI,
       zaman: Date.now(),
     }));
   } catch (e) {}
@@ -791,23 +792,10 @@ function muzikTemizle() {
   try { localStorage.removeItem(MUZIK_KEY); } catch (e) {}
 }
 
-// Her sayfa yüklendiğinde son çalan şarkıyı hatırla ve kaldığı yerden devam ettir
-function profilSarkiRestore() {
-  let kayit = null;
-  try { kayit = JSON.parse(localStorage.getItem(MUZIK_KEY) || "null"); } catch (e) {}
-  if (!kayit || !kayit.videoId) return;
-  const kutu = document.getElementById("profilPlayer");
-  if (!kutu) return;
-  kutu.style.display = "flex";
-  GUNCEL_PLAYER_ID = kayit.videoId;
-  GUNCEL_PLAYER_AD = kayit.ad || "";
-  const thumb = document.getElementById("profilPlayerThumb");
-  if (thumb) thumb.src = `https://img.youtube.com/vi/${kayit.videoId}/hqdefault.jpg`;
-  profilPlayerAdGoster(GUNCEL_PLAYER_AD);
-  const sesEl = document.getElementById("profilPlayerSes");
-  if (sesEl) sesEl.value = kayit.volume || 70;
-  profilPlayerYukle(kayit.videoId, kayit.position || 0, kayit.volume || 70);
-}
+// Sayfadan çıkarken (yeni sayfaya geçişte) çalan konumu kaydet
+window.addEventListener("pagehide", () => {
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
+});
 
 // Şarkı adını oEmbed ile al (YouTube oEmbed, anahtar gerekmez)
 async function muzikBaslikGetir(videoId) {
@@ -887,9 +875,12 @@ function profilPlayerYukle(videoId, konum, ses) {
             e.target.setVolume(ses || 70);
             const sesEl = document.getElementById("profilPlayerSes");
             if (sesEl) sesEl.value = ses || 70;
-            if (konum > 1) e.target.seekTo(konum, true);
             GUNCEL_PLAYER_ISTEK = true;
             e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
+            if (konum > 1) {
+              // video yüklenmeye başlayınca kaldığı yere atla
+              setTimeout(() => { try { e.target.seekTo(konum, true); } catch (err) {} }, 400);
+            }
           },
           onStateChange: (e) => {
             GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
@@ -902,15 +893,31 @@ function profilPlayerYukle(videoId, konum, ses) {
   });
 }
 
-// Bir şarkı aç: url boşsa mevcut çalan müziğe dokunma
-function profilSarkiYukle(url) {
+// Bir üyenin şarkısını aç (sadece üye sayfaları çağırır)
+// Aynı üyenin sayfaları arasında geçişte kaldığı yerden devam eder; şarkı yoksa durur.
+function profilSarkiGoster(url, sahipId) {
   const kutu = document.getElementById("profilPlayer");
   if (!kutu) return;
   const videoId = youtubeVideoIdCek(url);
-  if (!videoId) return; // şarkı yoksa mevcut müzik sürsün
+  if (!videoId) {
+    // bu üyenin şarkısı yok: müziği durdur ve oynatıcıyı gizle
+    GUNCEL_MUZIK_SAHIPI = "";
+    profilPlayerDurdur();
+    muzikTemizle();
+    kutu.style.display = "none";
+    return;
+  }
+  let kayit = null;
+  try { kayit = JSON.parse(localStorage.getItem(MUZIK_KEY) || "null"); } catch (e) {}
+  // Aynı üyenin aynı şarkısıysa kaldığı yerden devam et
+  const devamKonum = kayit && kayit.sahip === sahipId && kayit.videoId === videoId ? (kayit.position || 0) : 0;
+  const ses = kayit && kayit.sahip === sahipId ? (kayit.volume || 70) : 70;
+  GUNCEL_MUZIK_SAHIPI = sahipId;
   kutu.style.display = "flex";
   const thumb = document.getElementById("profilPlayerThumb");
   if (thumb) thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  const sesEl = document.getElementById("profilPlayerSes");
+  if (sesEl) sesEl.value = ses;
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) {
     if (!GUNCEL_PLAYER_OYNUYOR) profilPlayerOynat();
     return;
@@ -918,7 +925,12 @@ function profilSarkiYukle(url) {
   GUNCEL_PLAYER_ID = videoId;
   GUNCEL_PLAYER_AD = "";
   muzikBaslikGetir(videoId);
-  profilPlayerYukle(videoId, 0, 70);
+  profilPlayerYukle(videoId, devamKonum, ses);
+}
+
+// Düzenleme panelinde şarkı değişince (sahip kendi profili)
+function profilSarkiYukle(url) {
+  profilSarkiGoster(url, GORUNTULENEN_ID);
 }
 
 function profilPlayerToggle() {
@@ -1095,7 +1107,7 @@ async function profilSayfasiBaslat() {
   const sarkiUrlInput = document.getElementById("formProfilSarkiUrl");
   if (sarkiUrlInput) sarkiUrlInput.value = veri.profil.profilSarkiUrl || "";
   profilSarkiOnizlemeGuncelle();
-  profilSarkiYukle(veri.profil.profilSarkiUrl || "");
+  profilSarkiGoster(veri.profil.profilSarkiUrl || "", GORUNTULENEN_ID);
   document.getElementById("formKapakFoto").value = veri.profil.kapakFoto || "";
   document.getElementById("formAksanRenk").value = veri.profil.aksanRenk || "";
   const arkaplanTuru = ["renk", "resim"].includes(veri.profil.arkaplanTuru)
@@ -2545,6 +2557,9 @@ async function gallerySayfasiBaslat() {
   }
   if (statusEl) statusEl.innerText = "";
 
+  // Galeri de üyenin şarkısıyla devam eder
+  profilSarkiGoster(veri.profil.profilSarkiUrl || "", GORUNTULENEN_ID);
+
   galeriListesiCiz(veri.profil.galleryEntries || []);
 }
 
@@ -2735,7 +2750,7 @@ async function gunlukSayfasiBaslat() {
   GUNCEL_XP_YAZI = veri.profil.xpYazi || "";
   seviyeGoster();
   // Üyenin şarkısı bu sayfada da çalsın (müzik devam eder)
-  profilSarkiYukle(veri.profil.profilSarkiUrl || "");
+  profilSarkiGoster(veri.profil.profilSarkiUrl || "", GORUNTULENEN_ID);
   metinRengiUygula(
     document.getElementById("pIsim"),
     veri.profil.isimRenkTuru,
