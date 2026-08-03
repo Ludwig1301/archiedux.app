@@ -259,6 +259,16 @@
           </div>
         </div>
 
+        <div class="dp-bolum">
+          <div class="dp-bolum-baslik">Profil Şarkısı</div>
+          <div class="form-alani">
+            <label>YouTube Video Linki</label>
+            <input id="formProfilSarkiUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." oninput="profilSarkiOnizlemeGuncelle()" />
+            <span class="form-yardim">Profiline girenler bu şarkıyı duyar. Boş bırakırsan şarkı çalmaz.</span>
+          </div>
+          <div id="profilSarkiOnizleme" class="profil-sarki-onizleme"></div>
+        </div>
+
         <input type="file" id="dosyaKapak" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="kapakFotoSecildi(this.files[0])" />
         <input type="hidden" id="formKapakFoto" value="" />
         <input type="file" id="dosyaProfilFoto" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="profilFotoSecildi(this.files[0])" />
@@ -346,6 +356,15 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Profil şarkısı oynatıcısı (sağ alt) -->
+  <div class="profil-player" id="profilPlayer" style="display:none;">
+    <div id="profilPlayerVideo" class="profil-player-video"></div>
+    <img class="profil-player-thumb" id="profilPlayerThumb" src="" alt="" />
+    <button type="button" class="profil-player-btn" id="profilPlayerToggle" onclick="profilPlayerToggle()" title="Oynat / Durdur"></button>
+    <input type="range" class="profil-player-ses" id="profilPlayerSes" min="0" max="100" value="70" oninput="profilPlayerSesDegistir(this.value)" title="Ses seviyesi" />
+    <button type="button" class="profil-player-btn profil-player-kapat" onclick="profilPlayerKapat()" title="Kapat">×</button>
   </div>
 
   <div class="crop-overlay" id="cropOverlay" style="display:none;">

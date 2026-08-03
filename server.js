@@ -201,6 +201,7 @@ function profilGetir(discordId) {
       filmXpKazanilan: [],
       vitrinTuru: "proje",
       favoriSarki: null,
+      profilSarkiUrl: "",
       profilGoruntulenme: 0,
       okunmamisYorum: 0,
       bildirimler: [],
@@ -1061,6 +1062,12 @@ app.post("/api/profile", girisGerekli, (req, res) => {
     } else {
       gelenVeri.favoriSarki = null;
     }
+  }
+
+  // profil şarkısı: boş ya da geçerli bir YouTube linki olabilir
+  if (typeof req.body.profilSarkiUrl === "string") {
+    const url = req.body.profilSarkiUrl.trim().slice(0, 500);
+    gelenVeri.profilSarkiUrl = url && /youtu\.be\/|youtube\.com\//i.test(url) ? url : "";
   }
 
   // İsim / ünvan rengi: tür boş, "renk" veya "gradyan"; renkler geçerli hex olmalı

@@ -592,6 +592,118 @@ function urlIdOku() {
   return new URLSearchParams(window.location.search).get("id");
 }
 
+// ---------- Profil şarkısı (YouTube) ----------
+const PLAY_IKON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const DURDUR_IKON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+let GUNCEL_PLAYER = null;
+let GUNCEL_PLAYER_OYNUYOR = false;
+let GUNCEL_PLAYER_ID = "";
+let YT_HAZIR_CALLBACK = null;
+window.onYouTubeIframeAPIReady = function () {
+  if (YT_HAZIR_CALLBACK) YT_HAZIR_CALLBACK();
+};
+
+function youtubeVideoIdCek(url) {
+  if (!url) return "";
+  const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  return m ? m[1] : "";
+}
+
+function ytApiYukle(cb) {
+  if (window.YT && window.YT.Player) {
+    cb();
+    return;
+  }
+  const mevcut = document.getElementById("yt-api-script");
+  if (mevcut && mevcut.dataset.loaded === "1") {
+    cb();
+    return;
+  }
+  let s = mevcut;
+  if (!s) {
+    s = document.createElement("script");
+    s.id = "yt-api-script";
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  }
+  YT_HAZIR_CALLBACK = cb;
+  if (!mevcut) s.addEventListener("load", () => { s.dataset.loaded = "1"; cb(); });
+}
+
+function profilPlayerIkonGuncelle() {
+  const btn = document.getElementById("profilPlayerToggle");
+  if (btn) btn.innerHTML = GUNCEL_PLAYER_OYNUYOR ? DURDUR_IKON : PLAY_IKON;
+}
+
+function profilSarkiYukle(url) {
+  const kutu = document.getElementById("profilPlayer");
+  if (!kutu) return;
+  const videoId = youtubeVideoIdCek(url);
+  if (!videoId) {
+    kutu.style.display = "none";
+    if (GUNCEL_PLAYER) GUNCEL_PLAYER.stopVideo();
+    return;
+  }
+  kutu.style.display = "flex";
+  const thumb = document.getElementById("profilPlayerThumb");
+  if (thumb) thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) return;
+  GUNCEL_PLAYER_ID = videoId;
+  ytApiYukle(() => {
+    if (GUNCEL_PLAYER) {
+      GUNCEL_PLAYER.loadVideoById(videoId);
+    } else {
+      GUNCEL_PLAYER = new YT.Player("profilPlayerVideo", {
+        videoId,
+        playerVars: { controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
+        events: {
+          onReady: (e) => {
+            e.target.setVolume(70);
+            const ses = document.getElementById("profilPlayerSes");
+            if (ses) ses.value = 70;
+            e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
+          },
+          onStateChange: (e) => {
+            GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
+            profilPlayerIkonGuncelle();
+          },
+        },
+      });
+    }
+  });
+}
+
+function profilPlayerToggle() {
+  if (!GUNCEL_PLAYER) return;
+  if (GUNCEL_PLAYER_OYNUYOR) GUNCEL_PLAYER.pauseVideo();
+  else GUNCEL_PLAYER.playVideo();
+}
+
+function profilPlayerSesDegistir(val) {
+  if (GUNCEL_PLAYER) GUNCEL_PLAYER.setVolume(parseInt(val, 10));
+}
+
+function profilPlayerKapat() {
+  if (GUNCEL_PLAYER) GUNCEL_PLAYER.pauseVideo();
+  const kutu = document.getElementById("profilPlayer");
+  if (kutu) kutu.style.display = "none";
+}
+
+// Düzenleme panelindeki şarkı önizlemesi
+function profilSarkiOnizlemeGuncelle() {
+  const input = document.getElementById("formProfilSarkiUrl");
+  const onizleme = document.getElementById("profilSarkiOnizleme");
+  if (!input || !onizleme) return;
+  const videoId = youtubeVideoIdCek(input.value);
+  if (!videoId) {
+    onizleme.innerHTML = '<span class="form-yardim">Geçerli bir YouTube linki yapıştırdığında önizleme burada görünür.</span>';
+    return;
+  }
+  onizleme.innerHTML = `
+    <img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" alt="" />
+    <span class="form-yardim">Bu şarkı profilinde otomatik oynatılır.</span>`;
+}
+
 async function profilSayfasiBaslat() {
   const ben = await navBarDoldur();
   BENIM_ID = ben && ben.girisYapti ? ben.id : null;
@@ -722,6 +834,12 @@ async function profilSayfasiBaslat() {
   GUNCEL_FAVORI_SARKI = veri.profil.favoriSarki || null;
   vitrinTuruDegisti();
   sarkiSeciliCiz();
+
+  // Profil şarkısı: formu doldur + önizleme + oynatıcıyı başlat
+  const sarkiUrlInput = document.getElementById("formProfilSarkiUrl");
+  if (sarkiUrlInput) sarkiUrlInput.value = veri.profil.profilSarkiUrl || "";
+  profilSarkiOnizlemeGuncelle();
+  profilSarkiYukle(veri.profil.profilSarkiUrl || "");
   document.getElementById("formKapakFoto").value = veri.profil.kapakFoto || "";
   document.getElementById("formAksanRenk").value = veri.profil.aksanRenk || "";
   const arkaplanTuru = ["renk", "resim"].includes(veri.profil.arkaplanTuru)
@@ -1300,6 +1418,7 @@ function profilVerileriniTopla() {
     vitrinResim: document.getElementById("formVitrinResim").value,
     vitrinTuru: document.getElementById("formVitrinTuru").value,
     favoriSarki: GUNCEL_FAVORI_SARKI,
+    profilSarkiUrl: document.getElementById("formProfilSarkiUrl").value,
     kapakFoto: document.getElementById("formKapakFoto").value,
     aksanRenk: document.getElementById("formAksanRenk").value,
     arkaplanTuru: document.getElementById("formArkaplanTuru").value,
@@ -1380,6 +1499,9 @@ function profilOtomatikKaydet() {
       });
       if (!res.ok) throw new Error("Kayıt başarısız");
       const kayitVeri = await res.json();
+      // Profil şarkısı değiştiyse oynatıcıyı güncelle (aynı şarkıysa dokunma)
+      const sarkiInput = document.getElementById("formProfilSarkiUrl");
+      if (sarkiInput) profilSarkiYukle(sarkiInput.value);
       // İlk kez tamamlanan bölümler için XP kazanıldıysa göster
       if (kayitVeri && kayitVeri.kazanilanXp > 0 && BENIM_ID === GORUNTULENEN_ID) {
         GUNCEL_XP = (GUNCEL_XP || 0) + kayitVeri.kazanilanXp;
@@ -1413,6 +1535,7 @@ function canliKayitDinleyicileriEkle() {
   const dinlenecekler = [
     "formUnvan", "formBio",
     "formVitrinBaslik", "formVitrinAciklama", "formVitrinResim",
+    "formProfilSarkiUrl",
     "formKapakFoto", "formAksanRenkOzel",
   ];
   for (const id of dinlenecekler) {

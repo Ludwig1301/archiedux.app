@@ -1180,6 +1180,134 @@ a {
   letter-spacing: 0.03em;
 }
 
+/* Profil şarkısı oynatıcısı (sağ alt köşe) */
+.profil-player {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(17, 17, 19, 0.92);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+}
+
+.profil-player-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profil-player-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--ink-line);
+  background: var(--ink);
+}
+
+.profil-player-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--profil-accent) 12%, transparent);
+  color: var(--profil-accent);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.profil-player-btn:hover {
+  border-color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 22%, transparent);
+  transform: scale(1.05);
+}
+
+.profil-player-kapat {
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-text);
+  border-color: var(--ink-line);
+  background: transparent;
+}
+
+.profil-player-kapat:hover {
+  color: #e0a0a0;
+  border-color: var(--record-red);
+  background: rgba(139, 34, 34, 0.15);
+}
+
+.profil-player-ses {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 70px;
+  height: 4px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--profil-accent), color-mix(in srgb, var(--profil-accent) 25%, var(--ink-line)));
+  outline: none;
+  cursor: pointer;
+}
+
+.profil-player-ses::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--parchment);
+  border: 2px solid var(--profil-accent);
+  cursor: pointer;
+}
+
+.profil-player-ses::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--parchment);
+  border: 2px solid var(--profil-accent);
+  cursor: pointer;
+}
+
+/* Düzenleme paneli: profil şarkısı önizlemesi */
+.profil-sarki-onizleme {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profil-sarki-onizleme img {
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-line);
+  background: var(--ink);
+}
+
+@media (max-width: 700px) {
+  .profil-player-ses {
+    width: 50px;
+  }
+}
+
 .spotify-container {
   background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--ink-line);
