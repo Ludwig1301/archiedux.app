@@ -2526,3 +2526,626 @@ body.duzenleme-acik .duzenleme-paneli {
     padding: 6px 9px;
   }
 }
+
+/* ---------- Film & Dizi Günlüğü ---------- */
+
+.film-alani {
+  margin-bottom: 14px;
+}
+
+.film-profil-onizleme {
+  margin-top: 10px;
+}
+
+.film-profil-ozet {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text);
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.film-profil-afisler {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.film-profil-afisler img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--ink-line);
+  background-color: var(--ink);
+}
+
+.film-profil-afis-yok {
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-text-dim);
+  border: 1px dashed var(--ink-line);
+  border-radius: 3px;
+}
+
+.film-profil-afis-yok svg {
+  width: 18px;
+  height: 18px;
+}
+
+.film-profil-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--profil-accent);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.film-profil-link:hover {
+  opacity: 0.75;
+}
+
+.filmler-page {
+  padding: 24px 24px 48px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.filmler-hero {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 25%, transparent);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 22px;
+}
+
+.filmler-hero h1 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  color: var(--parchment);
+  font-size: 26px;
+}
+
+.filmler-hero p {
+  margin: 0;
+  color: var(--ink-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.film-ara-kutu {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 20%, transparent);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 26px;
+}
+
+.film-ara-satir {
+  display: flex;
+  gap: 10px;
+}
+
+.film-ara-satir input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-line);
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: var(--sans);
+  font-size: 14px;
+  outline: none;
+  min-width: 0;
+}
+
+.film-ara-satir input:focus {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+}
+
+.film-ara-satir button {
+  background-color: var(--profil-accent);
+  color: var(--ink);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0 24px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.film-ara-satir button:hover {
+  opacity: 0.88;
+}
+
+.film-ara-ipucu {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-text-dim);
+  margin-top: 8px;
+}
+
+.film-sonuclar {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.film-ara-baslik {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-text-dim);
+  margin-top: 4px;
+}
+
+.film-kart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 20%, transparent);
+  border-radius: var(--radius);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--parchment);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.film-kart:hover {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  transform: translateY(-2px);
+}
+
+.film-kart img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 3px;
+  background-color: var(--ink);
+}
+
+.film-poster-yok {
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-text-dim);
+  border: 1px dashed var(--ink-line);
+  border-radius: 3px;
+  background: var(--ink);
+}
+
+.film-poster-yok-buyuk {
+  width: 100%;
+}
+
+.film-poster-yok svg {
+  width: 26px;
+  height: 26px;
+}
+
+.film-kart-bilgi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.film-kart-bilgi strong {
+  font-size: 12.5px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.film-kart-bilgi span {
+  font-size: 11px;
+  color: var(--ink-text-dim);
+}
+
+.film-jurnal-baslik {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--profil-accent);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
+}
+
+.film-jurnal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.film-jurnal-kart {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 20%, transparent);
+  border-radius: var(--radius);
+  padding: 12px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.film-jurnal-kart:hover {
+  border-color: color-mix(in srgb, var(--profil-accent) 40%, transparent);
+  transform: translateY(-2px);
+}
+
+.film-jurnal-kart > img {
+  width: 74px;
+  height: 111px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background-color: var(--ink);
+  align-self: flex-start;
+}
+
+.film-jurnal-ic {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.film-jurnal-baslik strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--parchment);
+  line-height: 1.25;
+}
+
+.film-jurnal-tur {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  letter-spacing: 0.04em;
+}
+
+.film-jurnal-alt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.film-jurnal-durum {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--profil-accent);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--profil-accent) 8%, transparent);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+
+.film-jurnal-yorum {
+  margin: 0;
+  color: var(--ink-text);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.film-jurnal-butonlar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.film-jurnal-kart:hover .film-jurnal-butonlar {
+  opacity: 1;
+}
+
+.film-jurnal-butonlar button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-line);
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--parchment);
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+
+.film-jurnal-duzenle:hover {
+  border-color: var(--profil-accent);
+  color: var(--profil-accent);
+}
+
+.film-jurnal-sil:hover {
+  border-color: var(--record-red);
+  background: rgba(139, 34, 34, 0.35);
+  color: #e0a0a0;
+}
+
+.jp-yildizlar {
+  position: relative;
+  display: inline-flex;
+  gap: 1px;
+}
+
+.jp-taban,
+.jp-dolgu {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.jp-taban svg {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: #4a4a52;
+}
+
+.jp-dolgu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.jp-dolgu svg {
+  fill: var(--profil-accent);
+  stroke: var(--profil-accent);
+  flex: 0 0 auto;
+}
+
+.film-puan-yok {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-text-dim);
+}
+
+@media (max-width: 780px) {
+  .film-jurnal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Film & Dizi: puan + yorum penceresi ---------- */
+
+.film-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 5, 8, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.film-modal {
+  position: relative;
+  width: min(560px, 94vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--ink-card);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 35%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+  padding: 22px;
+}
+
+.film-modal-kapat {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.film-modal-ust {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.film-modal-poster-alani {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.film-modal-poster-alani img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--ink-line);
+  background-color: var(--ink);
+  display: block;
+}
+
+.film-modal-poster-yok {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-text-dim);
+  border: 1px dashed var(--ink-line);
+  border-radius: 6px;
+  background: var(--ink);
+}
+
+.film-modal-poster-yok svg {
+  width: 30px;
+  height: 30px;
+}
+
+.film-modal-bilgi {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.film-modal-bilgi h2 {
+  margin: 0;
+  color: var(--parchment);
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.film-modal-meta {
+  display: flex;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-text-dim);
+}
+
+.film-modal-bilgi select {
+  margin-top: auto;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-line);
+  background-color: var(--ink);
+  color: var(--parchment);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  max-width: 200px;
+}
+
+.film-puan-alani {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.film-puan-etiket {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-text-dim);
+}
+
+.yildiz-kutu {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  user-select: none;
+}
+
+.yildiz-taban,
+.yildiz-dolgu {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.yildiz-taban svg {
+  fill: rgba(255, 255, 255, 0.1);
+  stroke: #4a4a52;
+}
+
+.yildiz-dolgu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  width: 0%;
+}
+
+.yildiz-dolgu svg {
+  fill: var(--profil-accent);
+  stroke: var(--profil-accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--profil-accent) 45%, transparent));
+  flex: 0 0 auto;
+}
+
+.film-puan-deger {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--profil-accent);
+  min-width: 28px;
+}
+
+.film-modal textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-line);
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+}
+
+.film-modal textarea:focus {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+}
+
+.film-modal-alt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.film-modal-durum {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  min-height: 14px;
+}
+
+@media (max-width: 700px) {
+  .film-modal-ust {
+    flex-direction: row;
+  }
+  .film-modal-poster-alani {
+    width: 84px;
+  }
+}
+

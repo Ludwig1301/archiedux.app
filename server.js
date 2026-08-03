@@ -7,11 +7,19 @@ const { createClient } = require("redis");
 const { RedisStore } = require("connect-redis");
 
 // Oturumlar Redis'te saklanır; sunucu yeniden başlasa bile üyeler çıkış yapmaz.
-const redisClient = createClient({
-  url: process.env.REDIS_URL || "redis://127.0.0.1:6379",
-});
-redisClient.connect().catch((e) => console.error("Redis bağlantı hatası:", e));
-const sessionStore = new RedisStore({ client: redisClient });
+// REDIS_URL tanımlıysa Redis kullanılır. Lokal geliştirmede Redis yoksa
+// oturumlar bellekte tutulur (sunucu yeniden başlayınca sıfırlanır, sadece dev).
+const REDIS_URL = process.env.REDIS_URL || "";
+let sessionStore;
+if (REDIS_URL) {
+  const redisClient = createClient({ url: REDIS_URL });
+  redisClient.connect().catch((e) => console.error("Redis bağlantı hatası:", e));
+  sessionStore = new RedisStore({ client: redisClient });
+} else {
+  const { MemoryStore } = require("express-session");
+  sessionStore = new MemoryStore();
+  console.log("REDIS_URL tanımlı değil; oturumlar bellekte tutuluyor (geliştirme modu).");
+}
 
 for (const envFile of [path.join(__dirname, ".env"), path.join(__dirname, ".env.example")]) {
   if (fs.existsSync(envFile)) {
@@ -26,6 +34,7 @@ const {
   DISCORD_BOT_TOKEN,
   DISCORD_GUILD_ID,
   SESSION_SECRET,
+  TMDB_API_KEY,
   PORT,
 } = process.env;
 
@@ -133,6 +142,7 @@ function profilGetir(discordId) {
       rozetler: [],
       yorumlar: [],
       galleryEntries: [],
+      filmler: [],
       okunmamisYorum: 0,
       bildirimler: [],
       xp: 0,
@@ -283,6 +293,8 @@ const temizSayfa = (dosya) => (req, res) => {
 app.get("/profil", temizSayfa("profile.html"));
 app.get("/galeri", temizSayfa("gallery.html"));
 app.get("/uyeler", temizSayfa("members.html"));
+app.get("/filmler", temizSayfa("filmler.html"));
+app.get("/filmler.html", (req, res) => res.redirect("/filmler"));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -411,16 +423,23 @@ app.get("/api/profile/:id", async (req, res) => {
   const profil = profilGetir(req.params.id);
   if (!uyeBilgisi) {
     if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
-    const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, ...fallbackProfil } = profil;
+    const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, filmler: _fallbackFilmler, ...fallbackProfil } = profil;
+    const fallbackFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
     return res.json({
       id: req.params.id,
       kullaniciAdi: profil.sonIsim || "Üye",
       avatar: profil.avatar || profil.sonAvatar || varsayilanAvatar(req.params.id),
       roller: [],
-      profil: { ...fallbackProfil, yorumlar: [], yorumSayfalama: { sayfa: 1, limit: 10, toplam: 0, toplamSayfa: 1 } },
+      profil: {
+        ...fallbackProfil,
+        yorumlar: [],
+        yorumSayfalama: { sayfa: 1, limit: 10, toplam: 0, toplamSayfa: 1 },
+        filmler: fallbackFilmler.slice(0, 12),
+        filmSayisi: fallbackFilmler.length,
+      },
     });
   }
-  const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, ...profilTemiz } = profil;
+  const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, filmler: _filmler, ...profilTemiz } = profil;
   const tumYorumlar = Array.isArray(profil.yorumlar) ? profil.yorumlar : [];
   const sayfa = Math.max(1, parseInt(req.query.yorumSayfa, 10) || 1);
   const limit = Math.min(20, Math.max(1, parseInt(req.query.yorumLimit, 10) || 10));
@@ -439,12 +458,15 @@ app.get("/api/profile/:id", async (req, res) => {
       };
     })
   );
+  const tumFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
   res.json({
     ...uyeBilgisi,
     profil: {
       ...profilTemiz,
       yorumlar,
       yorumSayfalama: { sayfa: guvenliSayfa, limit, toplam: tumYorumlar.length, toplamSayfa },
+      filmler: tumFilmler.slice(0, 12),
+      filmSayisi: tumFilmler.length,
     },
   });
 });
@@ -547,6 +569,139 @@ app.delete("/api/profile/:id/gallery/:entryId", girisGerekli, (req, res) => {
   db.profiles[req.params.id].galleryEntries = entries.filter((e) => e.id !== req.params.entryId);
   yazDB(db);
   res.json({ basarili: true, galleryEntries: db.profiles[req.params.id].galleryEntries });
+});
+
+// ---------- Film & Dizi Günlüğü (Letterboxd tarzı) ----------
+// Arama TMDB üzerinden yapılır; sonuçlar (afiş, ad, yıl) profilde saklanır.
+// TMDB_API_KEY .env'de tanımlı değilse arama boş döner, site kırılmaz.
+
+async function tmdbAra(q) {
+  if (!TMDB_API_KEY || !q) return [];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(TMDB_API_KEY)}&language=tr-TR&query=${encodeURIComponent(q)}&include_adult=false`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return [];
+    const veri = await res.json();
+    const sonuc = [];
+    for (const oge of veri.results || []) {
+      if (oge.media_type !== "movie" && oge.media_type !== "tv") continue;
+      sonuc.push({
+        id: oge.id,
+        tur: oge.media_type === "movie" ? "film" : "dizi",
+        ad: oge.title || oge.name || "Bilinmeyen",
+        yil: (oge.release_date || oge.first_air_date || "").slice(0, 4),
+        poster: oge.poster_path ? `https://image.tmdb.org/t/p/w342${oge.poster_path}` : "",
+      });
+    }
+    return sonuc;
+  } catch (e) {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// TMDB arama proxy'si: anahtar tarayıcıya sızmaz, sunucuda kalır.
+app.get("/api/filmler/arama", async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 100);
+  if (!q) return res.json([]);
+  const sonuc = await tmdbAra(q);
+  res.json(sonuc);
+});
+
+// Bir üyenin film/dizi günlüğü (herkese açık)
+app.get("/api/profile/:id/filmler", async (req, res) => {
+  const uyeBilgisi = await discordUyeBilgisiCek(req.params.id);
+  const profil = profilGetir(req.params.id);
+  const db = okuDB();
+  if (!uyeBilgisi && !db.profiles[req.params.id]) {
+    return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
+  }
+  res.json({
+    uye: uyeBilgisi || {
+      id: req.params.id,
+      kullaniciAdi: profil.sonIsim || "Üye",
+      avatar: profil.avatar || profil.sonAvatar || varsayilanAvatar(req.params.id),
+      roller: [],
+    },
+    filmler: Array.isArray(profil.filmler) ? profil.filmler : [],
+  });
+});
+
+const FILM_DURUMLARI = ["izledim", "izliyorum", "izlemek-istiyorum"];
+
+// Film/dizi ekle veya güncelle (sadece kendi günlüğünü)
+app.post("/api/filmler", girisGerekli, (req, res) => {
+  const gelen = req.body || {};
+  const id = parseInt(gelen.id, 10);
+  if (!id || isNaN(id)) return res.status(400).json({ hata: "Film/Dizi kimliği eksik." });
+  const tur = gelen.tur === "film" ? "film" : gelen.tur === "dizi" ? "dizi" : "";
+  if (!tur) return res.status(400).json({ hata: "Tür geçersiz." });
+  const ad = String(gelen.ad || "").trim().slice(0, 200);
+  if (!ad) return res.status(400).json({ hata: "Ad boş olamaz." });
+
+  const yil = String(gelen.yil || "").slice(0, 4);
+  const poster = String(gelen.poster || "").slice(0, 500);
+  const durum = FILM_DURUMLARI.includes(gelen.durum) ? gelen.durum : "izledim";
+  let puan = parseFloat(gelen.puan);
+  if (isNaN(puan) || puan <= 0) {
+    puan = null;
+  } else {
+    puan = Math.min(5, Math.max(0.5, Math.round(puan * 2) / 2)); // 0.5 adımlı (Letterboxd tarzı)
+  }
+  const yorum = String(gelen.yorum || "").trim().slice(0, 800);
+
+  profilGetir(req.session.discordId); // yoksa oluştur
+  const db = okuDB();
+  const filmler = Array.isArray(db.profiles[req.session.discordId].filmler)
+    ? db.profiles[req.session.discordId].filmler
+    : [];
+  const mevcut = filmler.find((f) => f.id === id && f.tur === tur);
+
+  if (mevcut) {
+    mevcut.ad = ad;
+    mevcut.yil = yil;
+    mevcut.poster = poster;
+    mevcut.durum = durum;
+    mevcut.puan = puan;
+    mevcut.yorum = yorum;
+    mevcut.guncelleme = new Date().toISOString();
+  } else {
+    filmler.unshift({
+      entryId: `film-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      id,
+      tur,
+      ad,
+      yil,
+      poster,
+      durum,
+      puan,
+      yorum,
+      tarih: new Date().toISOString(),
+    });
+  }
+
+  db.profiles[req.session.discordId].filmler = filmler.slice(0, 100);
+  yazDB(db);
+  res.json({ basarili: true, filmler: db.profiles[req.session.discordId].filmler });
+});
+
+// Günlükten bir kaydı sil (sadece sahibi)
+app.delete("/api/filmler/:entryId", girisGerekli, (req, res) => {
+  profilGetir(req.session.discordId);
+  const db = okuDB();
+  const filmler = Array.isArray(db.profiles[req.session.discordId].filmler)
+    ? db.profiles[req.session.discordId].filmler
+    : [];
+  db.profiles[req.session.discordId].filmler = filmler.filter(
+    (f) => f.entryId !== req.params.entryId
+  );
+  yazDB(db);
+  res.json({ basarili: true, filmler: db.profiles[req.session.discordId].filmler });
 });
 
 // ---------- Görsel yükleme (kullanıcının kendi bilgisayarından) ----------

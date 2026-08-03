@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Film & Dizi Günlüğü</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='22' fill='%23111113' stroke='%23c9a227' stroke-width='3'/><path d='M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z' fill='%23c9a227'/></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="navbar">
+    <div class="nav-icerik">
+      <div class="nav-sol">
+        <a href="/" class="navbar-mark">
+          <svg class="seal" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="#c9a227" stroke-width="1.6"/>
+            <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="1" opacity="0.6"/>
+            <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
+          </svg>
+          <div class="wordmark">CONGRESS<span>TOPLULUK PROFİLLERİ</span></div>
+        </a>
+        <a href="/uyeler">ÜYELER</a>
+        <a href="/filmler" class="aktif-link">FİLM &amp; DİZİ</a>
+      </div>
+      <div class="nav-sag" id="navSag"></div>
+    </div>
+  </div>
+
+  <div class="mainframe">
+    <div class="filmler-page">
+      <div class="filmler-hero">
+        <h1 id="filmOwnerName">Film & Dizi Günlüğü</h1>
+        <p id="filmFormHint">İzlediğin filmleri ve dizileri ara, puanla, yorumla ve paylaş.</p>
+        <a id="filmBack" class="gallery-back" href="#">← Profile Dön</a>
+      </div>
+
+      <div class="film-ara-kutu" id="filmAraKutu">
+        <div class="film-ara-satir">
+          <input id="filmAramaInput" type="text" maxlength="100" placeholder="Film veya dizi ara... (örn: Interstellar)"
+            onkeydown="filmAramaEnter(event)" />
+          <button type="button" onclick="filmAra()">Ara</button>
+        </div>
+        <span class="film-ara-ipucu">Arama TMDB veritabanı üzerinden yapılır.</span>
+        <div id="filmSonuclar" class="film-sonuclar"></div>
+      </div>
+
+      <div class="film-jurnal-baslik">Günlüğüm</div>
+      <div id="filmJurnal" class="film-jurnal"></div>
+    </div>
+  </div>
+
+  <!-- Puan + yorum penceresi -->
+  <div class="film-modal-overlay" id="filmModal" style="display:none;" onclick="filmModalKapat(event)">
+    <div class="film-modal" onclick="event.stopPropagation()">
+      <button type="button" class="film-modal-kapat" onclick="filmModalKapat()" aria-label="Kapat">×</button>
+      <div class="film-modal-ust">
+        <div class="film-modal-poster-alani">
+          <img id="filmModalPoster" src="" alt="" />
+          <div class="film-modal-poster-yok" id="filmModalPosterYok" style="display:none;"></div>
+        </div>
+        <div class="film-modal-bilgi">
+          <h2 id="filmModalAd">—</h2>
+          <div class="film-modal-meta">
+            <span id="filmModalTur"></span>
+            <span id="filmModalYil"></span>
+          </div>
+          <select id="filmDurum">
+            <option value="izledim">İzledim</option>
+            <option value="izliyorum">İzliyorum</option>
+            <option value="izlemek-istiyorum">İzlemek istiyorum</option>
+          </select>
+        </div>
+      </div>
+      <div class="film-puan-alani">
+        <span class="film-puan-etiket">Puanın</span>
+        <div class="yildiz-kutu" id="yildizKutu">
+          <div class="yildiz-taban" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>
+          </div>
+          <div class="yildiz-dolgu" id="yildizDolgu" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>
+          </div>
+        </div>
+        <span class="film-puan-deger" id="filmPuanDeger">—</span>
+      </div>
+      <textarea id="filmYorum" rows="5" maxlength="800" placeholder="Bu film/dizi hakkında ne düşünüyorsun?"></textarea>
+      <div class="film-modal-alt">
+        <span class="film-modal-durum" id="filmDurumMetni"></span>
+        <button type="button" class="form-kaydet" id="filmKaydetBtn" onclick="filmKaydet()">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+<script src="js/app.js"></script>
+<script>
+  filmlerSayfasiBaslat();
+</script>
+</body>
+</html>
