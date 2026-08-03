@@ -200,6 +200,7 @@ function profilGetir(discordId) {
       filmler: [],
       filmXpKazanilan: [],
       vitrinTuru: "proje",
+      vitrinler: [],
       favoriSarki: null,
       profilSarkiUrl: "",
       profilGoruntulenme: 0,
@@ -231,6 +232,22 @@ function profilGuncelle(discordId, alanlar) {
   db.profiles[discordId] = { ...mevcut, ...alanlar };
   yazDB(db);
   return db.profiles[discordId];
+}
+
+// Vitrin listesi: yeni çoklu vitrin yapısı; eski tek vitrin alanları varsa onu da vitrin olarak göster.
+const VITRIN_TURLERI = ["proje", "galeri", "film", "sarki"];
+function efektifVitrinler(profil) {
+  const liste = Array.isArray(profil.vitrinler) ? profil.vitrinler : [];
+  if (liste.length) return liste;
+  if (profil.vitrinBaslik || profil.vitrinResim || (profil.vitrinTuru && VITRIN_TURLERI.includes(profil.vitrinTuru) && profil.vitrinTuru !== "proje")) {
+    return [{
+      tur: VITRIN_TURLERI.includes(profil.vitrinTuru) ? profil.vitrinTuru : "proje",
+      baslik: profil.vitrinBaslik || "",
+      aciklama: profil.vitrinAciklama || "",
+      resim: profil.vitrinResim || "",
+    }];
+  }
+  return [];
 }
 
 // ---------- Discord API yardımcıları ----------
@@ -514,6 +531,7 @@ app.get("/api/profile/:id", async (req, res) => {
         filmSayisi: fallbackFilmler.length,
         vitrinGaleri: fallbackVitrinGaleri,
         favoriFilm: fallbackFilmler.find((f) => f.favori) || null,
+        vitrinler: efektifVitrinler(profil),
       },
     });
   }
@@ -549,6 +567,7 @@ app.get("/api/profile/:id", async (req, res) => {
       filmSayisi: tumFilmler.length,
       vitrinGaleri,
       favoriFilm,
+      vitrinler: efektifVitrinler(profil),
     },
   });
 });
@@ -1043,9 +1062,26 @@ app.post("/api/profile", girisGerekli, (req, res) => {
   }
 
   // vitrin türü: sadece bilinen vitrin seçeneklerinden biri olabilir
-  const VITRIN_TURLERI = ["proje", "galeri", "film", "sarki"];
   if (typeof req.body.vitrinTuru === "string" && VITRIN_TURLERI.includes(req.body.vitrinTuru)) {
     gelenVeri.vitrinTuru = req.body.vitrinTuru;
+  }
+
+  // vitrinler: birden çok vitrin (Steam vitrin yöneticisi gibi)
+  if (Array.isArray(req.body.vitrinler)) {
+    gelenVeri.vitrinler = req.body.vitrinler
+      .filter((v) => v && typeof v === "object" && VITRIN_TURLERI.includes(v.tur))
+      .slice(0, 6)
+      .map((v) => ({
+        tur: v.tur,
+        baslik: String(v.baslik || "").slice(0, 200),
+        aciklama: String(v.aciklama || "").slice(0, 500),
+        resim: gorselUrlTemizle(String(v.resim || "")),
+      }));
+    // eski tek vitrin alanlarını temizle ki çelişki olmasın
+    gelenVeri.vitrinTuru = "proje";
+    gelenVeri.vitrinBaslik = "";
+    gelenVeri.vitrinAciklama = "";
+    gelenVeri.vitrinResim = "";
   }
 
   // favori şarkı: nesne olarak gelir; boş/null ise temizlenir

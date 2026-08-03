@@ -873,6 +873,11 @@ a {
 }
 
 /* vitrin */
+#pVitrinler {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
 
 .vitrin {
   display: flex;
@@ -1300,6 +1305,100 @@ a {
   border-radius: var(--radius);
   border: 1px solid var(--ink-line);
   background: var(--ink);
+}
+
+/* Düzenleme paneli: çoklu vitrin yöneticisi */
+.vitrin-kayit {
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--profil-accent) 3%, var(--ink));
+}
+
+.vitrin-kayit-ust {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vitrin-kayit-no {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--profil-accent);
+}
+
+.vitrin-kayit-oklar {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.vitrin-ok {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--ink-text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.vitrin-ok:hover:not(:disabled) {
+  border-color: var(--profil-accent);
+  color: var(--profil-accent);
+}
+
+.vitrin-ok:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.vitrin-kayit-sil {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--ink-text);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.vitrin-kayit-sil:hover {
+  border-color: var(--record-red);
+  color: #e0a0a0;
+  background: rgba(139, 34, 34, 0.15);
+}
+
+.vitrin-ekle-btn {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px dashed color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--profil-accent);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.vitrin-ekle-btn:hover {
+  border-style: solid;
+  border-color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 8%, transparent);
+}
+
+.vitrin-ipucu {
+  margin-bottom: 2px;
 }
 
 @media (max-width: 700px) {
