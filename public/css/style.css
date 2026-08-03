@@ -612,7 +612,8 @@ a {
    kaybetmemeli (aksi halde paneller sayfanın ortasında iç içe görünür). */
 .mainframe.bg-resim > .kapak,
 .mainframe.bg-resim > .header,
-.mainframe.bg-resim > .govde {
+.mainframe.bg-resim > .govde,
+.mainframe.bg-resim > .gunluk-icerik {
   position: relative;
   z-index: 1;
 }
