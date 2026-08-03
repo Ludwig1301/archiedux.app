@@ -251,7 +251,13 @@
         <div class="yorumlar-alani">
           <div class="yorumlar-baslik">Yorumlar</div>
           <div class="yorum-form" id="yorumFormAlani" style="display:none;">
-            <textarea id="yorumMetni" placeholder="Bir şeyler yaz... (Enter ile gönder)" oninput="yorumMetniBoyutlandir()" onkeydown="yorumMetniKeydown(event)"></textarea>
+            <div class="yorum-yazi-alani">
+              <textarea id="yorumMetni" placeholder="Bir şeyler yaz... (Enter ile gönder)" oninput="yorumMetniBoyutlandir()" onkeydown="yorumMetniKeydown(event)"></textarea>
+              <button type="button" class="yorum-emoji-btn" onclick="yorumEmojiPanelAcKapat(event)" title="Emoji ekle" aria-label="Emoji ekle">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><path d="M8.5 14.5a4 4 0 0 0 7 0M8.5 9.5h.01M15.5 9.5h.01"/></svg>
+              </button>
+              <div class="yorum-emoji-panel" id="yorumEmojiPanel" style="display:none;"></div>
+            </div>
             <button class="gonder-btn" onclick="yorumGonder()">Gönder</button>
           </div>
           <div class="yorum-listesi" id="yorumListesi"></div>

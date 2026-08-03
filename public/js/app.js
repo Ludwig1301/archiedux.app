@@ -1412,6 +1412,44 @@ async function yorumSil(commentId) {
   }
 }
 
+const YORUM_EMOJILER = ["😀","😁","😂","🤣","😊","😍","🥰","😎","🤩","🥳","😅","😆","🥹","😌","🤔","🙄","😴","🤗","😇","🥺","😮","🤫","🤭","😢","😭","😡","😱","🤯","👻","💀","🤖","😺","👍","👎","👏","🙏","🤝","💪","🔥","✨","🎉","❤️","💖","💯","🎬","🎮","🎵","🍕","☕","⚡","🌙","🌟"];
+
+function yorumEmojiPanelDoldur() {
+  const panel = document.getElementById("yorumEmojiPanel");
+  if (!panel || panel.dataset.doldu) return;
+  panel.dataset.doldu = "1";
+  panel.innerHTML = YORUM_EMOJILER.map((e) => `<button type="button" class="yorum-emoji-oge" onclick="yorumEmojiEkle('${e}')">${e}</button>`).join("");
+}
+
+function yorumEmojiPanelAcKapat(event) {
+  if (event) event.stopPropagation();
+  yorumEmojiPanelDoldur();
+  const panel = document.getElementById("yorumEmojiPanel");
+  if (!panel) return;
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+function yorumEmojiEkle(e) {
+  const ta = document.getElementById("yorumMetni");
+  if (!ta) return;
+  const bas = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+  const son = ta.selectionEnd != null ? ta.selectionEnd : ta.value.length;
+  ta.value = ta.value.slice(0, bas) + e + ta.value.slice(son);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = bas + e.length;
+  yorumMetniBoyutlandir();
+  const panel = document.getElementById("yorumEmojiPanel");
+  if (panel) panel.style.display = "none";
+}
+
+// Emoji paneli dışına tıklanınca kapanır
+document.addEventListener("click", (e) => {
+  const panel = document.getElementById("yorumEmojiPanel");
+  if (panel && !e.target.closest(".yorum-emoji-panel") && !e.target.closest(".yorum-emoji-btn")) {
+    panel.style.display = "none";
+  }
+});
+
 // Yorum yazı alanı içeriğe göre otomatik büyür (scroll çubuğu çıkmaz)
 function yorumMetniBoyutlandir() {
   const ta = document.getElementById("yorumMetni");

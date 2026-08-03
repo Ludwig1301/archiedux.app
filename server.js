@@ -85,6 +85,16 @@ const EASTER_EGGS = {
   "sinema-tutkunu": { ad: "Sinema Tutkunu", aciklama: "Günlüğüne 10 farklı film/dizi ekledin.", ikon: "🎞️", xp: 200 },
 };
 
+// XP ekle; xpKilitli hesaplar için XP verme (seviyesi dondurulmuş üyeler)
+function xpArtir(profil, miktar) {
+  if (!profil || profil.xpKilitli) return 0;
+  if (miktar > 0) {
+    profil.xp = (profil.xp || 0) + miktar;
+    return miktar;
+  }
+  return 0;
+}
+
 // Rozeti kazandır (varsa tekrar kazandırmaz; XP sadece ilk alımda verilir)
 function rozetKazandir(discordId, kod) {
   const egg = EASTER_EGGS[kod];
@@ -107,12 +117,12 @@ function rozetKazandir(discordId, kod) {
     tarih: new Date().toISOString(),
   };
   db.profiles[discordId].rozetler = [rozet, ...rozetler].slice(0, 30);
-  db.profiles[discordId].xp = (profil.xp || 0) + egg.xp;
+  const verilenXp = xpArtir(db.profiles[discordId], egg.xp);
   yazDB(db);
   return {
     zatenVar: false,
     rozet,
-    kazanilanXp: egg.xp,
+    kazanilanXp: verilenXp,
     rozetler: db.profiles[discordId].rozetler,
     seviye: seviyeHesapla(db.profiles[discordId].xp || 0),
   };
@@ -207,6 +217,7 @@ function profilGetir(discordId) {
       okunmamisYorum: 0,
       bildirimler: [],
       xp: 0,
+      xpKilitli: false,
       katilimTarihi: new Date().toISOString(),
     };
     yazDB(db);
@@ -857,9 +868,7 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
   // Sınırsız kayıt: sayfalama ile listelenir, veri kaybı olmaz
   db.profiles[req.session.discordId].filmler = filmler;
   db.profiles[req.session.discordId].filmXpKazanilan = xpKazanilanlar;
-  if (kazanilanXp > 0) {
-    db.profiles[req.session.discordId].xp = (db.profiles[req.session.discordId].xp || 0) + kazanilanXp;
-  }
+  kazanilanXp = xpArtir(db.profiles[req.session.discordId], kazanilanXp);
   yazDB(db);
 
   // Yeni eklenen benzersiz kayıtlarda koleksiyoncu / sinema tutkunu rozetlerini kontrol et
@@ -1134,9 +1143,7 @@ app.post("/api/profile", girisGerekli, (req, res) => {
     }
   }
   db.profiles[hedefId] = { ...onceki, ...gelenVeri };
-  if (kazanilanXp > 0) {
-    db.profiles[hedefId].xp = (onceki.xp || 0) + kazanilanXp;
-  }
+  kazanilanXp = xpArtir(db.profiles[hedefId], kazanilanXp);
   yazDB(db);
 
   const guncel = db.profiles[hedefId];

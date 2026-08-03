@@ -2136,6 +2136,72 @@ button.gonder-btn:hover {
   background-color: rgba(201, 162, 39, 0.1);
 }
 
+.yorum-yazi-alani {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.yorum-yazi-alani textarea {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.yorum-emoji-btn {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--ink-text-dim);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.yorum-emoji-btn:hover {
+  color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 10%, transparent);
+}
+
+.yorum-emoji-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 700;
+  width: 256px;
+  max-width: 90vw;
+  background: var(--ink-card);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.yorum-emoji-oge {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  padding: 5px 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.yorum-emoji-oge:hover {
+  background: color-mix(in srgb, var(--profil-accent) 15%, transparent);
+  transform: scale(1.12);
+}
+
 .yorum-listesi {
   padding-right: 5px;
 }
