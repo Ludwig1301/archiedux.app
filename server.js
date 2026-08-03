@@ -9,6 +9,12 @@ const { RedisStore } = require("connect-redis");
 // Oturumlar Redis'te saklanır; sunucu yeniden başlasa bile üyeler çıkış yapmaz.
 // REDIS_URL tanımlıysa Redis kullanılır. Lokal geliştirmede Redis yoksa
 // oturumlar bellekte tutulur (sunucu yeniden başlayınca sıfırlanır, sadece dev).
+for (const envFile of [path.join(__dirname, ".env"), path.join(__dirname, ".env.example")]) {
+  if (fs.existsSync(envFile)) {
+    dotenv.config({ path: envFile });
+  }
+}
+
 const REDIS_URL = process.env.REDIS_URL || "";
 let sessionStore;
 if (REDIS_URL) {
@@ -19,12 +25,6 @@ if (REDIS_URL) {
   const { MemoryStore } = require("express-session");
   sessionStore = new MemoryStore();
   console.log("REDIS_URL tanımlı değil; oturumlar bellekte tutuluyor (geliştirme modu).");
-}
-
-for (const envFile of [path.join(__dirname, ".env"), path.join(__dirname, ".env.example")]) {
-  if (fs.existsSync(envFile)) {
-    dotenv.config({ path: envFile });
-  }
 }
 
 const {
