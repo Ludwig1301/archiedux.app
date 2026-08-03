@@ -508,7 +508,7 @@ function okeyRender(durum) {
   }
   lobi.style.display = "none";
   sonuc.style.display = "none";
-  oyun.style.display = "block";
+  oyun.style.display = "flex";
   okeyTahtaCiz(durum);
 }
 
