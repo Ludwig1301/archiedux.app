@@ -1932,7 +1932,8 @@ async function uyeListesiYukle() {
 
     grid.innerHTML = uyeler.map((u) => `
       <a href="/profil?id=${encodeURIComponent(u.id)}" class="uye-kart">
-        <img src="${htmlEsc(u.profilAvatar || u.avatar)}" alt="${htmlEsc(u.kullaniciAdi)}" loading="lazy" />
+        <img src="${htmlEsc(u.profilAvatar || u.avatar)}" alt="${htmlEsc(u.kullaniciAdi)}" loading="lazy"
+          onerror="this.onerror=null;this.src='${htmlEsc(u.avatar)}';" />
         <div class="uye-ad">${htmlEsc(u.kullaniciAdi)}</div>
       </a>
     `).join("");

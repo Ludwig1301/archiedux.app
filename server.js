@@ -99,6 +99,12 @@ function gecerliDiscordId(id) {
   return typeof id === "string" && /^\d{15,20}$/.test(id);
 }
 
+// Discord'dan alınamadığında kullanılacak varsayılan avatar (Discord varsayılanlarından)
+function varsayilanAvatar(id) {
+  const n = Math.abs(parseInt(String(id).slice(-2), 10) || 0) % 6;
+  return `https://cdn.discordapp.com/embed/avatars/${n}.png`;
+}
+
 function profilGetir(discordId) {
   const db = okuDB();
   // Geçersiz ID'ler için profil oluşturma; bozuk URL'ler veritabanını kirletmesin.
@@ -368,8 +374,8 @@ app.get("/api/profile/:id", async (req, res) => {
     const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, ...fallbackProfil } = profil;
     return res.json({
       id: req.params.id,
-      kullaniciAdi: "Üye",
-      avatar: profil.avatar || "",
+      kullaniciAdi: profil.sonIsim || "Üye",
+      avatar: profil.avatar || profil.sonAvatar || varsayilanAvatar(req.params.id),
       roller: [],
       profil: { ...fallbackProfil, yorumlar: [], yorumSayfalama: { sayfa: 1, limit: 10, toplam: 0, toplamSayfa: 1 } },
     });
@@ -426,7 +432,7 @@ app.get("/api/profile/:id/gallery", async (req, res) => {
     return { ...entry, comments: enrichedComments };
   }));
   res.json({
-    uye: uyeBilgisi || { id: req.params.id, kullaniciAdi: "Üye", avatar: "", roller: [] },
+    uye: uyeBilgisi || { id: req.params.id, kullaniciAdi: profil.sonIsim || "Üye", avatar: profil.avatar || profil.sonAvatar || varsayilanAvatar(req.params.id), roller: [] },
     profil: {
       ...profil,
       galleryEntries,
@@ -797,20 +803,29 @@ app.get("/api/members", async (req, res) => {
   const db = okuDB();
   const idler = Object.keys(db.profiles).filter(gecerliDiscordId);
   const liste = [];
+  let degisti = false;
   for (let i = 0; i < idler.length; i += 8) {
     const parca = await Promise.all(idler.slice(i, i + 8).map(async (id) => {
       const uyeBilgisi = await discordUyeBilgisiCek(id);
       const profil = db.profiles[id] || {};
+      // Discord başarılı olduğunda son bilinen isim/avatari kalıcı kaydet
+      // (Discord daha sonra çekilemezse üye listesinde boş görünmesin).
+      if (uyeBilgisi && (profil.sonIsim !== uyeBilgisi.kullaniciAdi || profil.sonAvatar !== uyeBilgisi.avatar)) {
+        profil.sonIsim = uyeBilgisi.kullaniciAdi;
+        profil.sonAvatar = uyeBilgisi.avatar;
+        degisti = true;
+      }
       return {
         id,
-        kullaniciAdi: uyeBilgisi ? uyeBilgisi.kullaniciAdi : "Üye",
-        avatar: uyeBilgisi ? uyeBilgisi.avatar : "",
+        kullaniciAdi: uyeBilgisi ? uyeBilgisi.kullaniciAdi : (profil.sonIsim || "Üye"),
+        avatar: uyeBilgisi ? uyeBilgisi.avatar : (profil.sonAvatar || varsayilanAvatar(id)),
         roller: uyeBilgisi ? uyeBilgisi.roller : [],
         profilAvatar: profil.avatar || "",
       };
     }));
     liste.push(...parca.filter(Boolean));
   }
+  if (degisti) yazDB(db);
   UYE_LISTESI_ONBELLEK = { zaman: Date.now(), veri: liste };
   res.json(liste);
 });

@@ -1337,14 +1337,27 @@ a {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  text-decoration: none;
+  background-color: var(--ink);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uye-kart:hover {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .uye-kart img {
   width: 64px;
   height: 64px;
   object-fit: cover;
-  border-radius: var(--radius);
+  border-radius: 50%;
   margin-bottom: 10px;
+  background-color: var(--ink-card);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--profil-accent) 25%, transparent);
 }
 
 .uye-kart .uye-ad {
