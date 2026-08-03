@@ -1,8 +1,13 @@
 // ---------- Okey 101 ----------
 let okeySocket = null;
 let OKEY_OYUN = null;
-let OKEY_RAK = new Array(16).fill(null); // 2 satır x 8 hücre (0-7 alt, 8-15 üst)
+let OKEY_RAK = []; // slot matrisi: [null, {tas}, null, {tas}...] — boşluklar korunur
+let OKEY_GRUPLAR = []; // [{id, type:'group', tiles:[], slotlar:[], totalSum, tip}]
 let SURUKLE = null;
+let BEKLENEN_SLOT = null; // çöpten çekilen taşın konacağı slot
+
+const OKEY_SLOT_SATIR = 12;
+const OKEY_SLOT_TOPLAM = 24;
 
 const RENK_ADI = { k: "kırmızı", m: "mavi", s: "siyah", y: "yeşil" };
 const RENK_SIRA = { k: 0, m: 1, s: 2, y: 3 };
@@ -87,10 +92,14 @@ function okeyCik() {
   okeySocket.emit("okey-cik");
   location.reload();
 }
-function okeyDesteCek() { okeySocket.emit("okey-deste-cek", {}, hataGoster); }
-function okeyCopCek() { okeySocket.emit("okey-cop-cek", {}, hataGoster); }
+function okeyDesteCek() {
+  BEKLENEN_SLOT = OKEY_RAK.findIndex((x) => x === null);
+  okeySocket.emit("okey-deste-cek", {}, hataGoster);
+}
+function okeyCopCek() {
+  okeySocket.emit("okey-cop-cek", {}, hataGoster);
+}
 function okeyTasAt(tileId) { okeySocket.emit("okey-tas-at", { tileId }, hataGoster); }
-
 function okeyAc() {
   const a = grupAnaliz();
   const gruplar = a.ciftGruplar.length >= 5 ? a.ciftGruplar : a.seriGruplar;
@@ -107,125 +116,133 @@ function okeyBitir() {
 }
 function okeyYeniden() { location.reload(); }
 
-// ---------- Istaka ----------
+// ---------- Istaka (slot matrisi) ----------
 function rakGuncelle(ben) {
   const eldekiler = new Set((ben ? ben.el : []).map((t) => t.id));
-  for (let i = 0; i < 16; i++) {
-    if (OKEY_RAK[i] !== null && !eldekiler.has(OKEY_RAK[i])) OKEY_RAK[i] = null;
+  for (let i = 0; i < OKEY_SLOT_TOPLAM; i++) {
+    if (OKEY_RAK[i] && !eldekiler.has(OKEY_RAK[i].id)) OKEY_RAK[i] = null;
   }
-  for (const t of ben ? ben.el : []) {
-    if (!OKEY_RAK.includes(t.id)) {
-      const idx = OKEY_RAK.findIndex((x) => x === null);
-      if (idx === -1) break;
-      OKEY_RAK[idx] = t.id;
+  const yeni = (ben ? ben.el : []).filter((t) => !OKEY_RAK.some((s) => s && s.id === t.id));
+  for (const t of yeni) {
+    let idx = -1;
+    if (BEKLENEN_SLOT !== null && !OKEY_RAK[BEKLENEN_SLOT]) {
+      idx = BEKLENEN_SLOT;
+      BEKLENEN_SLOT = null;
+    } else {
+      idx = OKEY_RAK.findIndex((x) => x === null);
     }
+    if (idx === -1) break;
+    OKEY_RAK[idx] = t;
   }
+  BEKLENEN_SLOT = null;
+  gruplariYenile();
 }
 
+// Taşı ıstakada bir slottan başka bir slota taşı (boşluklar korunur)
 function okeyRakTasi(tileId, hedefIdx) {
-  const kaynak = OKEY_RAK.indexOf(tileId);
+  let kaynak = -1;
+  for (let i = 0; i < OKEY_SLOT_TOPLAM; i++) {
+    if (OKEY_RAK[i] && OKEY_RAK[i].id === tileId) { kaynak = i; break; }
+  }
   if (kaynak === -1 || kaynak === hedefIdx) return;
+  const tas = OKEY_RAK[kaynak];
   const hedefTas = OKEY_RAK[hedefIdx];
   OKEY_RAK[kaynak] = hedefTas;
-  OKEY_RAK[hedefIdx] = tileId;
+  OKEY_RAK[hedefIdx] = tas;
+  gruplariYenile();
   okeyRender(OKEY_OYUN);
 }
 
 function okeySiraladiz() {
   const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
   if (!ben) return;
-  const harita = {};
-  for (const t of ben.el) harita[t.id] = t;
-  const ids = OKEY_RAK.filter((id) => id !== null);
-  ids.sort((a, b) => (RENK_SIRA[harita[a].renk] - RENK_SIRA[harita[b].renk]) || harita[a].num - harita[b].num);
+  const taslar = OKEY_RAK.filter((x) => x !== null);
+  taslar.sort((a, b) => (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]) || a.num - b.num);
   OKEY_RAK.fill(null);
-  ids.forEach((id, i) => { if (i < 16) OKEY_RAK[i] = id; });
+  taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
+  gruplariYenile();
   okeyRender(OKEY_OYUN);
 }
 
 function okeyCiftDiz() {
   const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
   if (!ben) return;
-  const harita = {};
-  for (const t of ben.el) harita[t.id] = t;
-  const ids = OKEY_RAK.filter((id) => id !== null);
-  ids.sort((a, b) => (harita[a].num - harita[b].num) || (RENK_SIRA[harita[a].renk] - RENK_SIRA[harita[b].renk]));
+  const taslar = OKEY_RAK.filter((x) => x !== null);
+  taslar.sort((a, b) => (a.num - b.num) || (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]));
   OKEY_RAK.fill(null);
-  ids.forEach((id, i) => { if (i < 16) OKEY_RAK[i] = id; });
+  taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
+  gruplariYenile();
   okeyRender(OKEY_OYUN);
 }
 
-// ---------- Grup analizi ----------
-function bulEnUzunMeld(taslar, s) {
-  const t0 = taslar[s];
-  if (!t0) return 0;
-  let cift = 1;
-  for (let k = s + 1; k < taslar.length && taslar[k].num === t0.num; k++) cift++;
-  let per = 1;
-  for (let k = s + 1; k < taslar.length && taslar[k].renk === t0.renk && taslar[k].num === t0.num + (k - s); k++) per++;
-  return Math.max(cift >= 3 ? cift : 0, per >= 3 ? per : 0);
+// ---------- Gruplama ----------
+function tasDegeri(t) {
+  return t.sahte || t.okey ? 0 : t.num;
 }
 
-function satirSeri(satir, harita) {
-  const bas = satir * 8;
-  const hucrler = [];
-  for (let c = 0; c < 8; c++) hucrler.push(OKEY_RAK[bas + c]);
+function satirMeldleri(satir) {
+  const bas = satir * OKEY_SLOT_SATIR;
   const gruplar = [];
   let i = 0;
-  while (i < 8) {
-    if (hucrler[i] === null) { i++; continue; }
-    let j = i;
-    while (j < 8 && hucrler[j] !== null) j++;
-    const ids = [];
-    for (let k = i; k < j; k++) ids.push(hucrler[k]);
-    let s = 0;
-    while (s < ids.length) {
-      const taslar = ids.map((id) => harita[id]);
-      const len = bulEnUzunMeld(taslar, s);
-      if (len >= 3) { gruplar.push(ids.slice(s, s + len)); s += len; }
-      else s++;
+  while (i < OKEY_SLOT_SATIR) {
+    const t0 = OKEY_RAK[bas + i];
+    if (!t0) { i++; continue; }
+    let perLen = 1;
+    for (let k = i + 1; k < OKEY_SLOT_SATIR && OKEY_RAK[bas + k]; k++) {
+      const tk = OKEY_RAK[bas + k];
+      if (tk.renk === t0.renk && tk.num === t0.num + (k - i)) perLen++;
+      else break;
     }
-    i = j;
-  }
-  return gruplar;
-}
+    let setLen = 1;
+    for (let k = i + 1; k < OKEY_SLOT_SATIR && OKEY_RAK[bas + k]; k++) {
+      if (OKEY_RAK[bas + k].num === t0.num) setLen++;
+      else break;
+    }
+    let ciftLen = 1;
+    const yan = OKEY_RAK[bas + i + 1];
+    if (yan && yan.renk === t0.renk && yan.num === t0.num) ciftLen = 2;
 
-function satirCift(satir, harita) {
-  const bas = satir * 8;
-  const hucrler = [];
-  for (let c = 0; c < 8; c++) hucrler.push(OKEY_RAK[bas + c]);
-  const gruplar = [];
-  let i = 0;
-  while (i < 8) {
-    if (hucrler[i] === null) { i++; continue; }
-    let j = i;
-    while (j < 8 && hucrler[j] !== null) j++;
-    const ids = [];
-    for (let k = i; k < j; k++) ids.push(hucrler[k]);
-    for (let s = 0; s + 1 < ids.length; s++) {
-      const a = harita[ids[s]];
-      const b = harita[ids[s + 1]];
-      if (a && b && !a.okey && !a.sahte && !b.okey && !b.sahte && a.renk === b.renk && a.num === b.num) {
-        gruplar.push([ids[s], ids[s + 1]]);
-        s++;
+    let secilen = null;
+    if (perLen >= 3) secilen = { len: perLen };
+    if (setLen >= 3 && (!secilen || setLen > secilen.len)) secilen = { len: setLen };
+    if (!secilen && ciftLen === 2) secilen = { len: 2, cift: true };
+
+    if (secilen) {
+      const slotlar = [];
+      const tiles = [];
+      for (let k = 0; k < secilen.len; k++) {
+        slotlar.push(bas + i + k);
+        tiles.push(OKEY_RAK[bas + i + k]);
       }
+      gruplar.push({
+        id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        type: "group",
+        tiles,
+        slotlar,
+        totalSum: tiles.reduce((s, t) => s + tasDegeri(t), 0),
+        tip: secilen.cift ? "cift" : "seri",
+      });
+      i += secilen.len;
+    } else {
+      i++;
     }
-    i = j;
   }
   return gruplar;
+}
+
+function gruplariYenile() {
+  OKEY_GRUPLAR = satirMeldleri(0).concat(satirMeldleri(1));
+}
+
+function okeyGrupDagit(id) {
+  OKEY_GRUPLAR = OKEY_GRUPLAR.filter((g) => g.id !== id);
+  okeyRender(OKEY_OYUN);
 }
 
 function grupAnaliz() {
-  const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
-  const harita = {};
-  for (const t of (ben ? ben.el : [])) harita[t.id] = t;
-  const seriGruplar = satirSeri(0, harita).concat(satirSeri(1, harita));
-  const ciftGruplar = satirCift(0, harita).concat(satirCift(1, harita));
-  const seriSet = new Set();
-  const ciftSet = new Set();
-  for (const g of seriGruplar) for (const id of g) seriSet.add(OKEY_RAK.indexOf(id));
-  for (const g of ciftGruplar) for (const id of g) ciftSet.add(OKEY_RAK.indexOf(id));
-  return { seriGruplar, ciftGruplar, seriSet, ciftSet };
+  const seriGruplar = OKEY_GRUPLAR.filter((g) => g.tip === "seri").map((g) => g.tiles.map((t) => t.id));
+  const ciftGruplar = OKEY_GRUPLAR.filter((g) => g.tip === "cift").map((g) => g.tiles.map((t) => t.id));
+  return { seriGruplar, ciftGruplar };
 }
 
 // ---------- Sürükle-Bırak ----------
@@ -243,9 +260,28 @@ function okeySurukleBasla(e, tileId) {
   ghost.style.left = e.clientX - 22 + "px";
   ghost.style.top = e.clientY - 30 + "px";
   document.body.appendChild(ghost);
-  SURUKLE = { tileId, ghost };
-  const kaynak = document.querySelector(`.okey-rak-hucre .okey-tas[data-id="${tileId}"]`);
+  SURUKLE = { tileId, kaynak: "rak", ghost };
+  const kaynak = document.querySelector(`.okey-rak-hucre .okey-tas[data-id="${tileId}"], .group-wrapper .okey-tas[data-id="${tileId}"]`);
   if (kaynak) kaynak.style.opacity = "0.25";
+}
+
+// Sol drop zone'daki (çöp) taşı sürükleme — ıstakadaki boş slota bırakınca çeker
+function okeyCopSurukleBasla(e) {
+  if (e.button !== 0) return;
+  const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
+  if (!ben) return;
+  const benIdx = OKEY_OYUN.oyuncular.findIndex((o) => o.ben);
+  if (OKEY_OYUN.durum !== "oynaniyor" || OKEY_OYUN.tur !== benIdx || !OKEY_OYUN.cekimGerekli || !OKEY_OYUN.coplerUst) return;
+  e.preventDefault();
+  const tile = OKEY_OYUN.coplerUst;
+  const ghost = document.createElement("div");
+  ghost.className = "okey-tas okey-tas-hayalet";
+  ghost.style.setProperty("--tas-renk", tasRengi(tile));
+  ghost.innerHTML = tasIc(tile);
+  ghost.style.left = e.clientX - 22 + "px";
+  ghost.style.top = e.clientY - 30 + "px";
+  document.body.appendChild(ghost);
+  SURUKLE = { tileId: null, kaynak: "cop", ghost };
 }
 
 function okeySurukleHareket(e) {
@@ -262,16 +298,25 @@ function okeySurukleHareket(e) {
 
 function okeySurukleBitir(e) {
   if (!SURUKLE) return;
-  const { tileId, ghost } = SURUKLE;
+  const { tileId, kaynak, ghost } = SURUKLE;
   SURUKLE = null;
   if (ghost) ghost.remove();
-  const kaynak = document.querySelector(`.okey-rak-hucre .okey-tas[data-id="${tileId}"]`);
-  if (kaynak) kaynak.style.opacity = "";
+  const kaynakEl = document.querySelector(`.okey-rak-hucre .okey-tas[data-id="${tileId}"], .group-wrapper .okey-tas[data-id="${tileId}"]`);
+  if (kaynakEl) kaynakEl.style.opacity = "";
   document.querySelectorAll(".okey-rak-hucre.hedef").forEach((el) => el.classList.remove("hedef"));
+  document.querySelectorAll("#okeyAtisBolge.hedef").forEach((el) => el.classList.remove("hedef"));
 
   const alt = document.elementFromPoint(e.clientX, e.clientY);
   const atis = alt && alt.closest("#okeyAtisBolge");
   const hucre = alt && alt.closest(".okey-rak-hucre");
+
+  if (kaynak === "cop") {
+    if (hucre) {
+      BEKLENEN_SLOT = parseInt(hucre.dataset.hucre, 10);
+      okeyCopCek();
+    }
+    return;
+  }
 
   if (atis) {
     okeyTasAt(tileId);
@@ -300,6 +345,12 @@ function tasIc(t) {
   if (t.sahte) return `<span class="okey-tas-ic sahte">★</span>`;
   if (t.okey) return `<span class="okey-tas-ic okey-tasi okey-tas-okeytasi" style="color:${tasRengi(t)}">${t.num}</span>`;
   return `<span class="okey-tas-ic" style="color:${tasRengi(t)}">${t.num}</span>`;
+}
+
+function tasDrag(t, benimSira) {
+  return `<div class="okey-tas ${benimSira ? "tiklanabilir" : ""}" data-id="${t.id}"
+    onpointerdown="okeySurukleBasla(event, ${t.id})" title="${tasAd(t)}"
+    style="--tas-renk:${tasRengi(t)}">${tasIc(t)}</div>`;
 }
 
 function tasKutu(t, ekstra) {
@@ -398,10 +449,19 @@ function okeyTahtaCiz(durum) {
     gostEl.innerHTML = durum.gosterilen ? tasIc(durum.gosterilen) : "—";
     gostEl.style.setProperty("--tas-renk", durum.gosterilen ? tasRengi(durum.gosterilen) : "#999");
 
+    // Sol drop zone: ortadaki taş (çöp) — sürükleyip ıstaka boş slotuna bırakınca çekilir
     const copEl = document.getElementById("okeyCop");
-    copEl.innerHTML = durum.coplerUst ? tasKutu(durum.coplerUst, "") : '<span style="opacity:0.4">—</span>';
+    if (durum.coplerUst) {
+      copEl.innerHTML = `<div class="okey-tas tiklanabilir" style="--tas-renk:${tasRengi(durum.coplerUst)}"
+        onpointerdown="okeyCopSurukleBasla(event)" title="Istakana sürükle (çöpten al)">${tasIc(durum.coplerUst)}</div>`;
+    } else {
+      copEl.innerHTML = '<span style="opacity:0.4">—</span>';
+    }
     copEl.classList.toggle("tiklanabilir", durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli && durum.coplerUst);
-    copEl.onclick = (durum.durum === "oynaniyor" && durum.tur === benIdx && durum.cekimGerekli && durum.coplerUst) ? okeyCopCek : null;
+
+    // Sağ drop zone: taş atma — ıstakadan buraya sürükle
+    const atisEl = document.getElementById("okeyAtis");
+    atisEl.innerHTML = durum.coplerUst ? tasKutu(durum.coplerUst, "mini") : "📤";
 
     const masaKutu = document.getElementById("okeyMasalar");
     masaKutu.innerHTML = durum.oyuncular
@@ -420,26 +480,36 @@ function okeyTahtaCiz(durum) {
       )
       .join("");
 
-    // Istaka (8x2 hücre, hücreler görünmez)
+    // Istaka: slot matrisi render (grup kapsayıcılar dahil)
     const benimSira = durum.durum === "oynaniyor" && durum.tur === benIdx;
-    const harita = {};
-    for (const t of ben.el || []) harita[t.id] = t;
-    const a = grupAnaliz();
+    gruplariYenile();
+    const grupHaritasi = {};
+    for (const g of OKEY_GRUPLAR) for (const s of g.slotlar) grupHaritasi[s] = g;
 
     const kutu = document.getElementById("okeyEl");
     let html = "";
-    const siraliHucrler = [8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7];
-    for (const idx of siraliHucrler) {
-      const id = OKEY_RAK[idx];
-      const t = id !== null ? harita[id] : null;
-      if (t) {
-        const tasCls = `${benimSira ? "tiklanabilir" : ""} ${a.seriSet.has(idx) ? "okey-tas-seri" : ""} ${a.ciftSet.has(idx) ? "okey-tas-cift" : ""}`;
-        html += `<div class="okey-rak-hucre" data-hucre="${idx}">
-          <div class="okey-tas ${tasCls}" data-id="${id}" onpointerdown="okeySurukleBasla(event, ${id})"
-            title="${tasAd(t)}" style="--tas-renk:${tasRengi(t)}">${tasIc(t)}</div>
+    let i = 0;
+    while (i < OKEY_SLOT_TOPLAM) {
+      const satir = Math.floor(i / OKEY_SLOT_SATIR);
+      const sutun = i % OKEY_SLOT_SATIR;
+      const g = grupHaritasi[i];
+      if (g && g.slotlar[0] === i) {
+        const genislik = g.slotlar.length;
+        html += `<div class="group-wrapper ${g.tip === "cift" ? "cift" : "seri"}"
+          style="grid-column:${sutun + 1} / span ${genislik}; grid-row:${satir + 1};">
+          ${g.tiles.map((t) => tasDrag(t, benimSira)).join("")}
+          <div class="group-info-bar">
+            <span class="group-sum">toplam ${g.totalSum}</span>
+            <button class="group-ungroup" onclick="okeyGrupDagit('${g.id}')" title="Grubu dağıt">×</button>
+          </div>
         </div>`;
+        i += genislik;
+      } else if (!g && OKEY_RAK[i]) {
+        html += `<div class="okey-rak-hucre" data-hucre="${i}">${tasDrag(OKEY_RAK[i], benimSira)}</div>`;
+        i++;
       } else {
-        html += `<div class="okey-rak-hucre" data-hucre="${idx}"></div>`;
+        html += `<div class="okey-rak-hucre" data-hucre="${i}"></div>`;
+        i++;
       }
     }
     kutu.innerHTML = html;
