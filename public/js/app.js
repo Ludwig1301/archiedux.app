@@ -33,6 +33,7 @@ async function navBarDoldur() {
           <div class="bildirim-listesi" id="bildirimListesi"></div>
         </div>
       </div>
+      ${veri.admin ? `<a href="/log">GÜNLÜK</a>` : ""}
       <a href="/profil?id=${veri.id}">${veri.kullaniciAdi}</a>
       <a href="/auth/logout" class="cikis-link">Çıkış</a>
     `;
@@ -75,17 +76,19 @@ function bildirimListesiCiz(liste, kendiId) {
     return;
   }
   kutu.innerHTML = liste
-    .map(
-      (b) => `
-      <a class="bildirim-ogesi ${b.okundu ? "" : "yeni"}" href="/profil?id=${kendiId}">
+    .map((b) => {
+      const galeri = b.tur === "galeri";
+      const link = galeri ? `/galeri?id=${kendiId}` : `/profil?id=${kendiId}`;
+      const eylem = galeri ? "galerine yorum yaptı" : "profiline yorum yaptı";
+      return `
+      <a class="bildirim-ogesi ${b.okundu ? "" : "yeni"}" href="${link}">
         <span class="bildirim-oge-nokta"></span>
         <span class="bildirim-oge-metin">
-          <strong>${b.yazanAd}</strong> profiline yorum yaptı
-          ${b.yorumMetni ? `<span class="bildirim-oge-yorum">"${b.yorumMetni}"</span>` : ""}
+          <strong>${htmlEsc(b.yazanAd)}</strong> ${eylem}
+          ${b.yorumMetni ? `<span class="bildirim-oge-yorum">"${htmlEsc(b.yorumMetni)}"</span>` : ""}
         </span>
-      </a>
-    `
-    )
+      </a>`;
+    })
     .join("");
 }
 
@@ -2069,7 +2072,7 @@ function gunlukKartHTML(f, kendi) {
       ${kendi ? `
         <div class="film-jurnal-butonlar">
           ${f.favori
-            ? `<span class="favori-isaret" title="Favori">★ ${f.tur === "film" ? "Favori Film" : "Favori Dizi"}</span>`
+            ? `<button type="button" class="favori-isaret" title="Favoriden çıkar" onclick="gunlukFavoriYap('${htmlEsc(f.entryId)}')">★ ${f.tur === "film" ? "Favori Film" : "Favori Dizi"}</button>`
             : `<button type="button" class="film-jurnal-favori" title="Favori yap" onclick="gunlukFavoriYap('${htmlEsc(f.entryId)}')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>
               </button>`}
@@ -2315,8 +2318,8 @@ async function filmKaydet() {
     FILM_JURNAL = veri.filmler || FILM_JURNAL;
     if (document.getElementById("pFilmler")) filmProfilGoster(FILM_JURNAL.slice(0, 3), FILM_JURNAL.length);
     if (durumEl) {
-      durumEl.innerText = "Kaydedildi ✓";
-      setTimeout(() => { if (durumEl.innerText === "Kaydedildi ✓") durumEl.innerText = ""; }, 1600);
+      durumEl.innerText = veri.kazanilanXp > 0 ? `Kaydedildi ✓ +${veri.kazanilanXp} XP` : "Kaydedildi ✓";
+      setTimeout(() => { if (durumEl.innerText.startsWith("Kaydedildi")) durumEl.innerText = ""; }, 2200);
     }
     filmModalKapat();
   } catch (e) {
@@ -2406,4 +2409,63 @@ async function filmlerSayfasiBaslat() {
       /* yoksay */
     }
   }
+}
+
+// ---------- Etkinlik Günlüğü (admin) ----------
+const LOG_TUR_ETIKET = {
+  "film-ekle": "film/dizi ekledi",
+  "film-guncelle": "film/dizi güncelledi",
+  "favori": "favori film/dizi seçti",
+  "yorum": "profiline yorum yazdı",
+  "galeri-ekle": "galeriye görsel ekledi",
+  "galeri-yorum": "galeriye yorum yazdı",
+};
+
+async function logSayfasiBaslat() {
+  const ben = await navBarDoldur();
+  BENIM_ID = ben && ben.girisYapti ? ben.id : null;
+  BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
+  const liste = document.getElementById("logListe");
+  if (!liste) return;
+
+  if (!BENIM_ID || !BENIM_ADMIN) {
+    liste.innerHTML = `
+      <div class="log-yetki-yok">
+        <h2>Yetkin Yok</h2>
+        <p>Bu günlük sadece yöneticilere açıktır.</p>
+        <a href="/" class="discord-giris-btn buyuk">Ana Sayfaya Dön</a>
+      </div>`;
+    return;
+  }
+
+  try {
+    const res = await apiFetch("/api/loglar");
+    if (!res.ok) throw new Error("Günlük yüklenemedi.");
+    const veri = await res.json();
+    logListeCiz(veri.loglar || []);
+  } catch (e) {
+    liste.innerHTML = '<span class="bos-hint">Günlük yüklenemedi.</span>';
+  }
+}
+
+function logListeCiz(loglar) {
+  const liste = document.getElementById("logListe");
+  if (!liste) return;
+  if (!loglar.length) {
+    liste.innerHTML = '<span class="bos-hint">Henüz kayıt yok.</span>';
+    return;
+  }
+  liste.innerHTML = loglar.map((l) => `
+    <div class="log-oge">
+      ${l.avatar ? `<img src="${htmlEsc(l.avatar)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />` : `<span class="log-avatar-yok"></span>`}
+      <div class="log-oge-ic">
+        <div class="log-oge-ust">
+          <a href="/profil?id=${encodeURIComponent(l.kullaniciId)}" class="log-isim">${htmlEsc(l.kullaniciAd)}</a>
+          <span class="log-tur">${LOG_TUR_ETIKET[l.tur] || l.tur || ""}</span>
+        </div>
+        ${l.detay ? `<div class="log-detay">${htmlEsc(l.detay)}</div>` : ""}
+        <div class="log-zaman">${yorumTarihYaz(l.tarih)}</div>
+      </div>
+    </div>
+  `).join("");
 }

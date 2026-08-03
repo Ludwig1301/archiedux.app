@@ -106,6 +106,22 @@ function yazDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
+// Site içi etkinlik günlüğü (film ekleme, yorum, galeri vb.) — sadece adminler görür.
+function logEkle(kullaniciId, kullaniciAd, tur, detay) {
+  const db = okuDB();
+  db.loglar = Array.isArray(db.loglar) ? db.loglar : [];
+  db.loglar.unshift({
+    id: `log-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    kullaniciId: String(kullaniciId || ""),
+    kullaniciAd: String(kullaniciAd || "") || null,
+    tur: String(tur || "bilinmeyen"),
+    detay: String(detay || "").slice(0, 300),
+    tarih: new Date().toISOString(),
+  });
+  db.loglar = db.loglar.slice(0, 300);
+  yazDB(db);
+}
+
 function gecerliDiscordId(id) {
   return typeof id === "string" && /^\d{15,20}$/.test(id);
 }
@@ -145,6 +161,7 @@ function profilGetir(discordId) {
       yorumlar: [],
       galleryEntries: [],
       filmler: [],
+      filmXpKazanilan: [],
       okunmamisYorum: 0,
       bildirimler: [],
       xp: 0,
@@ -299,6 +316,8 @@ app.get("/filmler", temizSayfa("filmler.html"));
 app.get("/filmler.html", (req, res) => res.redirect("/filmler"));
 app.get("/gunluk", temizSayfa("gunluk.html"));
 app.get("/gunluk.html", (req, res) => res.redirect("/gunluk"));
+app.get("/log", temizSayfa("log.html"));
+app.get("/log.html", (req, res) => res.redirect("/log"));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -532,6 +551,12 @@ app.post("/api/profile/:id/gallery", girisGerekli, async (req, res) => {
 
   db.profiles[req.params.id].galleryEntries = entries;
   yazDB(db);
+  logEkle(
+    req.session.discordId,
+    null,
+    "galeri-ekle",
+    `Galeriye görsel eklendi${metin ? `: ${metin}` : ""}`
+  );
   res.json({ basarili: true, galleryEntries: entries });
 });
 
@@ -554,7 +579,29 @@ app.post("/api/profile/:id/gallery/:entryId/comments", girisGerekli, async (req,
   });
   entry.comments = entry.comments.slice(0, 50);
   db.profiles[req.params.id].galleryEntries = profil.galleryEntries;
+  // Galeri sahibi yorumcu değilse sahibine bildirim git
+  if (req.params.id !== req.session.discordId) {
+    const hedef = db.profiles[req.params.id];
+    hedef.okunmamisYorum = (hedef.okunmamisYorum || 0) + 1;
+    hedef.bildirimler = Array.isArray(hedef.bildirimler) ? hedef.bildirimler : [];
+    hedef.bildirimler.unshift({
+      id: `bildirim-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      tur: "galeri",
+      yazanId: req.session.discordId,
+      yazanAd: yazan ? yazan.kullaniciAdi : "Üye",
+      yorumMetni: metin.slice(0, 90),
+      tarih: new Date().toISOString(),
+      okundu: false,
+    });
+    hedef.bildirimler = hedef.bildirimler.slice(0, 20);
+  }
   yazDB(db);
+  logEkle(
+    req.session.discordId,
+    yazan ? yazan.kullaniciAdi : null,
+    "galeri-yorum",
+    `Galeriye yorum yazdı${metin ? `: ${metin}` : ""}`
+  );
   res.json({ basarili: true, comments: entry.comments });
 });
 
@@ -666,6 +713,14 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
     : [];
   const mevcut = filmler.find((f) => f.id === id && f.tur === tur);
 
+  // İlk kez eklenen benzersiz film/dizi için XP ver. Kayıt silinip tekrar eklenirse
+  // XP verilmez (filmXpKazanilan listesi kalıcı olduğundan abuse engellenir).
+  const xpAnahtari = `${id}-${tur}`;
+  const xpKazanilanlar = Array.isArray(db.profiles[req.session.discordId].filmXpKazanilan)
+    ? db.profiles[req.session.discordId].filmXpKazanilan
+    : [];
+  let kazanilanXp = 0;
+
   if (mevcut) {
     mevcut.ad = ad;
     mevcut.yil = yil;
@@ -675,6 +730,10 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
     mevcut.yorum = yorum;
     mevcut.guncelleme = new Date().toISOString();
   } else {
+    if (!xpKazanilanlar.includes(xpAnahtari)) {
+      kazanilanXp = 25;
+      xpKazanilanlar.push(xpAnahtari);
+    }
     filmler.unshift({
       entryId: `film-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
       id,
@@ -691,8 +750,24 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
   }
 
   db.profiles[req.session.discordId].filmler = filmler.slice(0, 100);
+  db.profiles[req.session.discordId].filmXpKazanilan = xpKazanilanlar.slice(0, 500);
+  if (kazanilanXp > 0) {
+    db.profiles[req.session.discordId].xp = (db.profiles[req.session.discordId].xp || 0) + kazanilanXp;
+  }
   yazDB(db);
-  res.json({ basarili: true, filmler: db.profiles[req.session.discordId].filmler });
+
+  logEkle(
+    req.session.discordId,
+    null,
+    mevcut ? "film-guncelle" : "film-ekle",
+    `${ad} (${tur === "film" ? "Film" : "Dizi"}${yil ? ` ${yil}` : ""})`
+  );
+
+  res.json({
+    basarili: true,
+    kazanilanXp,
+    filmler: db.profiles[req.session.discordId].filmler,
+  });
 });
 
 // Günlükten bir kaydı sil (sadece sahibi)
@@ -720,10 +795,19 @@ app.post("/api/filmler/favori", girisGerekli, (req, res) => {
     : [];
   const hedef = filmler.find((f) => f.entryId === entryId);
   if (!hedef) return res.status(404).json({ hata: "Kayıt bulunamadı." });
+  const zatenFavori = hedef.favori === true;
   for (const f of filmler) f.favori = false;
-  hedef.favori = true;
+  hedef.favori = !zatenFavori; // tekrar basınca favoriden çıkar
   db.profiles[req.session.discordId].filmler = filmler;
   yazDB(db);
+  if (hedef.favori) {
+    logEkle(
+      req.session.discordId,
+      null,
+      "favori",
+      `${hedef.ad} (${hedef.tur === "film" ? "Film" : "Dizi"}${hedef.yil ? ` ${hedef.yil}` : ""})`
+    );
+  }
   res.json({ basarili: true, filmler });
 });
 
@@ -964,6 +1048,7 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler || [];
     db.profiles[req.params.id].bildirimler.unshift({
       id: `bildirim-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      tur: "yorum",
       yazanId: yazan.id,
       yazanAd: yazan.kullaniciAdi,
       yorumMetni: metin.slice(0, 90),
@@ -973,6 +1058,12 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler.slice(0, 20);
   }
   yazDB(db);
+  logEkle(
+    req.session.discordId,
+    yazanAd,
+    "yorum",
+    `Profile yorum yazdı${metin ? `: ${metin}` : ""}`
+  );
   res.json({ basarili: true, yorumlar: db.profiles[req.params.id].yorumlar });
 });
 
@@ -1007,6 +1098,24 @@ app.post("/api/bildirimler/okundu", girisGerekli, (req, res) => {
     yazDB(db);
   }
   res.json({ basarili: true });
+});
+
+// Etkinlik günlüğü: sadece adminler görür (kim ne ekledi, kime yorum yazdı vb.)
+app.get("/api/loglar", girisGerekli, async (req, res) => {
+  if (!adminMi(req.session.discordId)) {
+    return res.status(403).json({ hata: "Bu günlüğü görme yetkin yok." });
+  }
+  const db = okuDB();
+  const uyeHaritasi = await discordUyeleriTopluCek();
+  const loglar = (db.loglar || []).map((l) => {
+    const uye = uyeHaritasi.get(String(l.kullaniciId));
+    return {
+      ...l,
+      kullaniciAd: uye ? uye.kullaniciAdi : (l.kullaniciAd || "Üye"),
+      avatar: uye ? uye.avatar : "",
+    };
+  });
+  res.json({ loglar });
 });
 
 // Kayıtlı (en az bir kez giriş yapmış) tüm üyelerin listesi
