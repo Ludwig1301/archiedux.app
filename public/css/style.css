@@ -1172,6 +1172,14 @@ a {
   letter-spacing: 0.04em;
 }
 
+.profil-goruntulenme {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  margin: -6px 0 14px;
+  letter-spacing: 0.03em;
+}
+
 .spotify-container {
   background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--ink-line);

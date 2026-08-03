@@ -201,6 +201,7 @@ function profilGetir(discordId) {
       filmXpKazanilan: [],
       vitrinTuru: "proje",
       favoriSarki: null,
+      profilGoruntulenme: 0,
       okunmamisYorum: 0,
       bildirimler: [],
       xp: 0,
@@ -483,6 +484,17 @@ app.get("/api/profile/:id", async (req, res) => {
   const uyeBilgisi = await discordUyeBilgisiCek(req.params.id, kendiProfilim);
   const db = okuDB();
   const profil = profilGetir(req.params.id);
+
+  // Görüntülenme sayacı: sadece profil sayfası istediğinde (goruntulendi=1) ve
+  // sahibi kendi profiline bakmıyorsa artırılır. Kimin baktığı saklanmaz.
+  if (req.query.goruntulendi && req.session.discordId !== req.params.id) {
+    profilGetir(req.params.id); // yoksa oluştur
+    const dbGuncel = okuDB();
+    dbGuncel.profiles[req.params.id].profilGoruntulenme =
+      (dbGuncel.profiles[req.params.id].profilGoruntulenme || 0) + 1;
+    yazDB(dbGuncel);
+    profil.profilGoruntulenme = dbGuncel.profiles[req.params.id].profilGoruntulenme;
+  }
   if (!uyeBilgisi) {
     if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
     const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, filmler: _fallbackFilmler, ...fallbackProfil } = profil;

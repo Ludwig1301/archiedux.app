@@ -616,7 +616,7 @@ async function profilSayfasiBaslat() {
 
   let res = null;
   try {
-    res = await apiFetch(`/api/profile/${GORUNTULENEN_ID}?yorumSayfa=1&yorumLimit=10`);
+    res = await apiFetch(`/api/profile/${GORUNTULENEN_ID}?goruntulendi=1&yorumSayfa=1&yorumLimit=10`);
   } catch (e) {
     res = null;
   }
@@ -651,6 +651,10 @@ async function profilSayfasiBaslat() {
   document.getElementById("pUnvan").innerText = veri.profil.unvan || "Ünvan belirtilmemiş";
   document.getElementById("pBio").innerText =
     veri.profil.bio || "Bu kişi henüz kendini tanıtmamış.";
+
+  // Görüntülenme sayısı (kimin baktığı değil, sadece sayı)
+  const goruntelenmeEl = document.getElementById("profilGoruntulenme");
+  if (goruntelenmeEl) goruntelenmeEl.innerText = (veri.profil.profilGoruntulenme || 0) + " görüntülenme";
 
   // Seviye ve rozetleri göster
   GUNCEL_XP = veri.profil.xp || 0;
