@@ -162,6 +162,8 @@ function profilGetir(discordId) {
       galleryEntries: [],
       filmler: [],
       filmXpKazanilan: [],
+      vitrinTuru: "proje",
+      favoriSarki: null,
       okunmamisYorum: 0,
       bildirimler: [],
       xp: 0,
@@ -448,6 +450,7 @@ app.get("/api/profile/:id", async (req, res) => {
     if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
     const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, filmler: _fallbackFilmler, ...fallbackProfil } = profil;
     const fallbackFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
+    const fallbackVitrinGaleri = (profil.galleryEntries || []).slice(0, 4).map((e) => e.imageUrl).filter(Boolean);
     return res.json({
       id: req.params.id,
       kullaniciAdi: profil.sonIsim || "Üye",
@@ -459,6 +462,7 @@ app.get("/api/profile/:id", async (req, res) => {
         yorumSayfalama: { sayfa: 1, limit: 10, toplam: 0, toplamSayfa: 1 },
         filmler: fallbackFilmler.slice(0, 12),
         filmSayisi: fallbackFilmler.length,
+        vitrinGaleri: fallbackVitrinGaleri,
       },
     });
   }
@@ -482,6 +486,7 @@ app.get("/api/profile/:id", async (req, res) => {
     })
   );
   const tumFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
+  const vitrinGaleri = (profil.galleryEntries || []).slice(0, 4).map((e) => e.imageUrl).filter(Boolean);
   res.json({
     ...uyeBilgisi,
     profil: {
@@ -490,6 +495,7 @@ app.get("/api/profile/:id", async (req, res) => {
       yorumSayfalama: { sayfa: guvenliSayfa, limit, toplam: tumYorumlar.length, toplamSayfa },
       filmler: tumFilmler.slice(0, 12),
       filmSayisi: tumFilmler.length,
+      vitrinGaleri,
     },
   });
 });
@@ -662,6 +668,33 @@ app.get("/api/filmler/arama", async (req, res) => {
   if (!q) return res.json([]);
   const sonuc = await tmdbAra(q);
   res.json(sonuc);
+});
+
+// Favori şarkı arama: ücretsiz iTunes Search API (anahtar gerekmez, sunucu tarafı)
+app.get("/api/sarki/arama", async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 100);
+  if (!q) return res.json([]);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=12`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return res.json([]);
+    const veri = await res.json();
+    const sonuc = (veri.results || []).map((r) => ({
+      ad: r.trackName || r.collectionName || "Bilinmeyen",
+      sanatci: r.artistName || "",
+      album: r.collectionName || "",
+      kapak: r.artworkUrl100 ? r.artworkUrl100.replace("100x100", "300x300") : "",
+    }));
+    return res.json(sonuc);
+  } catch (e) {
+    return res.json([]);
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 // Bir üyenin film/dizi günlüğü (herkese açık)
@@ -946,6 +979,28 @@ app.post("/api/profile", girisGerekli, (req, res) => {
   // arkaplan türü: sadece izin verilen seçeneklerden biri olabilir
   if (typeof req.body.arkaplanTuru === "string" && ARKAPLAN_TURLERI.includes(req.body.arkaplanTuru)) {
     gelenVeri.arkaplanTuru = req.body.arkaplanTuru;
+  }
+
+  // vitrin türü: sadece bilinen vitrin seçeneklerinden biri olabilir
+  const VITRIN_TURLERI = ["proje", "galeri", "film", "sarki"];
+  if (typeof req.body.vitrinTuru === "string" && VITRIN_TURLERI.includes(req.body.vitrinTuru)) {
+    gelenVeri.vitrinTuru = req.body.vitrinTuru;
+  }
+
+  // favori şarkı: nesne olarak gelir; boş/null ise temizlenir
+  if ("favoriSarki" in req.body) {
+    const fs = req.body.favoriSarki;
+    if (fs && typeof fs === "object" && !Array.isArray(fs)) {
+      const sarki = {
+        ad: String(fs.ad || "").slice(0, 200),
+        sanatci: String(fs.sanatci || "").slice(0, 200),
+        album: String(fs.album || "").slice(0, 200),
+        kapak: String(fs.kapak || "").slice(0, 500),
+      };
+      gelenVeri.favoriSarki = sarki.ad ? sarki : null;
+    } else {
+      gelenVeri.favoriSarki = null;
+    }
   }
 
   // İsim / ünvan rengi: tür boş, "renk" veya "gradyan"; renkler geçerli hex olmalı

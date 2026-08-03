@@ -255,6 +255,170 @@ function gorunumUygula(mainframeEl, kapakEl, profil) {
   }
 }
 
+// ---------- Vitrin (Steam vitrin yöneticisi tarzı) ----------
+const VITRIN_BASLIKLAR = {
+  proje: "Öne Çıkan Proje",
+  galeri: "Galeri Vitrini",
+  film: "Favori Film",
+  sarki: "Favori Şarkı",
+};
+
+// Vitrin alanını seçilen türe göre çizer. profil: API'den gelen profil verisi
+function vitrinCiz(profil) {
+  const vitrin = document.getElementById("pVitrin");
+  if (!vitrin) return;
+  const baslikEl = document.getElementById("pVitrinBaslik");
+  const tur = profil.vitrinTuru || "proje";
+  if (baslikEl) baslikEl.innerText = VITRIN_BASLIKLAR[tur] || "Vitrin";
+
+  if (tur === "galeri") {
+    const gorseller = (profil.vitrinGaleri || GUNCEL_VITRIN_GALERI || []).filter(Boolean);
+    if (!gorseller.length) {
+      vitrin.innerHTML = '<span class="bos-hint">Galeride henüz fotoğraf yok.</span>';
+      return;
+    }
+    vitrin.innerHTML = `
+      <div class="vitrin-galeri">
+        ${gorseller.map((u) => `<a href="/galeri?id=${GORUNTULENEN_ID}"><img src="${htmlEsc(u)}" alt="" loading="lazy" /></a>`).join("")}
+      </div>`;
+    return;
+  }
+
+  if (tur === "film") {
+    const filmler = profil.filmler || GUNCEL_PROFIL_FILMLER || [];
+    const favori = filmler.find((f) => f.favori);
+    if (!favori) {
+      vitrin.innerHTML = '<span class="bos-hint">Henüz favori film seçilmemiş.</span>';
+      return;
+    }
+    vitrin.innerHTML = `
+      <div class="vitrin-film">
+        ${favori.poster ? `<img src="${htmlEsc(favori.poster)}" alt="" class="vitrin-film-poster" />` : ""}
+        <div class="proje-detay">
+          <h3>${htmlEsc(favori.ad)}</h3>
+          <p>${favori.tur === "film" ? "Film" : "Dizi"}${favori.yil ? ` · ${htmlEsc(favori.yil)}` : ""}</p>
+          <div class="vitrin-film-alt">${puanYildizlariHTML(favori.puan)}</div>
+          ${favori.yorum ? `<p class="vitrin-film-yorum">${htmlEsc(favori.yorum)}</p>` : ""}
+        </div>
+      </div>`;
+    return;
+  }
+
+  if (tur === "sarki") {
+    const sarki = profil.favoriSarki;
+    if (!sarki || !sarki.ad) {
+      vitrin.innerHTML = '<span class="bos-hint">Henüz favori şarkı seçilmemiş.</span>';
+      return;
+    }
+    vitrin.innerHTML = `
+      <div class="vitrin-sarki">
+        ${sarki.kapak ? `<img src="${htmlEsc(sarki.kapak)}" alt="" class="vitrin-sarki-kapak" />` : ""}
+        <div class="proje-detay">
+          <h3>${htmlEsc(sarki.ad)}</h3>
+          <p>${htmlEsc(sarki.sanatci || "")}</p>
+          ${sarki.album ? `<p class="vitrin-sarki-album">${htmlEsc(sarki.album)}</p>` : ""}
+        </div>
+      </div>`;
+    return;
+  }
+
+  // proje (varsayılan)
+  if (profil.vitrinBaslik) {
+    vitrin.innerHTML = `
+      ${profil.vitrinResim ? `<img src="${htmlEsc(profil.vitrinResim)}" class="proje" />` : ""}
+      <div class="proje-detay">
+        <h3>${htmlEsc(profil.vitrinBaslik)}</h3>
+        <p>${htmlEsc(profil.vitrinAciklama || "")}</p>
+      </div>`;
+  } else {
+    vitrin.innerHTML = '<span class="bos-hint">Henüz bir proje eklenmemiş.</span>';
+  }
+}
+
+// Düzenleme panelinde vitrin türü değişince ilgili alanı göster
+function vitrinTuruDegisti() {
+  const tur = document.getElementById("formVitrinTuru").value;
+  const alanlar = {
+    proje: "vitrinProjeAlani",
+    galeri: "vitrinGaleriAlani",
+    film: "vitrinFilmAlani",
+    sarki: "vitrinSarkiAlani",
+  };
+  for (const [t, id] of Object.entries(alanlar)) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = t === tur ? "block" : "none";
+  }
+}
+
+// Favori şarkı seçimi (iTunes araması)
+async function sarkiAra() {
+  const q = document.getElementById("sarkiAramaInput").value.trim();
+  const kutu = document.getElementById("sarkiSonuclar");
+  if (!q) {
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Aramak için bir şeyler yaz.</span>';
+    return;
+  }
+  if (kutu) kutu.innerHTML = '<span class="bos-hint">Aranıyor…</span>';
+  try {
+    const res = await apiFetch(`/api/sarki/arama?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error("Arama yapılamadı.");
+    const sonuc = await res.json();
+    GUNCEL_SARKI_ARAMA = Array.isArray(sonuc) ? sonuc : [];
+    sarkiSonuclariCiz();
+  } catch (e) {
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Arama şu anda yapılamadı.</span>';
+  }
+}
+
+function sarkiSonuclariCiz() {
+  const kutu = document.getElementById("sarkiSonuclar");
+  if (!kutu) return;
+  if (!GUNCEL_SARKI_ARAMA.length) {
+    kutu.innerHTML = '<span class="bos-hint">Sonuç bulunamadı.</span>';
+    return;
+  }
+  kutu.innerHTML = GUNCEL_SARKI_ARAMA.map((s, i) => `
+    <button type="button" class="sarki-sonuc" onclick="sarkiSec(${i})">
+      ${s.kapak ? `<img src="${htmlEsc(s.kapak)}" alt="" loading="lazy" />` : `<span class="sarki-sonuc-yok"></span>`}
+      <span class="sarki-sonuc-bilgi">
+        <strong>${htmlEsc(s.ad)}</strong>
+        <em>${htmlEsc(s.sanatci)}</em>
+      </span>
+    </button>
+  `).join("");
+}
+
+function sarkiSec(i) {
+  const s = GUNCEL_SARKI_ARAMA[i];
+  if (!s) return;
+  GUNCEL_FAVORI_SARKI = s;
+  sarkiSeciliCiz();
+  canliKaydiTetikle();
+}
+
+function sarkiTemizle() {
+  GUNCEL_FAVORI_SARKI = null;
+  sarkiSeciliCiz();
+  canliKaydiTetikle();
+}
+
+function sarkiSeciliCiz() {
+  const kutu = document.getElementById("sarkiSecili");
+  if (!kutu) return;
+  const s = GUNCEL_FAVORI_SARKI;
+  if (!s || !s.ad) {
+    kutu.style.display = "none";
+    return;
+  }
+  kutu.style.display = "flex";
+  const kapakEl = document.getElementById("sarkiSeciliKapak");
+  if (kapakEl) kapakEl.src = s.kapak || "";
+  const adEl = document.getElementById("sarkiSeciliAd");
+  if (adEl) adEl.innerText = s.ad;
+  const sanatciEl = document.getElementById("sarkiSeciliSanatci");
+  if (sanatciEl) sanatciEl.innerText = s.sanatci || "";
+}
+
 // ---------- Profil sayfası ----------
 let GORUNTULENEN_ID = null;
 let BENIM_ID = null;
@@ -262,6 +426,10 @@ let BENIM_ADMIN = false;
 let DISCORD_AVATAR = "";
 let GUNCEL_PROFIL_FOTO = "";
 let GUNCEL_HAYVAN_RESMI = "";
+let GUNCEL_FAVORI_SARKI = null;
+let GUNCEL_SARKI_ARAMA = [];
+let GUNCEL_VITRIN_GALERI = [];
+let GUNCEL_PROFIL_FILMLER = [];
 let cropper = null;
 let YORUM_SAYFA = 1;
 let YORUM_SAYFALAMA = { sayfa: 1, toplam: 0, toplamSayfa: 1 };
@@ -480,15 +648,10 @@ async function profilSayfasiBaslat() {
     veri.profil
   );
 
-  if (veri.profil.vitrinBaslik) {
-    document.getElementById("pVitrin").innerHTML = `
-      ${veri.profil.vitrinResim ? `<img src="${veri.profil.vitrinResim}" class="proje" />` : ""}
-      <div class="proje-detay">
-        <h3>${veri.profil.vitrinBaslik}</h3>
-        <p>${veri.profil.vitrinAciklama || ""}</p>
-      </div>
-    `;
-  }
+  // Vitrin verilerini sakla ve çiz
+  GUNCEL_VITRIN_GALERI = veri.profil.vitrinGaleri || [];
+  GUNCEL_PROFIL_FILMLER = veri.profil.filmler || [];
+  vitrinCiz(veri.profil);
 
   const hayvanResim = veri.profil.hayvanResmi || veri.profil.kediResmi || "";
   const hayvanResimEl = document.getElementById("pHayvanResmi");
@@ -530,6 +693,12 @@ async function profilSayfasiBaslat() {
   document.getElementById("formVitrinBaslik").value = veri.profil.vitrinBaslik || "";
   document.getElementById("formVitrinAciklama").value = veri.profil.vitrinAciklama || "";
   document.getElementById("formVitrinResim").value = veri.profil.vitrinResim || "";
+  document.getElementById("formVitrinTuru").value = ["proje", "galeri", "film", "sarki"].includes(veri.profil.vitrinTuru)
+    ? veri.profil.vitrinTuru
+    : "proje";
+  GUNCEL_FAVORI_SARKI = veri.profil.favoriSarki || null;
+  vitrinTuruDegisti();
+  sarkiSeciliCiz();
   document.getElementById("formKapakFoto").value = veri.profil.kapakFoto || "";
   document.getElementById("formAksanRenk").value = veri.profil.aksanRenk || "";
   const arkaplanTuru = ["renk", "resim"].includes(veri.profil.arkaplanTuru)
@@ -1106,6 +1275,8 @@ function profilVerileriniTopla() {
     vitrinBaslik: document.getElementById("formVitrinBaslik").value,
     vitrinAciklama: document.getElementById("formVitrinAciklama").value,
     vitrinResim: document.getElementById("formVitrinResim").value,
+    vitrinTuru: document.getElementById("formVitrinTuru").value,
+    favoriSarki: GUNCEL_FAVORI_SARKI,
     kapakFoto: document.getElementById("formKapakFoto").value,
     aksanRenk: document.getElementById("formAksanRenk").value,
     arkaplanTuru: document.getElementById("formArkaplanTuru").value,
@@ -1141,18 +1312,7 @@ function profilCanliGuncelle(veri) {
     veri.unvanRenk2
   );
 
-  const vitrin = document.getElementById("pVitrin");
-  if (veri.vitrinBaslik) {
-    vitrin.innerHTML = `
-      ${veri.vitrinResim ? `<img src="${veri.vitrinResim}" class="proje" />` : ""}
-      <div class="proje-detay">
-        <h3>${veri.vitrinBaslik}</h3>
-        <p>${veri.vitrinAciklama || ""}</p>
-      </div>
-    `;
-  } else {
-    vitrin.innerHTML = '<span class="bos-hint">Henüz bir proje eklenmemiş.</span>';
-  }
+  vitrinCiz(veri);
 
   const hayvanResim = veri.hayvanResmi || GUNCEL_HAYVAN_RESMI || "";
   const hayvanResimEl = document.getElementById("pHayvanResmi");

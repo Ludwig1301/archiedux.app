@@ -194,28 +194,68 @@
         </div>
 
         <div class="dp-bolum">
-          <div class="dp-bolum-baslik">Vitrin</div>
+          <div class="dp-bolum-baslik">Vitrin Yöneticisi</div>
+          <div class="form-yardim" style="margin-bottom:14px;">Profilindeki vitrinde neyi sergileyeceğini seç.</div>
           <div class="form-alani">
-            <label>Proje Başlığı</label>
-            <input id="formVitrinBaslik" type="text" placeholder="Örn: Portfolyo Sitesi" />
+            <label>Vitrin Türü</label>
+            <select id="formVitrinTuru" onchange="vitrinTuruDegisti(); canliKaydiTetikle();">
+              <option value="proje">Öne Çıkan Proje</option>
+              <option value="galeri">Galeri Vitrini</option>
+              <option value="film">Favori Film</option>
+              <option value="sarki">Favori Şarkı</option>
+            </select>
           </div>
-          <div class="form-alani">
-            <label>Proje Açıklaması</label>
-            <textarea id="formVitrinAciklama" rows="2" placeholder="Projeyi kısaca anlat..."></textarea>
-          </div>
-          <div class="form-alani">
-            <label>Proje Görseli</label>
-            <div class="dosya-secici" id="dosyaSeciciVitrin" onclick="document.getElementById('dosyaVitrin').click()">
-              <div class="dosya-secici-onizleme" id="onizlemeVitrin">
-                <button type="button" class="remove-image" onclick="event.stopPropagation(); removeUploadedImage('formVitrinResim','onizlemeVitrin')">×</button>
+
+          <div id="vitrinProjeAlani">
+            <div class="form-alani">
+              <label>Proje Başlığı</label>
+              <input id="formVitrinBaslik" type="text" placeholder="Örn: Portfolyo Sitesi" />
+            </div>
+            <div class="form-alani">
+              <label>Proje Açıklaması</label>
+              <textarea id="formVitrinAciklama" rows="2" placeholder="Projeyi kısaca anlat..."></textarea>
+            </div>
+            <div class="form-alani">
+              <label>Proje Görseli</label>
+              <div class="dosya-secici" id="dosyaSeciciVitrin" onclick="document.getElementById('dosyaVitrin').click()">
+                <div class="dosya-secici-onizleme" id="onizlemeVitrin">
+                  <button type="button" class="remove-image" onclick="event.stopPropagation(); removeUploadedImage('formVitrinResim','onizlemeVitrin')">×</button>
+                </div>
+                <div class="dosya-secici-metin">
+                  <strong>Bilgisayarından görsel seç</strong>
+                  <span>PNG, JPG, GIF veya WEBP</span>
+                </div>
               </div>
-              <div class="dosya-secici-metin">
-                <strong>Bilgisayarından görsel seç</strong>
-                <span>PNG, JPG, GIF veya WEBP</span>
+              <input type="file" id="dosyaVitrin" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formVitrinResim', 'onizlemeVitrin')" />
+              <input type="hidden" id="formVitrinResim" value="" />
+            </div>
+          </div>
+
+          <div id="vitrinGaleriAlani" class="vitrin-alt-alani" style="display:none;">
+            <span class="form-yardim">Profilindeki galeri fotoğrafların burada sergilenir. Fotoğraf eklemek için <a href="/galeri" style="color:var(--profil-accent);">galeri sayfasına</a> git.</span>
+          </div>
+
+          <div id="vitrinFilmAlani" class="vitrin-alt-alani" style="display:none;">
+            <span class="form-yardim">Favori filmin burada sergilenir. Seçmek için <a href="/gunluk" style="color:var(--profil-accent);">günlük sayfanda</a> bir kayda "★ Favori" de.</span>
+          </div>
+
+          <div id="vitrinSarkiAlani" class="vitrin-alt-alani" style="display:none;">
+            <div class="form-alani">
+              <label>Favori Şarkını Seç</label>
+              <div class="film-ara-satir">
+                <input id="sarkiAramaInput" type="text" maxlength="100" placeholder="Şarkı veya sanatçı ara..." onkeydown="if(event.key==='Enter'){event.preventDefault();sarkiAra();}" />
+                <button type="button" onclick="sarkiAra()">Ara</button>
+              </div>
+              <div id="sarkiSonuclar" class="sarki-sonuclar"></div>
+              <div id="sarkiSecili" class="sarki-secili" style="display:none;">
+                <img id="sarkiSeciliKapak" src="" alt="" />
+                <div class="sarki-secili-bilgi">
+                  <strong id="sarkiSeciliAd"></strong>
+                  <span id="sarkiSeciliSanatci"></span>
+                </div>
+                <button type="button" class="form-vazgec" onclick="sarkiTemizle()">Kaldır</button>
               </div>
             </div>
-            <input type="file" id="dosyaVitrin" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="dosyaYukle(this.files[0], 'formVitrinResim', 'onizlemeVitrin')" />
-            <input type="hidden" id="formVitrinResim" value="" />
           </div>
         </div>
 
@@ -236,7 +276,7 @@
         <div class="bio-kutu" id="pBio">Bu kişi henüz kendini tanıtmamış.</div>
 
         <div class="vitrin">
-          <div class="vitrin-baslik">Öne Çıkan Proje</div>
+          <div class="vitrin-baslik" id="pVitrinBaslik">Öne Çıkan Proje</div>
           <div class="vitrin-icerik" id="pVitrin">
             <span class="bos-hint">Henüz bir proje eklenmemiş.</span>
           </div>
