@@ -841,6 +841,7 @@ function oyunDurumu(oyun, kendiId) {
       ben: o.discordId === kendiId,
       el: o.discordId === kendiId ? o.el : [],
       masa: o.masa,
+      atilan: Array.isArray(o.atilan) ? o.atilan.slice(-10) : [],
     })),
   };
 }
@@ -1029,7 +1030,7 @@ io.on("connection", (socket) => {
     const oyun = {
       kod,
       durum: "bekliyor",
-      oyuncular: [{ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false }],
+      oyuncular: [{ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false, atilan: [] }],
       deste: [],
       copler: [],
       gosterilen: null,
@@ -1056,7 +1057,7 @@ io.on("connection", (socket) => {
     if (oyun.oyuncular.some((o) => o.discordId === socket.kullaniciId)) return cb && cb({ hata: "Zaten odadasın." });
     odadanCik();
     const bilgi = await kullaniciBilgisi(socket.kullaniciId);
-    oyun.oyuncular.push({ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false });
+    oyun.oyuncular.push({ ...bilgi, socketId: socket.id, el: [], masa: [], acildi: false, atilan: [] });
     socket.odaKodu = kod;
     socket.join("okey-" + kod);
     if (cb) cb({ basarili: true, kod });
@@ -1085,6 +1086,7 @@ io.on("connection", (socket) => {
         el: [],
         masa: [],
         acildi: false,
+        atilan: [],
       });
     }
     oyunBaslat(oyun);
@@ -1140,6 +1142,8 @@ io.on("connection", (socket) => {
     if (idx === -1) return cb && cb({ hata: "Taş sende yok." });
     const [tas] = oyuncu.el.splice(idx, 1);
     oyun.copler.push(tas);
+    oyuncu.atilan = oyuncu.atilan || [];
+    oyuncu.atilan.push(tas);
     // sıradaki oyuncuya geç
     oyun.tur = (oyun.tur + 1) % oyun.oyuncular.length;
     oyun.cekimGerekli = true;

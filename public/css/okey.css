@@ -315,7 +315,7 @@
 
 .okey-koltuk-sol,
 .okey-koltuk-sag {
-  width: 150px;
+  width: 190px;
   flex-shrink: 0;
 }
 
@@ -579,37 +579,50 @@
   cursor: pointer;
   font-weight: 700;
   color: #333;
-  flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-  padding: 6px;
+  padding: 4px;
 }
 
-.okey-cop .okey-cop-mini {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-  justify-content: center;
+.okey-cop .okey-tas {
+  width: 40px;
+  height: 54px;
 }
 
-.okey-cop .okey-cop-mini .okey-tas {
-  width: 26px;
-  height: 36px;
-}
-
-.okey-cop .okey-cop-mini .okey-tas-ic {
-  font-size: 12px;
-}
-
-.okey-cop .okey-cop-ust {
-  border: 2px solid var(--profil-accent);
-  border-radius: 7px;
-  padding: 1px;
+.okey-cop .okey-tas-ic {
+  font-size: 16px;
 }
 
 .okey-cop.tiklanabilir {
   border-color: var(--profil-accent);
   box-shadow: 0 0 14px rgba(201, 162, 39, 0.5);
+}
+
+/* Koltuk + yanında atılan taşlar */
+.okey-seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.okey-seat-cop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 150px;
+  align-items: center;
+}
+
+.okey-seat-cop .okey-tas {
+  width: 26px;
+  height: 36px;
+}
+
+.okey-seat-cop .okey-tas-ic {
+  font-size: 12px;
+}
+
+.okey-seat-cop-bos {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 16px;
 }
 
 .okey-atis {
@@ -623,56 +636,38 @@
 }
 
 .okey-istaka-cerceve {
-  background: linear-gradient(180deg, #3a2a1a 0%, #2a1e12 100%);
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #4a3420 0%, #2f2013 100%);
   border: 1px solid #5a4630;
   border-radius: 14px;
-  padding: 10px;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6), 0 6px 18px rgba(0, 0, 0, 0.4);
+  padding: 10px 8px;
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6), 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
-.okey-istaka-katman {
-  display: grid;
-  grid-template-columns: repeat(8, 44px);
-  gap: 6px;
-  justify-content: center;
-  min-height: 60px;
-}
-
-.okey-istaka-katman.ust {
-  margin-bottom: 6px;
-}
-
-.okey-rak-hucre {
-  width: 44px;
-  height: 60px;
-  border-radius: 7px;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+.okey-el {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
   justify-content: center;
-  padding: 2px;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  align-items: flex-end;
+  min-height: 132px;
+  align-content: flex-start;
 }
 
-.okey-rak-hucre.grup {
-  border-color: var(--profil-accent);
-  border-style: solid;
-  box-shadow: 0 0 10px rgba(201, 162, 39, 0.35);
+/* Gruplu taşlar tek birim olarak görünür */
+.okey-grup-kapsayici {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px 4px 4px;
+  border-radius: 7px;
+  background: rgba(201, 162, 39, 0.14);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  box-shadow: 0 0 10px rgba(201, 162, 39, 0.2);
 }
 
-.okey-rak-hucre.hedef {
-  border-color: var(--profil-accent);
-  background: rgba(201, 162, 39, 0.12);
-}
-
-.okey-rak-hucre .okey-tas {
-  width: 40px;
-  height: 56px;
-}
-
-.okey-rak-hucre .okey-tas-ic {
-  font-size: 16px;
+.okey-grup-kapsayici .okey-tas {
+  margin: 0;
 }
 
 /* Alt kontroller */
