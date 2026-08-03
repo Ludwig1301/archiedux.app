@@ -819,8 +819,9 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
     });
   }
 
-  db.profiles[req.session.discordId].filmler = filmler.slice(0, 100);
-  db.profiles[req.session.discordId].filmXpKazanilan = xpKazanilanlar.slice(0, 500);
+  // Sınırsız kayıt: sayfalama ile listelenir, veri kaybı olmaz
+  db.profiles[req.session.discordId].filmler = filmler;
+  db.profiles[req.session.discordId].filmXpKazanilan = xpKazanilanlar;
   if (kazanilanXp > 0) {
     db.profiles[req.session.discordId].xp = (db.profiles[req.session.discordId].xp || 0) + kazanilanXp;
   }

@@ -2831,6 +2831,22 @@ body.duzenleme-acik .duzenleme-paneli {
   margin-top: 6px;
 }
 
+.gunluk-kayit-sayisi {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  margin-bottom: 10px;
+  letter-spacing: 0.03em;
+}
+
+.gunluk-sayfalama {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
 .gunluk-baslik {
   font-family: var(--serif);
   font-size: 17px;

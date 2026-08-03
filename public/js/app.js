@@ -2175,6 +2175,8 @@ let FILM_JURNAL = [];
 let FILM_ARAMA_SONUCU = [];
 let FILM_SECILI = null;
 let FILM_PUAN = null;
+let GUNCEL_GUNLUK_SAYFA = 1;
+const GUNLUK_SAYFA_LIMIT = 10;
 
 // Profil sağ panelindeki küçük özet (kayıt sayısı + en fazla 3 afiş)
 function filmProfilGoster(filmler, sayi) {
@@ -2404,7 +2406,36 @@ function gunlukListeCiz() {
         : '<span class="bos-hint">Bu üyenin henüz film/dizi kaydı yok.</span>';
     return;
   }
-  liste.innerHTML = gosterilecekler.map((f) => gunlukKartHTML(f, kendi)).join("");
+
+  const toplamSayfa = Math.max(1, Math.ceil(gosterilecekler.length / GUNLUK_SAYFA_LIMIT));
+  if (GUNCEL_GUNLUK_SAYFA > toplamSayfa) GUNCEL_GUNLUK_SAYFA = toplamSayfa;
+  const baslangic = (GUNCEL_GUNLUK_SAYFA - 1) * GUNLUK_SAYFA_LIMIT;
+  const sayfaKayitlari = gosterilecekler.slice(baslangic, baslangic + GUNLUK_SAYFA_LIMIT);
+
+  const kartlar = sayfaKayitlari.map((f) => gunlukKartHTML(f, kendi)).join("");
+  const ustBilgi = `<div class="gunluk-kayit-sayisi">${gosterilecekler.length} kayıt</div>`;
+  liste.innerHTML = ustBilgi + kartlar + gunlukSayfalamaHTML(GUNCEL_GUNLUK_SAYFA, toplamSayfa);
+}
+
+function gunlukSayfalamaHTML(sayfa, toplamSayfa) {
+  if (toplamSayfa <= 1) return "";
+  let html = '<nav class="gunluk-sayfalama" aria-label="Günlük sayfaları">';
+  for (let i = 1; i <= toplamSayfa; i++) {
+    html += `<button type="button" class="yorum-sayfa ${i === sayfa ? "aktif" : ""}" onclick="gunlukSayfayaGit(${i})">${i}</button>`;
+  }
+  return html + "</nav>";
+}
+
+function gunlukSayfayaGit(sayfa) {
+  GUNCEL_GUNLUK_SAYFA = Math.max(1, sayfa);
+  gunlukListeCiz();
+  const liste = document.getElementById("gunlukListe");
+  if (liste) liste.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function gunlukAramaDegisti() {
+  GUNCEL_GUNLUK_SAYFA = 1;
+  gunlukListeCiz();
 }
 
 async function gunlukFavoriYap(entryId) {
