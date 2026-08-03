@@ -2729,14 +2729,22 @@ body.duzenleme-acik .duzenleme-paneli {
 }
 
 .film-jurnal-favori {
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
-  background: rgba(0, 0, 0, 0.65);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent) !important;
   color: var(--profil-accent);
 }
 
 .film-jurnal-favori:hover {
-  border-color: var(--profil-accent);
-  background: color-mix(in srgb, var(--profil-accent) 18%, rgba(0, 0, 0, 0.65));
+  border-color: var(--profil-accent) !important;
+  background: color-mix(in srgb, var(--profil-accent) 18%, rgba(0, 0, 0, 0.65)) !important;
+}
+
+.film-jurnal-favori svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .favori-isaret {

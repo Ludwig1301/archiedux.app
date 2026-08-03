@@ -2037,8 +2037,10 @@ function gunlukKartHTML(f, kendi) {
       ${kendi ? `
         <div class="film-jurnal-butonlar">
           ${f.favori
-            ? `<span class="favori-isaret" title="Favori film">★ Favori</span>`
-            : `<button type="button" class="film-jurnal-favori" title="Favori yap" onclick="gunlukFavoriYap('${htmlEsc(f.entryId)}')">★ Favori Yap</button>`}
+            ? `<span class="favori-isaret" title="Favori">★ ${f.tur === "film" ? "Favori Film" : "Favori Dizi"}</span>`
+            : `<button type="button" class="film-jurnal-favori" title="Favori yap" onclick="gunlukFavoriYap('${htmlEsc(f.entryId)}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>
+              </button>`}
           <button type="button" class="film-jurnal-sil" title="Sil" onclick="gunlukSil('${htmlEsc(f.entryId)}')">×</button>
         </div>` : ""}
     </div>`;
@@ -2153,7 +2155,7 @@ function gunlukFavoriCiz() {
         ? `<img src="${htmlEsc(favori.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
         : `<div class="favori-poster-yok">${FILM_IKON}</div>`}
       <div class="favori-film-bilgi">
-        <div class="favori-film-etiket">Favori Film</div>
+        <div class="favori-film-etiket">${favori.tur === "film" ? "Favori Film" : "Favori Dizi"}</div>
         <h3>${htmlEsc(favori.ad)}</h3>
         <div class="favori-film-meta">${favori.tur === "film" ? "Film" : "Dizi"}${favori.yil ? ` · ${htmlEsc(favori.yil)}` : ""}</div>
         <div class="film-jurnal-alt">
