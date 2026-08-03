@@ -977,6 +977,12 @@ a {
   flex-shrink: 0;
 }
 
+.vitrin-film .film-poster-yok {
+  width: 92px;
+  height: 138px;
+  flex-shrink: 0;
+}
+
 .vitrin-film .proje-detay {
   min-width: 0;
 }

@@ -299,7 +299,7 @@ function vitrinBirimIcerik(profil, v) {
     if (!favori) return '<span class="bos-hint">Henüz favori film seçilmemiş.</span>';
     return `
       <div class="vitrin-film">
-        ${favori.poster ? `<img src="${htmlEsc(favori.poster)}" alt="" class="vitrin-film-poster" />` : ""}
+        ${favori.poster ? `<img src="${htmlEsc(favori.poster)}" alt="" class="vitrin-film-poster" onerror="gorselHataYerineIcon(this)" />` : ""}
         <div class="proje-detay">
           <h3>${htmlEsc(favori.ad)}</h3>
           <p>${favori.tur === "film" ? "Film" : "Dizi"}${favori.yil ? ` · ${htmlEsc(favori.yil)}` : ""}</p>
@@ -880,7 +880,18 @@ function profilPlayerYukle(videoId, konum, ses) {
             if (konum > 1) {
               // video yüklenmeye başlayınca kaldığı yere atla
               setTimeout(() => { try { e.target.seekTo(konum, true); } catch (err) {} }, 400);
-            }
+}
+
+// ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
+try {
+  profilPlayerOlustur();
+} catch (e) {
+  /* oynatıcı sorunu sayfayı bozmasın */
+}
+setInterval(() => {
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
+}, 5000);
+
           },
           onStateChange: (e) => {
             GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
@@ -950,12 +961,6 @@ function profilPlayerKapat() {
   const kutu = document.getElementById("profilPlayer");
   if (kutu) kutu.style.display = "none";
 }
-
-// Oynatıcıyı oluştur ve çalan şarkının konumunu arka planda kaydet
-profilPlayerOlustur();
-setInterval(() => {
-  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
-}, 5000);
 
 // Düzenleme panelindeki şarkı önizlemesi
 function profilSarkiOnizlemeGuncelle() {
@@ -2314,6 +2319,18 @@ function htmlEsc(deger) {
   }[karakter]));
 }
 
+// Yüklenemeyen afiş/görsel yerine film ikonu göster (boş/broken alan kalmasın)
+function gorselHataYerineIcon(img) {
+  try {
+    const yer = document.createElement("span");
+    yer.className = "film-poster-yok";
+    yer.innerHTML = FILM_IKON;
+    img.replaceWith(yer);
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
 function galeriListesiCiz(entries) {
   const kutu = document.getElementById("galleryContent");
   if (!kutu) return;
@@ -2633,7 +2650,7 @@ function filmProfilGoster(filmler, sayi, filmAdet, diziAdet) {
     <div class="film-profil-afisler">
       ${gosterilecek.map((f) =>
         f.poster
-          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
+          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
           : `<span class="film-profil-afis-yok">${FILM_IKON}</span>`
       ).join("")}
     </div>`;
@@ -2675,7 +2692,7 @@ function gunlukKartHTML(f, kendi) {
   return `
     <div class="film-jurnal-kart gunluk-kart">
       ${f.poster
-        ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
+        ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
         : `<span class="film-poster-yok film-poster-yok-buyuk">${FILM_IKON}</span>`}
       <div class="film-jurnal-ic">
         <div class="film-jurnal-ad">
@@ -2809,7 +2826,7 @@ function gunlukFavoriCiz() {
   alan.innerHTML = `
     <div class="favori-film-kart">
       ${favori.poster
-        ? `<img src="${htmlEsc(favori.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
+        ? `<img src="${htmlEsc(favori.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
         : `<div class="favori-poster-yok">${FILM_IKON}</div>`}
       <div class="favori-film-bilgi">
         <div class="favori-film-etiket">${favori.tur === "film" ? "Favori Film" : "Favori Dizi"}</div>
@@ -3039,7 +3056,7 @@ function filmSonuclariCiz() {
     FILM_ARAMA_SONUCU.map((f, i) => `
       <button type="button" class="film-kart" onclick="filmSec(${i})">
         ${f.poster
-          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
+          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
           : `<span class="film-poster-yok">${FILM_IKON}</span>`}
         <span class="film-kart-bilgi">
           <strong>${htmlEsc(f.ad)}</strong>
