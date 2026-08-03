@@ -2589,6 +2589,93 @@ body.duzenleme-acik .duzenleme-paneli {
   opacity: 0.75;
 }
 
+/* Profildeki "Film & Dizi" butonu (günlüğü açar) */
+.film-profil-buton {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 4px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.film-profil-buton:hover {
+  border-color: color-mix(in srgb, var(--profil-accent) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Film & Dizi günlüğü penceresi (profildeki butondan açılır) */
+.film-jurnal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 5, 8, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.film-jurnal-modal {
+  position: relative;
+  width: min(680px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--ink-card);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 35%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+  padding: 22px;
+}
+
+.film-jurnal-modal-baslik {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.film-jurnal-modal-baslik h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--parchment);
+}
+
+.film-jurnal-modal-baslik .film-modal-kapat {
+  position: static;
+  flex-shrink: 0;
+}
+
+.film-jurnal-modal-icerik {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Günlük kartı içindeki başlık satırı */
+.film-jurnal-ad {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.film-jurnal-ad strong {
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--parchment);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
 .filmler-page {
   padding: 24px 24px 48px;
   max-width: 920px;
@@ -2757,21 +2844,6 @@ body.duzenleme-acik .duzenleme-paneli {
   color: var(--ink-text-dim);
 }
 
-.film-jurnal-baslik {
-  font-family: var(--serif);
-  font-size: 17px;
-  color: var(--profil-accent);
-  margin-bottom: 14px;
-  padding-bottom: 10px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
-}
-
-.film-jurnal {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
 .film-jurnal-kart {
   position: relative;
   display: flex;
@@ -2804,14 +2876,6 @@ body.duzenleme-acik .duzenleme-paneli {
   display: flex;
   flex-direction: column;
   gap: 7px;
-}
-
-.film-jurnal-baslik strong {
-  display: block;
-  font-family: var(--serif);
-  font-size: 15px;
-  color: var(--parchment);
-  line-height: 1.25;
 }
 
 .film-jurnal-tur {
@@ -2921,12 +2985,6 @@ body.duzenleme-acik .duzenleme-paneli {
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--ink-text-dim);
-}
-
-@media (max-width: 780px) {
-  .film-jurnal {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ---------- Film & Dizi: puan + yorum penceresi ---------- */

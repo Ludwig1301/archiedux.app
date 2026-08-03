@@ -96,7 +96,9 @@ function okuDB() {
   if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify({ profiles: {} }, null, 2));
   }
-  const db = JSON.parse(fs.readFileSync(DB_PATH, "utf-8"));
+  let ham = fs.readFileSync(DB_PATH, "utf-8");
+  if (ham.charCodeAt(0) === 0xfeff) ham = ham.slice(1); // UTF-8 BOM olursa temizle
+  const db = JSON.parse(ham);
   return db;
 }
 

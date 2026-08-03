@@ -1735,6 +1735,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     galeriLightboxKapat();
     filmModalKapat();
+    filmJurnalModalKapat();
   }
 });
 
@@ -1966,10 +1967,8 @@ let FILM_PUAN = null;
 function filmProfilGoster(filmler, sayi) {
   const kutu = document.getElementById("pFilmler");
   if (!kutu) return;
-  const link = document.getElementById("filmlerLink");
-  if (link) link.href = `/filmler?id=${GORUNTULENEN_ID}`;
   if (!filmler || !filmler.length) {
-    kutu.innerHTML = '<span class="bos-hint">Henüz film/dizi eklenmemiş.</span>';
+    kutu.innerHTML = '<span class="bos-hint">Henüz film/dizi eklenmemiş. Arama sayfasından ekleyebilirsin.</span>';
     return;
   }
   const filmSayisi = filmler.filter((f) => f.tur === "film").length;
@@ -2017,21 +2016,14 @@ function puanYildizlariHTML(puan) {
   return `<span class="jp-yildizlar"><span class="jp-taban">${YILDIZ_SVG.repeat(5)}</span><span class="jp-dolgu" style="width:${(puan / 5) * 100}%">${YILDIZ_SVG.repeat(5)}</span></span>`;
 }
 
-function filmJurnalCiz() {
-  const kutu = document.getElementById("filmJurnal");
-  if (!kutu) return;
-  if (!FILM_JURNAL.length) {
-    kutu.innerHTML = '<span class="bos-hint">Henüz hiçbir film/dizi eklenmemiş.</span>';
-    return;
-  }
-  const kendi = BENIM_ID === GORUNTULENEN_ID;
-  kutu.innerHTML = FILM_JURNAL.map((f) => `
+function filmJurnalKartHTML(f, kendi) {
+  return `
     <div class="film-jurnal-kart">
       ${f.poster
         ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
         : `<span class="film-poster-yok film-poster-yok-buyuk">${FILM_IKON}</span>`}
       <div class="film-jurnal-ic">
-        <div class="film-jurnal-baslik">
+        <div class="film-jurnal-ad">
           <strong>${htmlEsc(f.ad)}</strong>
           <span class="film-jurnal-tur">${f.tur === "film" ? "Film" : "Dizi"}${f.yil ? ` · ${htmlEsc(f.yil)}` : ""}</span>
         </div>
@@ -2043,14 +2035,67 @@ function filmJurnalCiz() {
       </div>
       ${kendi ? `
         <div class="film-jurnal-butonlar">
-          <button type="button" class="film-jurnal-duzenle" title="Düzenle" onclick="filmDuzenle('${htmlEsc(f.entryId)}')">✎</button>
-          <button type="button" class="film-jurnal-sil" title="Sil" onclick="filmSil('${htmlEsc(f.entryId)}')">×</button>
+          <button type="button" class="film-jurnal-sil" title="Sil" onclick="filmJurnalModalSil('${htmlEsc(f.entryId)}')">×</button>
         </div>` : ""}
-    </div>
-  `).join("");
+    </div>`;
+}
+
+// Profildeki "Film & Dizi" butonuna tıklayınca günlüğü gösteren pencere
+function filmJurnalModalAc() {
+  const modal = document.getElementById("filmJurnalModal");
+  const icerik = document.getElementById("filmJurnalModalIcerik");
+  if (!modal || !icerik || !GORUNTULENEN_ID) return;
+  modal.style.display = "flex";
+  document.body.classList.add("lightbox-acik");
+  icerik.innerHTML = '<span class="bos-hint">Yükleniyor…</span>';
+  apiFetch(`/api/profile/${GORUNTULENEN_ID}/filmler`)
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Yüklenemedi."))))
+    .then((veri) => {
+      FILM_JURNAL = veri.filmler || [];
+      filmJurnalModalCiz();
+    })
+    .catch(() => {
+      icerik.innerHTML = '<span class="bos-hint">Günlük yüklenemedi.</span>';
+    });
+}
+
+function filmJurnalModalCiz() {
+  const icerik = document.getElementById("filmJurnalModalIcerik");
+  if (!icerik) return;
+  const kendi = BENIM_ID === GORUNTULENEN_ID;
+  if (!FILM_JURNAL.length) {
+    icerik.innerHTML = '<span class="bos-hint">Henüz hiçbir film/dizi eklenmemiş.</span>';
+    return;
+  }
+  icerik.innerHTML = FILM_JURNAL.map((f) => filmJurnalKartHTML(f, kendi)).join("");
+}
+
+function filmJurnalModalKapat(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById("filmJurnalModal");
+  if (modal) modal.style.display = "none";
+  document.body.classList.remove("lightbox-acik");
+}
+
+async function filmJurnalModalSil(entryId) {
+  if (!confirm("Bu kaydı günlüğünden silmek istediğine emin misin?")) return;
+  try {
+    const res = await fetch(`/api/filmler/${encodeURIComponent(entryId)}`, { method: "DELETE" });
+    const veri = await res.json();
+    if (!res.ok) throw new Error(veri.hata || "Silinemedi.");
+    FILM_JURNAL = veri.filmler || [];
+    filmJurnalModalCiz();
+    filmProfilGoster(FILM_JURNAL.slice(0, 12), FILM_JURNAL.length);
+  } catch (e) {
+    alert(e.message || "Silinemedi.");
+  }
 }
 
 function filmModalAc(oge) {
+  if (!BENIM_ID) {
+    window.location.href = "/auth/login";
+    return;
+  }
   FILM_SECILI = oge;
   document.getElementById("filmModalAd").innerText = oge.ad;
   document.getElementById("filmModalTur").innerText = oge.tur === "film" ? "Film" : "Dizi";
@@ -2093,11 +2138,6 @@ function filmSec(i) {
   if (oge) filmModalAc(oge);
 }
 
-function filmDuzenle(entryId) {
-  const f = FILM_JURNAL.find((x) => x.entryId === entryId);
-  if (f) filmModalAc(f);
-}
-
 async function filmKaydet() {
   if (!FILM_SECILI) return;
   const btn = document.getElementById("filmKaydetBtn");
@@ -2123,7 +2163,8 @@ async function filmKaydet() {
     const veri = await res.json();
     if (!res.ok) throw new Error(veri.hata || "Kaydedilemedi.");
     FILM_JURNAL = veri.filmler || FILM_JURNAL;
-    filmJurnalCiz();
+    if (document.getElementById("filmJurnalModalIcerik")) filmJurnalModalCiz();
+    if (document.getElementById("pFilmler")) filmProfilGoster(FILM_JURNAL.slice(0, 12), FILM_JURNAL.length);
     if (durumEl) {
       durumEl.innerText = "Kaydedildi ✓";
       setTimeout(() => { if (durumEl.innerText === "Kaydedildi ✓") durumEl.innerText = ""; }, 1600);
@@ -2134,19 +2175,6 @@ async function filmKaydet() {
     alert(e.message || "Kaydedilemedi.");
   } finally {
     if (btn) btn.disabled = false;
-  }
-}
-
-async function filmSil(entryId) {
-  if (!confirm("Bu kaydı günlüğünden silmek istediğine emin misin?")) return;
-  try {
-    const res = await fetch(`/api/filmler/${encodeURIComponent(entryId)}`, { method: "DELETE" });
-    const veri = await res.json();
-    if (!res.ok) throw new Error(veri.hata || "Silinemedi.");
-    FILM_JURNAL = veri.filmler || [];
-    filmJurnalCiz();
-  } catch (e) {
-    alert(e.message || "Silinemedi.");
   }
 }
 
@@ -2202,37 +2230,31 @@ async function filmlerSayfasiBaslat() {
   const ben = await navBarDoldur();
   BENIM_ID = ben && ben.girisYapti ? ben.id : null;
   BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
-  GORUNTULENEN_ID = urlIdOku() || BENIM_ID;
 
-  const ownerEl = document.getElementById("filmOwnerName");
   const formHintEl = document.getElementById("filmFormHint");
   const backEl = document.getElementById("filmBack");
-  const araKutu = document.getElementById("filmAraKutu");
-  const jurnalEl = document.getElementById("filmJurnal");
 
-  if (!GORUNTULENEN_ID) {
-    if (jurnalEl) jurnalEl.innerHTML = '<span class="bos-hint">Günlüğü görmek için giriş yapmalısın.</span>';
-    return;
+  if (backEl) {
+    backEl.href = "/profil";
+    backEl.style.display = BENIM_ID ? "inline-block" : "none";
   }
-
-  const res = await apiFetch(`/api/profile/${GORUNTULENEN_ID}/filmler`);
-  if (!res.ok) {
-    if (jurnalEl) jurnalEl.innerHTML = '<span class="bos-hint">Bu günlüğe erişilemedi.</span>';
-    return;
-  }
-  const veri = await res.json();
-  FILM_JURNAL = veri.filmler || [];
-
-  if (ownerEl) ownerEl.innerText = veri.uye.kullaniciAdi + " · Film & Dizi Günlüğü";
-  document.title = `${veri.uye.kullaniciAdi} · Film & Dizi`;
-  if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
-
-  const kendi = BENIM_ID === GORUNTULENEN_ID;
-  if (araKutu) araKutu.style.display = kendi ? "block" : "none";
   if (formHintEl) {
-    formHintEl.innerText = kendi
-      ? "İzlediğin filmleri ve dizileri ara, puanla, yorumla ve paylaş."
-      : `${veri.uye.kullaniciAdi} adlı üyenin izlediği film ve diziler.`;
+    formHintEl.innerText = BENIM_ID
+      ? "İzlediğin veya izlemek istediğin film ve dizileri ara, puanla, yorumla ve profiline ekle."
+      : "Film ve dizileri arayıp inceleyebilirsin. Kayıt eklemek için Discord ile giriş yapmalısın.";
   }
-  filmJurnalCiz();
+
+  // Güncelleme yapılabilmesi için giriş yapan üyenin mevcut günlüğünü bellekte tut
+  FILM_JURNAL = [];
+  if (BENIM_ID) {
+    try {
+      const res = await apiFetch(`/api/profile/${BENIM_ID}/filmler`);
+      if (res.ok) {
+        const veri = await res.json();
+        FILM_JURNAL = veri.filmler || [];
+      }
+    } catch (e) {
+      /* yoksay */
+    }
+  }
 }

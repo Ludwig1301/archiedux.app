@@ -296,9 +296,10 @@
         </div>
 
         <div class="film-alani">
-          <div class="hayvan-baslik">Film &amp; Dizi</div>
-          <div class="film-profil-onizleme" id="pFilmler"></div>
-          <a class="film-profil-link" id="filmlerLink" href="/filmler">Günlüğü aç →</a>
+          <div class="film-profil-buton" id="filmProfilButon" onclick="filmJurnalModalAc()" role="button" tabindex="0" title="Film & Dizi günlüğünü görüntüle">
+            <div class="hayvan-baslik">Film &amp; Dizi</div>
+            <div class="film-profil-onizleme" id="pFilmler"></div>
+          </div>
         </div>
 
         <div class="linkler">
@@ -327,6 +328,16 @@
           <span>Kaydet</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <div class="film-jurnal-modal-overlay" id="filmJurnalModal" style="display:none;" onclick="filmJurnalModalKapat(event)">
+    <div class="film-jurnal-modal" onclick="event.stopPropagation()">
+      <div class="film-jurnal-modal-baslik">
+        <h2>Film &amp; Dizi Günlüğü</h2>
+        <button type="button" class="film-modal-kapat" onclick="filmJurnalModalKapat()" aria-label="Kapat">×</button>
+      </div>
+      <div id="filmJurnalModalIcerik" class="film-jurnal-modal-icerik"></div>
     </div>
   </div>
 
