@@ -217,6 +217,46 @@ async function discordUyeBilgisiCek(discordId, yenile) {
   return sonuc;
 }
 
+// Tüm üyeleri TEK istekte çeker (rate limit'e takılmamak için).
+// Discord'da her üye için ayrı istek atmak 429'a takılıyordu.
+async function discordUyeleriTopluCek() {
+  const { botToken, guildId } = getDiscordConfig();
+  const harita = new Map();
+  if (!botToken || !guildId) return harita;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
+      headers: { Authorization: `Bot ${botToken}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) return harita;
+    const liste = await res.json();
+    if (!Array.isArray(liste)) return harita;
+    for (const uye of liste) {
+      const u = uye.user || {};
+      const avatarHash = u.avatar;
+      const avatarUrl = avatarHash
+        ? `https://cdn.discordapp.com/avatars/${u.id}/${avatarHash}.png?size=256`
+        : `https://cdn.discordapp.com/embed/avatars/0.png`;
+      const sonuc = {
+        id: u.id,
+        kullaniciAdi: uye.nick || u.global_name || u.username || "Üye",
+        avatar: avatarUrl,
+        roller: uye.roles || [],
+      };
+      harita.set(u.id, sonuc);
+      UYE_ONBELLEK.set(u.id, { zaman: Date.now(), veri: sonuc });
+    }
+  } catch (e) {
+    return harita;
+  } finally {
+    clearTimeout(timeout);
+  }
+  return harita;
+}
+
 // ---------- Express kurulumu ----------
 const app = express();
 app.use(express.json({ limit: "9mb" })); // base64 görsel yüklemeleri için büyütüldü
@@ -802,29 +842,24 @@ app.get("/api/members", async (req, res) => {
   }
   const db = okuDB();
   const idler = Object.keys(db.profiles).filter(gecerliDiscordId);
-  const liste = [];
+  const uyeHaritasi = await discordUyeleriTopluCek();
   let degisti = false;
-  for (let i = 0; i < idler.length; i += 8) {
-    const parca = await Promise.all(idler.slice(i, i + 8).map(async (id) => {
-      const uyeBilgisi = await discordUyeBilgisiCek(id);
-      const profil = db.profiles[id] || {};
-      // Discord başarılı olduğunda son bilinen isim/avatari kalıcı kaydet
-      // (Discord daha sonra çekilemezse üye listesinde boş görünmesin).
-      if (uyeBilgisi && (profil.sonIsim !== uyeBilgisi.kullaniciAdi || profil.sonAvatar !== uyeBilgisi.avatar)) {
-        profil.sonIsim = uyeBilgisi.kullaniciAdi;
-        profil.sonAvatar = uyeBilgisi.avatar;
-        degisti = true;
-      }
-      return {
-        id,
-        kullaniciAdi: uyeBilgisi ? uyeBilgisi.kullaniciAdi : (profil.sonIsim || "Üye"),
-        avatar: uyeBilgisi ? uyeBilgisi.avatar : (profil.sonAvatar || varsayilanAvatar(id)),
-        roller: uyeBilgisi ? uyeBilgisi.roller : [],
-        profilAvatar: profil.avatar || "",
-      };
-    }));
-    liste.push(...parca.filter(Boolean));
-  }
+  const liste = idler.map((id) => {
+    const uyeBilgisi = uyeHaritasi.get(id);
+    const profil = db.profiles[id] || {};
+    if (uyeBilgisi && (profil.sonIsim !== uyeBilgisi.kullaniciAdi || profil.sonAvatar !== uyeBilgisi.avatar)) {
+      profil.sonIsim = uyeBilgisi.kullaniciAdi;
+      profil.sonAvatar = uyeBilgisi.avatar;
+      degisti = true;
+    }
+    return {
+      id,
+      kullaniciAdi: uyeBilgisi ? uyeBilgisi.kullaniciAdi : (profil.sonIsim || "Üye"),
+      avatar: uyeBilgisi ? uyeBilgisi.avatar : (profil.sonAvatar || varsayilanAvatar(id)),
+      roller: uyeBilgisi ? uyeBilgisi.roller : [],
+      profilAvatar: profil.avatar || "",
+    };
+  });
   if (degisti) yazDB(db);
   UYE_LISTESI_ONBELLEK = { zaman: Date.now(), veri: liste };
   res.json(liste);
