@@ -336,17 +336,19 @@
         </div>
 
         <div class="film-alani">
-          <div class="film-baslik-satir">
-            <a class="hayvan-baslik film-profil-baslik-link" id="filmlerLink" href="/gunluk" title="Film & Dizi günlüğünü görüntüle">Film &amp; Dizi</a>
-            <button type="button" class="film-ara-btn" onclick="filmIzlendiAc()" title="İzlediklerinde ara" aria-label="İzlediklerinde ara">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-            </button>
-          </div>
+          <div class="hayvan-baslik">Film &amp; Dizi</div>
           <div class="film-profil-onizleme" id="pFilmler"></div>
+          <a class="yan-buton" id="filmlerLink" href="/gunluk">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M7 4v16M17 4v16M2.5 9h19M2.5 15h19"/></svg>
+            <span>Film &amp; Dizi Günlüğü</span>
+          </a>
         </div>
 
         <div class="linkler">
-          <a id="galeriLink" href="#">Galeri</a>
+          <a class="yan-buton" id="galeriLink" href="#">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M3 17l4.5-4.5a2 2 0 0 1 2.8 0L14 16"/><path d="M12.5 14.5l2-2a2 2 0 0 1 2.8 0L21 16"/></svg>
+            <span>Galeri</span>
+          </a>
         </div>
       </div>
     </div>
@@ -371,18 +373,6 @@
           <span>Kaydet</span>
         </button>
       </div>
-    </div>
-  </div>
-
-  <!-- İzlenen Film & Dizi arama penceresi -->
-  <div class="film-modal-overlay" id="filmIzlendiModal" style="display:none;" onclick="filmIzlendiKapat(event)">
-    <div class="film-modal" onclick="event.stopPropagation()">
-      <button type="button" class="film-modal-kapat" onclick="filmIzlendiKapat()" aria-label="Kapat">×</button>
-      <h2 class="film-izlendi-baslik">İzlenen Film &amp; Dizi</h2>
-      <div class="film-ara-satir" style="margin-bottom:14px;">
-        <input id="filmIzlendiArama" type="text" maxlength="100" placeholder="İzlediğin film/dizi ara..." oninput="filmIzlendiFiltre()" />
-      </div>
-      <div id="filmIzlendiSonuclar" class="izlenen-sonuc-listesi"></div>
     </div>
   </div>
 

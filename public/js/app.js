@@ -1949,7 +1949,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     galeriLightboxKapat();
     filmModalKapat();
-    filmIzlendiKapat();
   }
 });
 
@@ -2386,13 +2385,26 @@ function gunlukListeCiz() {
   const liste = document.getElementById("gunlukListe");
   if (!liste) return;
   const kendi = BENIM_ID === GORUNTULENEN_ID;
-  if (!FILM_JURNAL.length) {
-    liste.innerHTML = kendi
-      ? '<span class="bos-hint">Henüz hiçbir film/dizi eklememişsin. Üst menüdeki "FİLM & DİZİ" sayfasından arayıp ekleyebilirsin.</span>'
-      : '<span class="bos-hint">Bu üyenin henüz film/dizi kaydı yok.</span>';
+  const input = document.getElementById("gunlukArama");
+  const q = (input ? input.value : "").trim().toLowerCase();
+
+  // Arama yapılıyorsa sadece "İzledim" dediği kayıtlarda isim aranır
+  let gosterilecekler = FILM_JURNAL;
+  if (q) {
+    gosterilecekler = FILM_JURNAL.filter(
+      (f) => f.durum === "izledim" && (f.ad || "").toLowerCase().includes(q)
+    );
+  }
+
+  if (!gosterilecekler.length) {
+    liste.innerHTML = q
+      ? '<span class="bos-hint">İzlediği kayıtlarda sonuç bulunamadı.</span>'
+      : kendi
+        ? '<span class="bos-hint">Henüz hiçbir film/dizi eklememişsin. Üst menüdeki "FİLM & DİZİ" sayfasından arayıp ekleyebilirsin.</span>'
+        : '<span class="bos-hint">Bu üyenin henüz film/dizi kaydı yok.</span>';
     return;
   }
-  liste.innerHTML = FILM_JURNAL.map((f) => gunlukKartHTML(f, kendi)).join("");
+  liste.innerHTML = gosterilecekler.map((f) => gunlukKartHTML(f, kendi)).join("");
 }
 
 async function gunlukFavoriYap(entryId) {
@@ -2647,61 +2659,5 @@ function logListeCiz(loglar) {
         <div class="log-zaman">${yorumTarihYaz(l.tarih)}</div>
       </div>
     </div>
-  `).join("");
-}
-
-// ---------- İzlenen Film & Dizi arama (profil) ----------
-// Profildeki Film & Dizi kutusundaki arama butonu: kişinin "izledim" dediği kayıtlarda arar.
-function filmIzlendiAc() {
-  const modal = document.getElementById("filmIzlendiModal");
-  if (!modal || !GORUNTULENEN_ID) return;
-  modal.style.display = "flex";
-  document.body.classList.add("lightbox-acik");
-  const input = document.getElementById("filmIzlendiArama");
-  if (input) input.value = "";
-  const kutu = document.getElementById("filmIzlendiSonuclar");
-  if (kutu) kutu.innerHTML = '<span class="bos-hint">Yükleniyor…</span>';
-  apiFetch(`/api/profile/${GORUNTULENEN_ID}/filmler`)
-    .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Yüklenemedi."))))
-    .then((veri) => {
-      FILM_JURNAL = veri.filmler || [];
-      filmIzlendiFiltre();
-    })
-    .catch(() => {
-      if (kutu) kutu.innerHTML = '<span class="bos-hint">Kayıtlar yüklenemedi.</span>';
-    });
-}
-
-function filmIzlendiKapat(event) {
-  if (event && event.target !== event.currentTarget) return;
-  const modal = document.getElementById("filmIzlendiModal");
-  if (modal) modal.style.display = "none";
-  document.body.classList.remove("lightbox-acik");
-}
-
-function filmIzlendiFiltre() {
-  const input = document.getElementById("filmIzlendiArama");
-  const q = (input ? input.value : "").trim().toLowerCase();
-  const izlenenler = (FILM_JURNAL || []).filter((f) => f.durum === "izledim");
-  const sonuc = q
-    ? izlenenler.filter((f) => (f.ad || "").toLowerCase().includes(q))
-    : izlenenler;
-  const kutu = document.getElementById("filmIzlendiSonuclar");
-  if (!kutu) return;
-  if (!sonuc.length) {
-    kutu.innerHTML = '<span class="bos-hint">İzlediğin kayıtlarda sonuç bulunamadı.</span>';
-    return;
-  }
-  kutu.innerHTML = sonuc.map((f) => `
-    <a class="izlenen-sonuc" href="/gunluk?id=${GORUNTULENEN_ID}">
-      ${f.poster
-        ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
-        : `<span class="film-poster-yok">${FILM_IKON}</span>`}
-      <span class="izlenen-sonuc-ic">
-        <strong>${htmlEsc(f.ad)}</strong>
-        <span class="film-jurnal-tur">${f.tur === "film" ? "Film" : "Dizi"}${f.yil ? ` · ${htmlEsc(f.yil)}` : ""}</span>
-        <span class="izlenen-sonuc-puan">${puanYildizlariHTML(f.puan)}</span>
-      </span>
-    </a>
   `).join("");
 }

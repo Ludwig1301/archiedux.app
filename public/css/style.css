@@ -1829,20 +1829,6 @@ a {
   }
 }
 
-.linkler a {
-  display: block;
-  color: var(--ink-text);
-  text-decoration: none;
-  font-size: 14px;
-  font-family: var(--mono);
-  margin-top: 6px;
-  transition: color 0.2s;
-}
-
-.linkler a:hover {
-  color: var(--profil-accent);
-}
-
 /* yorumlar */
 
 .yorumlar-alani {
@@ -2794,122 +2780,44 @@ body.duzenleme-acik .duzenleme-paneli {
 }
 
 /* Profildeki "Film & Dizi" başlığı: tıklayınca günlük sayfasına götürür */
-.film-profil-baslik-link {
-  display: block;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.film-profil-baslik-link:hover {
-  color: var(--parchment);
-}
-
-.film-baslik-satir {
+/* Profildeki sağ panel gezinme butonları (Film & Dizi Günlüğü / Galeri) */
+.yan-buton {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.film-baslik-satir .hayvan-baslik {
-  margin-bottom: 0;
-}
-
-.film-ara-btn {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
   border-radius: var(--radius);
-  background: none;
+  background: color-mix(in srgb, var(--profil-accent) 8%, transparent);
   color: var(--profil-accent);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
 }
 
-.film-ara-btn:hover {
-  background-color: color-mix(in srgb, var(--profil-accent) 10%, transparent);
+.yan-buton:hover {
   border-color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 16%, transparent);
   transform: translateY(-1px);
 }
 
-.film-ara-btn svg {
+.yan-buton svg {
   width: 15px;
   height: 15px;
-}
-
-/* İzlenen Film & Dizi arama penceresi */
-.film-izlendi-baslik {
-  margin: 0 0 14px;
-  font-family: var(--serif);
-  font-size: 19px;
-  color: var(--parchment);
-  padding-right: 40px;
-}
-
-.izlenen-sonuc-listesi {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 58vh;
-  overflow-y: auto;
-}
-
-.izlenen-sonuc {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 20%, transparent);
-  border-radius: var(--radius);
-  padding: 8px;
-  transition: border-color 0.15s ease, transform 0.15s ease;
-}
-
-.izlenen-sonuc:hover {
-  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
-  transform: translateY(-1px);
-}
-
-.izlenen-sonuc > img {
-  width: 48px;
-  height: 72px;
-  object-fit: cover;
-  border-radius: 3px;
-  flex-shrink: 0;
-  background-color: var(--ink);
-}
-
-.izlenen-sonuc > .film-poster-yok {
-  width: 48px;
-  height: 72px;
   flex-shrink: 0;
 }
 
-.izlenen-sonuc-ic {
-  flex: 1;
-  min-width: 0;
+.linkler {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-}
-
-.izlenen-sonuc-ic strong {
-  font-family: var(--serif);
-  font-size: 14px;
-  color: var(--parchment);
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-.izlenen-sonuc-puan .jp-yildizlar svg {
-  width: 13px;
-  height: 13px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 /* ---------- Film & Dizi Günlüğü sayfası ---------- */
@@ -2918,6 +2826,31 @@ body.duzenleme-acik .duzenleme-paneli {
   display: flex;
   flex-direction: column;
   gap: 26px;
+}
+
+.gunluk-arama-kutu {
+  margin-bottom: 14px;
+}
+
+.gunluk-arama-kutu input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-line);
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.gunluk-arama-kutu input:focus {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+}
+
+.gunluk-arama-kutu .film-ara-ipucu {
+  display: block;
+  margin-top: 6px;
 }
 
 .gunluk-baslik {
