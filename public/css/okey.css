@@ -646,28 +646,45 @@
 }
 
 .okey-el {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, 44px);
+  grid-auto-rows: 58px;
   gap: 5px;
   justify-content: center;
-  align-items: flex-end;
-  min-height: 132px;
-  align-content: flex-start;
 }
 
-/* Gruplu taşlar tek birim olarak görünür */
-.okey-grup-kapsayici {
-  display: inline-flex;
-  gap: 3px;
-  padding: 3px 4px 4px;
-  border-radius: 7px;
-  background: rgba(201, 162, 39, 0.14);
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
-  box-shadow: 0 0 10px rgba(201, 162, 39, 0.2);
+/* Hücreler görünmez — sadece taşlar görünür, taşı istediğin hücreye bırakabilirsin */
+.okey-rak-hucre {
+  position: relative;
+  transition: background-color 0.15s ease;
 }
 
-.okey-grup-kapsayici .okey-tas {
-  margin: 0;
+.okey-rak-hucre.hedef {
+  background: rgba(201, 162, 39, 0.12);
+  border-radius: 8px;
+}
+
+.okey-rak-hucre .okey-tas {
+  width: 42px;
+  height: 56px;
+}
+
+/* Seri grubu (per) — altın vurgu */
+.okey-tas-seri {
+  border-color: var(--profil-accent) !important;
+  box-shadow: 0 0 10px rgba(201, 162, 39, 0.45) !important;
+}
+
+/* Çift grubu — mavi vurgu */
+.okey-tas-cift {
+  border-color: #4a86e8 !important;
+  box-shadow: 0 0 8px rgba(74, 134, 232, 0.35) !important;
+}
+
+.okey-acildi {
+  color: #6fd36f;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 /* Alt kontroller */

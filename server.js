@@ -787,6 +787,33 @@ function ciftDogru(taslar) {
   return normal.every((t) => t.num === num);
 }
 
+// Çift: aynı renk + aynı numaralı iki taş
+function ciftPairDogru(taslar) {
+  if (taslar.length !== 2) return false;
+  const [a, b] = taslar;
+  if (jokerMi(a) || jokerMi(b)) return true;
+  return a.renk === b.renk && a.num === b.num;
+}
+
+// İşleme: taşı açık bir per'in önüne/sonuna (run) ya da set'e (aynı sayı, yeni renk) ekler
+function meldeEkle(meld, tas) {
+  const normal = meld.filter((t) => !jokerMi(t));
+  if (normal.length === 0) return false;
+  const tekRenk = new Set(normal.map((t) => t.renk)).size === 1;
+  if (tekRenk) {
+    if (tas.renk !== normal[0].renk) return false;
+    const min = Math.min(...normal.map((t) => t.num));
+    const max = Math.max(...normal.map((t) => t.num));
+    if (tas.num === min - 1 || tas.num === max + 1) return true;
+    return false;
+  }
+  const num = normal[0].num;
+  if (tas.num !== num) return false;
+  if (meld.length >= 4) return false;
+  if (normal.some((t) => t.renk === tas.renk)) return false;
+  return true;
+}
+
 function perPuan(taslar) {
   const normal = taslar.filter((t) => !jokerMi(t));
   if (normal.length === 0) return 0;
@@ -838,6 +865,7 @@ function oyunDurumu(oyun, kendiId) {
       avatar: o.avatar,
       elSayisi: o.el.length,
       acildi: o.acildi,
+      acilisTipi: o.acilisTipi || null,
       ben: o.discordId === kendiId,
       el: o.discordId === kendiId ? o.el : [],
       masa: o.masa,
@@ -863,12 +891,14 @@ function oyunBaslat(oyun) {
   for (const t of deste) {
     if (t.renk === okeyRenk && t.num === okeyNum) t.okey = true;
   }
-  // dağıt: dağıtan 15, diğerleri 14
+  // dağıt: 101 okey kuralı — dağıtan 22, diğerleri 21 taş
   for (let i = 0; i < oyun.oyuncular.length; i++) {
-    const adet = i === 0 ? 15 : 14;
+    const adet = i === 0 ? 22 : 21;
     oyun.oyuncular[i].el = [];
     oyun.oyuncular[i].masa = [];
     oyun.oyuncular[i].acildi = false;
+    oyun.oyuncular[i].acilisTipi = null;
+    oyun.oyuncular[i].atilan = [];
     for (let k = 0; k < adet; k++) oyun.oyuncular[i].el.push(deste.pop());
   }
   oyun.deste = deste;
@@ -1179,14 +1209,55 @@ io.on("connection", (socket) => {
       oyuncu.el.push(...alinanlar);
       return cb && cb({ hata });
     }
-    const gecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
+
+    // Çift (çift) ile açma: en az 5 çift (her çift = aynı renk+numara 2 taş)
+    const ciftMi = secilenler.length >= 5 && secilenler.every((g) => ciftPairDogru(g));
+    // Seri (101) ile açma: geçerli per/çift(3+ aynı sayı) grupları, toplam >= 101
+    const seriGecerli = secilenler.every((g) => perDogru(g) || ciftDogru(g));
     const toplam = secilenler.reduce((s, g) => s + grupPuan(g), 0);
-    if (!gecerli || toplam < 101 || oyuncu.el.length < 1) {
+
+    let tip = null;
+    if (ciftMi) tip = "cift";
+    else if (seriGecerli && toplam >= 101) tip = "seri";
+
+    if (!tip || oyuncu.el.length < 1) {
       oyuncu.el.push(...alinanlar);
-      return cb && cb({ hata: `Açma geçersiz (toplam ${toplam}; en az 101 olmalı, elde 1 taş kalmalı).` });
+      return cb && cb({ hata: `Açma geçersiz (${ciftMi ? "çift" : "seri"}: 5 çift ya da en az 101 puan gerekir, elde 1 taş kalmalı).` });
     }
     oyuncu.masa.push(...secilenler);
     oyuncu.acildi = true;
+    oyuncu.acilisTipi = tip;
+    oyunYayinla(oyun);
+  });
+
+  // İşleme: açılmış oyuncu, elinden taşları masadaki açık perlere ekler
+  socket.on("okey-isle", (data, cb) => {
+    const oyun = OYUNLAR.get(socket.odaKodu);
+    const oyuncu = oyun && oyun.oyuncular.find((o) => o.discordId === socket.kullaniciId);
+    if (!oyun || oyun.durum !== "oynaniyor" || !oyuncu) return cb && cb({ hata: "Oyun yok." });
+    if (!oyuncu.acildi) return cb && cb({ hata: "Önce açmalısın." });
+    const tasIds = Array.isArray(data && data.tasIds) ? data.tasIds : [];
+    if (tasIds.length === 0) return cb && cb({ hata: "İşlenecek taş yok." });
+
+    const islenen = [];
+    for (const tid of tasIds) {
+      const idx = oyuncu.el.findIndex((t) => t.id === tid);
+      if (idx === -1) return cb && cb({ hata: "Geçersiz taş." });
+      const tas = oyuncu.el.splice(idx, 1)[0];
+      // masadaki bir per'e eklemeyi dene (kendi veya başkasının)
+      let eklendi = false;
+      for (const rakip of oyun.oyuncular) {
+        for (const meld of rakip.masa || []) {
+          if (meldeEkle(meld, tas)) { eklendi = true; break; }
+        }
+        if (eklendi) break;
+      }
+      if (!eklendi) {
+        oyuncu.el.push(tas);
+        return cb && cb({ hata: "Bu taş masadaki hiçbir per'e uymuyor." });
+      }
+      islenen.push(tas);
+    }
     oyunYayinla(oyun);
   });
 
