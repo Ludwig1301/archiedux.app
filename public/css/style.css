@@ -2547,7 +2547,7 @@ body.duzenleme-acik .duzenleme-paneli {
 
 .film-profil-afisler {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
@@ -2575,89 +2575,182 @@ body.duzenleme-acik .duzenleme-paneli {
   height: 18px;
 }
 
-.film-profil-link {
-  display: inline-block;
-  margin-top: 10px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--profil-accent);
-  text-decoration: none;
-  transition: opacity 0.15s ease;
-}
-
-.film-profil-link:hover {
-  opacity: 0.75;
-}
-
-/* Profildeki "Film & Dizi" butonu (günlüğü açar) */
-.film-profil-buton {
+/* Profildeki "Film & Dizi" başlığı: tıklayınca günlük sayfasına götürür */
+.film-profil-baslik-link {
   display: block;
-  width: 100%;
-  text-align: left;
+  text-decoration: none;
   cursor: pointer;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  padding: 4px;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.film-profil-buton:hover {
-  border-color: color-mix(in srgb, var(--profil-accent) 40%, transparent);
-  transform: translateY(-1px);
-}
-
-/* Film & Dizi günlüğü penceresi (profildeki butondan açılır) */
-.film-jurnal-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 960;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(5, 5, 8, 0.86);
-  backdrop-filter: blur(8px);
-}
-
-.film-jurnal-modal {
-  position: relative;
-  width: min(680px, 94vw);
-  max-height: 90vh;
-  overflow-y: auto;
-  background: var(--ink-card);
-  border: 1px solid color-mix(in srgb, var(--profil-accent) 35%, transparent);
-  border-radius: 14px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
-  padding: 22px;
-}
-
-.film-jurnal-modal-baslik {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
-}
-
-.film-jurnal-modal-baslik h2 {
-  margin: 0;
-  font-family: var(--serif);
-  font-size: 20px;
+.film-profil-baslik-link:hover {
   color: var(--parchment);
 }
 
-.film-jurnal-modal-baslik .film-modal-kapat {
-  position: static;
+/* ---------- Film & Dizi Günlüğü sayfası ---------- */
+.gunluk-icerik {
+  padding: 18px 18px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.gunluk-baslik {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--profil-accent);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--profil-accent) 30%, transparent);
+}
+
+.gunluk-bolum {
+  min-width: 0;
+}
+
+.favori-film-alani {
+  min-height: 40px;
+}
+
+.favori-bos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 18px;
+  border: 1px dashed var(--ink-line);
+  border-radius: var(--radius);
+  color: var(--ink-text-dim);
+  font-size: 13px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.favori-ipucu {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-text-dim);
+  opacity: 0.85;
+}
+
+.favori-film-kart {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 25%, transparent);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.favori-film-kart > img {
+  width: 132px;
+  height: 198px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background-color: var(--ink);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+.favori-poster-yok {
+  width: 132px;
+  height: 198px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-text-dim);
+  border: 1px dashed var(--ink-line);
+  border-radius: 6px;
+  background: var(--ink);
   flex-shrink: 0;
 }
 
-.film-jurnal-modal-icerik {
+.favori-poster-yok svg {
+  width: 34px;
+  height: 34px;
+}
+
+.favori-film-bilgi {
+  flex: 1;
+  min-width: 0;
+}
+
+.favori-film-etiket {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--profil-accent), color-mix(in srgb, var(--profil-accent) 60%, #fff));
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+.favori-film-bilgi h3 {
+  margin: 0 0 4px;
+  font-family: var(--serif);
+  font-size: 26px;
+  color: var(--parchment);
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.favori-film-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-text-dim);
+  margin-bottom: 12px;
+}
+
+.favori-film-bilgi .film-jurnal-alt {
+  margin-bottom: 12px;
+}
+
+.favori-film-bilgi .film-jurnal-yorum {
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.gunluk-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.gunluk-kart {
+  width: 100%;
+}
+
+.gunluk-kart > img {
+  width: 84px;
+  height: 126px;
+}
+
+.film-jurnal-favori {
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--profil-accent);
+}
+
+.film-jurnal-favori:hover {
+  border-color: var(--profil-accent);
+  background: color-mix(in srgb, var(--profil-accent) 18%, rgba(0, 0, 0, 0.65));
+}
+
+.favori-isaret {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 26px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--profil-accent), color-mix(in srgb, var(--profil-accent) 60%, #fff));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Günlük kartı içindeki başlık satırı */

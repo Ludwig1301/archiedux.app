@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Film & Dizi Günlüğü</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='22' fill='%23111113' stroke='%23c9a227' stroke-width='3'/><path d='M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z' fill='%23c9a227'/></svg>" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="navbar">
+    <div class="nav-icerik">
+      <div class="nav-sol">
+        <a href="/" class="navbar-mark">
+          <svg class="seal" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="22" stroke="#c9a227" stroke-width="1.6"/>
+            <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="1" opacity="0.6"/>
+            <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
+          </svg>
+          <div class="wordmark">CONGRESS<span>TOPLULUK PROFİLLERİ</span></div>
+        </a>
+        <a href="/uyeler">ÜYELER</a>
+        <a href="/filmler">FİLM &amp; DİZİ</a>
+        <a href="https://congress.archiedux.com" target="_blank" style="color: var(--brass-bright);">CONGRESS WİKİ</a>
+      </div>
+      <div class="nav-sag" id="navSag"></div>
+    </div>
+  </div>
+
+  <div class="mainframe" id="profilAlani" style="display:none;">
+    <div class="kapak kapak-bos" id="pKapak"></div>
+    <div class="header">
+      <div class="avatar-sarici">
+        <img id="pAvatar" src="" class="avatar" />
+      </div>
+      <div class="name">
+        <h1 id="pIsim">—</h1>
+        <div class="seviye-satir">
+          <span class="seviye-rozet" id="pSeviye">Lv. 1</span>
+          <span class="seviye-xp" id="pSeviyeIlerleme">0/100 XP</span>
+        </div>
+        <div class="seviye-cubugu"><div class="seviye-doluluk" id="pSeviyeDoluluk" style="width:0%"></div></div>
+        <p id="pUnvan">Ünvan yok</p>
+      </div>
+      <div class="header-sag-panel">
+        <a id="gunlukBack" class="duzenle-btn" href="#" style="text-decoration:none; text-align:center; display:inline-block;">← Profile Dön</a>
+      </div>
+    </div>
+
+    <div class="gunluk-icerik">
+      <div class="gunluk-bolum">
+        <div class="gunluk-baslik">Favori Filmin</div>
+        <div id="favoriFilmAlani" class="favori-film-alani"></div>
+      </div>
+
+      <div class="gunluk-bolum">
+        <div class="gunluk-baslik">Film &amp; Dizi Günlüğü</div>
+        <div id="gunlukListe" class="gunluk-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero" id="yukleniyorAlani">
+    <p>Günlük yükleniyor...</p>
+  </div>
+
+<script src="js/app.js"></script>
+<script>
+  gunlukSayfasiBaslat();
+</script>
+</body>
+</html>

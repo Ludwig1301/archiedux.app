@@ -297,6 +297,8 @@ app.get("/galeri", temizSayfa("gallery.html"));
 app.get("/uyeler", temizSayfa("members.html"));
 app.get("/filmler", temizSayfa("filmler.html"));
 app.get("/filmler.html", (req, res) => res.redirect("/filmler"));
+app.get("/gunluk", temizSayfa("gunluk.html"));
+app.get("/gunluk.html", (req, res) => res.redirect("/gunluk"));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -683,6 +685,7 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
       durum,
       puan,
       yorum,
+      favori: false,
       tarih: new Date().toISOString(),
     });
   }
@@ -704,6 +707,24 @@ app.delete("/api/filmler/:entryId", girisGerekli, (req, res) => {
   );
   yazDB(db);
   res.json({ basarili: true, filmler: db.profiles[req.session.discordId].filmler });
+});
+
+// Bir kaydı "favori film" yap (sadece sahibi; aynı anda tek favori olur)
+app.post("/api/filmler/favori", girisGerekli, (req, res) => {
+  const entryId = String((req.body || {}).entryId || "");
+  if (!entryId) return res.status(400).json({ hata: "Kayıt kimliği eksik." });
+  profilGetir(req.session.discordId);
+  const db = okuDB();
+  const filmler = Array.isArray(db.profiles[req.session.discordId].filmler)
+    ? db.profiles[req.session.discordId].filmler
+    : [];
+  const hedef = filmler.find((f) => f.entryId === entryId);
+  if (!hedef) return res.status(404).json({ hata: "Kayıt bulunamadı." });
+  for (const f of filmler) f.favori = false;
+  hedef.favori = true;
+  db.profiles[req.session.discordId].filmler = filmler;
+  yazDB(db);
+  res.json({ basarili: true, filmler });
 });
 
 // ---------- Görsel yükleme (kullanıcının kendi bilgisayarından) ----------
