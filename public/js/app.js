@@ -1,10 +1,25 @@
+async function apiFetch(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------- Navbar: giriş durumuna göre sağ üstü doldur ----------
 async function navBarDoldur() {
   const navSag = document.getElementById("navSag");
   if (!navSag) return;
 
-  const res = await fetch("/api/me");
-  const veri = await res.json();
+  let veri = { girisYapti: false };
+  try {
+    const res = await apiFetch("/api/me");
+    if (res.ok) veri = await res.json();
+  } catch (e) {
+    // Navbar beklenmeyen ağ hatasında sayfanın geri kalanını kilitlemesin.
+  }
 
   if (veri.girisYapti) {
     navSag.innerHTML = `
@@ -409,8 +424,13 @@ async function profilSayfasiBaslat() {
     return;
   }
 
-  const res = await fetch(`/api/profile/${GORUNTULEN_ID}?yorumSayfa=1&yorumLimit=10`);
-  if (!res.ok) {
+  let res = null;
+  try {
+    res = await apiFetch(`/api/profile/${GORUNTULEN_ID}?yorumSayfa=1&yorumLimit=10`);
+  } catch (e) {
+    res = null;
+  }
+  if (!res || !res.ok) {
     document.getElementById("yukleniyorAlani").innerHTML = `
       <div class="giris-uyari">
         <svg class="seal" viewBox="0 0 48 48" fill="none">
@@ -904,7 +924,7 @@ function yorumSayfalariHTML(sayfalama) {
 async function yorumSayfasinaGit(sayfa) {
   if (!GORUNTULENEN_ID) return;
   try {
-    const res = await fetch(`/api/profile/${GORUNTULENEN_ID}?yorumSayfa=${sayfa}&yorumLimit=10`);
+    const res = await apiFetch(`/api/profile/${GORUNTULENEN_ID}?yorumSayfa=${sayfa}&yorumLimit=10`);
     if (!res.ok) throw new Error("Yorumlar yüklenemedi.");
     const veri = await res.json();
     YORUM_SAYFA = veri.profil.yorumSayfalama?.sayfa || sayfa;

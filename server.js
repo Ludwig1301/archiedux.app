@@ -172,9 +172,12 @@ async function discordUyeBilgisiCek(discordId, yenile) {
 
   // Bot token ile sunucudaki üyeyi çekiyoruz (canlı avatar/isim/rol bilgisi için)
   let veri;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`, {
       headers: { Authorization: `Bot ${botToken}` },
+      signal: controller.signal,
     });
     if (!res.ok) {
       // canlı çekilemediyse varsa önbellekteki kopyayı döndür (oturumu koru)
@@ -183,6 +186,8 @@ async function discordUyeBilgisiCek(discordId, yenile) {
     veri = await res.json();
   } catch (e) {
     return onbellek ? onbellek.veri : null;
+  } finally {
+    clearTimeout(timeout);
   }
 
   const avatarHash = veri.user.avatar;
@@ -351,11 +356,19 @@ app.get("/api/profile/:id", async (req, res) => {
   // Kendi profilini görüntülüyorsa önbelleği atlayıp canlı bilgi çek
   const kendiProfilim = req.session.discordId === req.params.id;
   const uyeBilgisi = await discordUyeBilgisiCek(req.params.id, kendiProfilim);
-  if (!uyeBilgisi) {
-    return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
-  }
   const db = okuDB();
   const profil = profilGetir(req.params.id);
+  if (!uyeBilgisi) {
+    if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
+    const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, ...fallbackProfil } = profil;
+    return res.json({
+      id: req.params.id,
+      kullaniciAdi: "Üye",
+      avatar: profil.avatar || "",
+      roller: [],
+      profil: { ...fallbackProfil, yorumlar: [], yorumSayfalama: { sayfa: 1, limit: 10, toplam: 0, toplamSayfa: 1 } },
+    });
+  }
   const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, ...profilTemiz } = profil;
   const tumYorumlar = Array.isArray(profil.yorumlar) ? profil.yorumlar : [];
   const sayfa = Math.max(1, parseInt(req.query.yorumSayfa, 10) || 1);
@@ -387,10 +400,11 @@ app.get("/api/profile/:id", async (req, res) => {
 
 app.get("/api/profile/:id/gallery", async (req, res) => {
   const uyeBilgisi = await discordUyeBilgisiCek(req.params.id);
-  if (!uyeBilgisi) {
-    return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
-  }
   const profil = profilGetir(req.params.id);
+  if (!uyeBilgisi) {
+    const db = okuDB();
+    if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
+  }
   const db = okuDB();
   const entries = Array.isArray(profil.galleryEntries) ? profil.galleryEntries : [];
   const galleryEntries = await Promise.all(entries.map(async (entry) => {
@@ -407,7 +421,7 @@ app.get("/api/profile/:id/gallery", async (req, res) => {
     return { ...entry, comments: enrichedComments };
   }));
   res.json({
-    uye: uyeBilgisi,
+    uye: uyeBilgisi || { id: req.params.id, kullaniciAdi: "Üye", avatar: "", roller: [] },
     profil: {
       ...profil,
       galleryEntries,
@@ -774,9 +788,14 @@ app.get("/api/members", async (req, res) => {
   for (let i = 0; i < idler.length; i += 8) {
     const parca = await Promise.all(idler.slice(i, i + 8).map(async (id) => {
       const uyeBilgisi = await discordUyeBilgisiCek(id);
-      if (!uyeBilgisi) return null;
       const profil = db.profiles[id] || {};
-      return { ...uyeBilgisi, profilAvatar: profil.avatar || "" };
+      return {
+        id,
+        kullaniciAdi: uyeBilgisi ? uyeBilgisi.kullaniciAdi : "Üye",
+        avatar: uyeBilgisi ? uyeBilgisi.avatar : "",
+        roller: uyeBilgisi ? uyeBilgisi.roller : [],
+        profilAvatar: profil.avatar || "",
+      };
     }));
     liste.push(...parca.filter(Boolean));
   }
