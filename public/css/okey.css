@@ -263,13 +263,14 @@
    ================================================================ */
 
 .table-scene {
-  perspective: 1000px;
+  perspective: 1200px;
   perspective-origin: 50% 42%;
   width: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
 .okey-tablo {
@@ -344,8 +345,9 @@
 
 /* ---------- Masa yüzeyi (3D eğimli) ---------- */
 .table-surface {
-  transform: rotateX(28deg);
+  transform: rotateX(45deg);
   transform-origin: 50% 100%;
+  transform-style: preserve-3d;
   background:
     radial-gradient(ellipse 90% 70% at 50% 45%, #1a4a1a 0%, #0e2a0e 40%, #081808 70%, #051005 100%);
   border: 3px solid #4a3520;
@@ -353,6 +355,7 @@
   padding: 1.5vh 3vw 2.5vh;
   margin: 0 1vw 0;
   box-shadow:
+    inset 0 0 100px rgba(0, 0, 0, 0.8),
     0 15px 50px rgba(0, 0, 0, 0.7),
     inset 0 0 80px rgba(0, 0, 0, 0.4),
     inset 0 2px 20px rgba(255, 255, 255, 0.03),
@@ -363,6 +366,7 @@
   width: 100%;
   box-sizing: border-box;
   min-height: 0;
+  order: 3;
 }
 
 .table-surface::after {
@@ -386,7 +390,7 @@
 
 .okey-koltuk-ust {
   margin-bottom: 1vh;
-  transform: rotateX(-28deg);
+  transform: rotateX(-45deg);
 }
 
 .okey-orta-satir {
@@ -402,7 +406,7 @@
 .okey-koltuk-sag {
   width: clamp(100px, 14vw, 180px);
   flex-shrink: 0;
-  transform: rotateX(-28deg);
+  transform: rotateX(-45deg);
 }
 
 .okey-oyuncu-kart {
@@ -459,7 +463,7 @@
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 2vw, 22px);
-  transform: rotateX(-28deg);
+  transform: rotateX(-45deg);
   position: relative;
   z-index: 1;
 }
@@ -633,10 +637,16 @@
    ================================================================ */
 
 .table-rack-zone {
-  transform: translateZ(60px);
-  transform-style: preserve-3d;
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(60px);
+  width: 850px;
+  max-width: 95vw;
+  height: auto;
+  border-radius: 10px;
+  z-index: 100;
+  box-sizing: border-box;
 }
 
 .okey-alt-alan {
@@ -734,7 +744,7 @@
   border: 2px solid #6b4a2a;
   border-top: 3px solid #7a5530;
   border-bottom: 3px solid #2a1808;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: clamp(4px, 1vh, 8px) clamp(2px, 0.5vw, 6px);
   overflow: hidden;
   box-shadow:
@@ -749,16 +759,18 @@
 .okey-el {
   display: grid;
   grid-template-columns: repeat(20, 1fr);
-  grid-template-rows: repeat(2, auto);
-  gap: clamp(1px, 0.2vw, 3px);
+  grid-template-rows: repeat(2, 68px);
+  gap: 2px;
   justify-content: center;
+  align-items: flex-end;
   width: 100%;
 }
 
 /* Görünmez sabit slotlar */
 .okey-rak-hucre {
   position: relative;
-  aspect-ratio: 0.65;
+  width: 100%;
+  height: 68px;
   min-width: 0;
   transition: background-color 0.15s ease;
   display: flex;
@@ -779,8 +791,11 @@
 }
 
 .okey-rak-hucre .okey-tas {
-  width: 92%;
-  height: 92%;
+  width: 100%;
+  max-width: 46px;
+  height: 68px;
+  flex-shrink: 1;
+  flex-grow: 0;
 }
 
 /* Grup kapsayıcı (ıstaka içinde) */
@@ -803,9 +818,9 @@
 }
 
 .group-wrapper .okey-tas {
-  width: 45px;
-  height: 65px;
-  flex-shrink: 0;
+  width: 46px;
+  height: 68px;
+  flex-shrink: 1;
   flex-grow: 0;
 }
 
@@ -906,6 +921,7 @@
   margin-top: 1vh;
   padding: 0 1vw;
   transform: translateZ(40px);
+  order: 2;
 }
 
 .okey-sirala {
@@ -940,6 +956,7 @@
   flex-direction: column;
   gap: 4px;
   transform: translateZ(30px);
+  order: 1;
 }
 
 .okey-masa-satir {
@@ -1025,18 +1042,18 @@
   .table-surface {
     border-radius: 35%;
     padding: 1vh 2vw 2vh;
-    transform: rotateX(20deg);
+    transform: rotateX(30deg);
   }
 
   .table-surface .okey-koltuk-ust,
   .okey-koltuk-sol,
   .okey-koltuk-sag,
   .okey-merkez {
-    transform: rotateX(-20deg);
+    transform: rotateX(-30deg);
   }
 
   .table-rack-zone {
-    transform: translateZ(40px);
+    transform: translateX(-50%) translateZ(40px);
   }
 
   .okey-alt-kontroller {
@@ -1058,8 +1075,9 @@
     border-radius: 30%;
     padding: 0.8vh 1.5vw 1.5vh;
     border-width: 2px;
-    transform: rotateX(15deg);
+    transform: rotateX(25deg);
     box-shadow:
+      inset 0 0 60px rgba(0, 0, 0, 0.7),
       0 10px 30px rgba(0, 0, 0, 0.7),
       inset 0 0 40px rgba(0, 0, 0, 0.4),
       0 0 0 3px #2a1f0f,
@@ -1070,11 +1088,11 @@
   .okey-koltuk-sol,
   .okey-koltuk-sag,
   .okey-merkez {
-    transform: rotateX(-15deg);
+    transform: rotateX(-25deg);
   }
 
   .table-rack-zone {
-    transform: translateZ(25px);
+    transform: translateX(-50%) translateZ(25px);
   }
 
   .okey-alt-alan {
