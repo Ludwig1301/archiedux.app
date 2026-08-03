@@ -565,6 +565,7 @@ function kayitHedefi() {
 
 // ---------- Seviye / XP / Rozetler ----------
 let GUNCEL_XP = 0;
+let GUNCEL_XP_YAZI = "";
 let GUNCEL_ROZETLER = [];
 
 function seviyeBilgisi(xp) {
@@ -583,7 +584,8 @@ function seviyeGoster() {
   const rozet = document.getElementById("pSeviye");
   if (rozet) rozet.innerText = "Lv. " + bilgi.seviye;
   const ilerleme = document.getElementById("pSeviyeIlerleme");
-  if (ilerleme) ilerleme.innerText = `${bilgi.mevcut}/${bilgi.gerekli} XP`;
+  // Özel XP yazısı varsa (easter egg) hesaplanan yerine o yazı gösterilir
+  if (ilerleme) ilerleme.innerText = GUNCEL_XP_YAZI || `${bilgi.mevcut}/${bilgi.gerekli} XP`;
   const doluluk = document.getElementById("pSeviyeDoluluk");
   if (doluluk) doluluk.style.width = Math.min(100, Math.round((bilgi.mevcut / bilgi.gerekli) * 100)) + "%";
 }
@@ -887,6 +889,7 @@ async function profilSayfasiBaslat() {
 
   // Seviye ve rozetleri göster
   GUNCEL_XP = veri.profil.xp || 0;
+  GUNCEL_XP_YAZI = veri.profil.xpYazi || "";
   GUNCEL_ROZETLER = veri.profil.rozetler || [];
   seviyeGoster();
   rozetlerGoster();
@@ -2592,6 +2595,7 @@ async function gunlukSayfasiBaslat() {
   document.title = `${veri.kullaniciAdi} · Film & Dizi`;
   document.getElementById("pUnvan").innerText = veri.profil.unvan || "Ünvan belirtilmemiş";
   GUNCEL_XP = veri.profil.xp || 0;
+  GUNCEL_XP_YAZI = veri.profil.xpYazi || "";
   seviyeGoster();
   metinRengiUygula(
     document.getElementById("pIsim"),
