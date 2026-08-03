@@ -1044,7 +1044,7 @@ async function profilSayfasiBaslat() {
   rozetlerGoster();
 
   // Film & Dizi günlüğü özeti (sağ panel)
-  filmProfilGoster(veri.profil.filmler || [], veri.profil.filmSayisi || 0);
+  filmProfilGoster(veri.profil.filmler || [], veri.profil.filmSayisi || 0, veri.profil.filmAdet, veri.profil.diziAdet);
 
   gorunumUygula(
     document.getElementById("profilAlani"),
@@ -2610,7 +2610,7 @@ let GUNCEL_GUNLUK_SAYFA = 1;
 const GUNLUK_SAYFA_LIMIT = 10;
 
 // Profil sağ panelindeki küçük özet (kayıt sayısı + en fazla 3 afiş)
-function filmProfilGoster(filmler, sayi) {
+function filmProfilGoster(filmler, sayi, filmAdet, diziAdet) {
   const kutu = document.getElementById("pFilmler");
   if (!kutu) return;
   const link = document.getElementById("filmlerLink");
@@ -2619,12 +2619,19 @@ function filmProfilGoster(filmler, sayi) {
     kutu.innerHTML = '<span class="bos-hint">Henüz film/dizi eklenmemiş.</span>';
     return;
   }
-  const filmSayisi = filmler.filter((f) => f.tur === "film").length;
-  const diziSayisi = filmler.filter((f) => f.tur === "dizi").length;
+  // Film/dizi sayıları sunucudan (tam listeden) gelir; gelmezse eldeki listeden hesapla
+  const filmSayisi = typeof filmAdet === "number" ? filmAdet : filmler.filter((f) => f.tur === "film").length;
+  const diziSayisi = typeof diziAdet === "number" ? diziAdet : filmler.filter((f) => f.tur === "dizi").length;
+  // Favori film önizlemede ilk sırada görünsün
+  const favori = filmler.find((f) => f.favori);
+  let gosterilecek = filmler.slice(0, 3);
+  if (favori && !gosterilecek.some((f) => f.id === favori.id && f.tur === favori.tur)) {
+    gosterilecek = [favori, ...gosterilecek].slice(0, 3);
+  }
   kutu.innerHTML = `
     <div class="film-profil-ozet">${sayi} kayıt · ${filmSayisi} film · ${diziSayisi} dizi</div>
     <div class="film-profil-afisler">
-      ${filmler.slice(0, 3).map((f) =>
+      ${gosterilecek.map((f) =>
         f.poster
           ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
           : `<span class="film-profil-afis-yok">${FILM_IKON}</span>`
@@ -2973,7 +2980,14 @@ async function filmKaydet() {
     const veri = await res.json();
     if (!res.ok) throw new Error(veri.hata || "Kaydedilemedi.");
     FILM_JURNAL = veri.filmler || FILM_JURNAL;
-    if (document.getElementById("pFilmler")) filmProfilGoster(FILM_JURNAL.slice(0, 3), FILM_JURNAL.length);
+    if (document.getElementById("pFilmler")) {
+      filmProfilGoster(
+        FILM_JURNAL,
+        FILM_JURNAL.length,
+        FILM_JURNAL.filter((f) => f.tur === "film").length,
+        FILM_JURNAL.filter((f) => f.tur === "dizi").length
+      );
+    }
     if (durumEl) {
       durumEl.innerText = veri.kazanilanXp > 0 ? `Kaydedildi ✓ +${veri.kazanilanXp} XP` : "Kaydedildi ✓";
       setTimeout(() => { if (durumEl.innerText.startsWith("Kaydedildi")) durumEl.innerText = ""; }, 2200);
