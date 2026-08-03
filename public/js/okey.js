@@ -1,13 +1,13 @@
 // ---------- Okey 101 ----------
+const OKEY_SLOT_SATIR = 12;
+const OKEY_SLOT_TOPLAM = 24;
+
 let okeySocket = null;
 let OKEY_OYUN = null;
-let OKEY_RAK = []; // slot matrisi: [null, {tas}, null, {tas}...] — boşluklar korunur
+let OKEY_RAK = new Array(OKEY_SLOT_TOPLAM).fill(null); // slot matrisi: [null, {tas}, null...] — boşluklar korunur
 let OKEY_GRUPLAR = []; // [{id, type:'group', tiles:[], slotlar:[], totalSum, tip}]
 let SURUKLE = null;
 let BEKLENEN_SLOT = null; // çöpten çekilen taşın konacağı slot
-
-const OKEY_SLOT_SATIR = 12;
-const OKEY_SLOT_TOPLAM = 24;
 
 const RENK_ADI = { k: "kırmızı", m: "mavi", s: "siyah", y: "yeşil" };
 const RENK_SIRA = { k: 0, m: 1, s: 2, y: 3 };
