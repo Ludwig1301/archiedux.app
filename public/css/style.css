@@ -1309,7 +1309,7 @@ a {
   }
 }
 
-/* Üyeler: dengeli kart ızgarası ve yükleme durumu */
+/* Üyeler: çerçeveyle orantılı dengeli kart ızgarası */
 .uyeler-baslik {
   padding: 22px 25px 0;
   color: var(--parchment);
@@ -1319,16 +1319,19 @@ a {
 
 .uyeler-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 14px;
   padding: 25px;
   align-items: stretch;
+  justify-content: center;
 }
 
 .uye-kart {
-  width: auto;
+  width: 100%;
+  max-width: 170px;
   min-width: 0;
-  min-height: 142px;
+  min-height: 150px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1336,28 +1339,30 @@ a {
   box-sizing: border-box;
 }
 
+.uye-kart img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+
+.uye-kart .uye-ad {
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--parchment);
+  max-width: 100%;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .uye-yukleniyor {
   grid-column: 1 / -1;
   min-height: 120px;
   display: grid;
   place-items: center;
-}
-
-/* Seviye kartı düzenleme butonunun üstünde, sağ panelde */
-.seviye-paneli {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-}
-
-.header-sag-panel .seviye-satir {
-  margin-top: 0;
-}
-
-.header-sag-panel .seviye-cubugu {
-  width: 180px;
-  margin-top: 0;
 }
 
 /* Daha karakterli, SVG rozetler */
@@ -1607,14 +1612,6 @@ a {
     border-top: 1px solid var(--ink-line);
     border-left: none;
     padding: 18px;
-  }
-
-  .header-sag-panel .seviye-cubugu {
-    width: 130px;
-  }
-
-  .header-sag-panel .seviye-paneli {
-    align-items: flex-start;
   }
 }
 
@@ -2446,44 +2443,6 @@ body.duzenleme-acik .duzenleme-paneli {
   opacity: 0.55;
   cursor: default;
   filter: saturate(0.6);
-}
-
-/* üye listesi */
-
-.uyeler-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 25px;
-}
-
-.uye-kart {
-  width: 140px;
-  background-color: var(--ink);
-  border: 1px solid var(--ink-line);
-  border-radius: var(--radius);
-  text-align: center;
-  text-decoration: none;
-  padding: 14px 8px;
-  transition: border-color 0.15s;
-}
-
-.uye-kart:hover {
-  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
-}
-
-.uye-kart img {
-  width: 60px;
-  height: 60px;
-  border-radius: var(--radius);
-  object-fit: cover;
-  margin-bottom: 8px;
-}
-
-.uye-kart .uye-ad {
-  color: var(--parchment);
-  font-family: var(--serif);
-  font-size: 13px;
 }
 
 @media (max-width: 780px) {

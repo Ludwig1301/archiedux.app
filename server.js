@@ -95,9 +95,14 @@ function yazDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
+function gecerliDiscordId(id) {
+  return typeof id === "string" && /^\d{15,20}$/.test(id);
+}
+
 function profilGetir(discordId) {
   const db = okuDB();
-  if (!db.profiles[discordId]) {
+  // Geçersiz ID'ler için profil oluşturma; bozuk URL'ler veritabanını kirletmesin.
+  if (!db.profiles[discordId] && gecerliDiscordId(discordId)) {
     db.profiles[discordId] = {
       bio: "",
       unvan: "",
@@ -130,7 +135,7 @@ function profilGetir(discordId) {
     yazDB(db);
   }
   // Eski (id'siz) yorumlara silinebilmeleri için birer id ekle
-  const profil = db.profiles[discordId];
+  const profil = db.profiles[discordId] || {};
   if (Array.isArray(profil.yorumlar)) {
     let degisti = false;
     for (const y of profil.yorumlar) {
@@ -781,9 +786,16 @@ app.post("/api/bildirimler/okundu", girisGerekli, (req, res) => {
 });
 
 // Kayıtlı (en az bir kez giriş yapmış) tüm üyelerin listesi
+// Üye listesi kısa süreli cache'lenir; Discord tekrar tekrar sorulmaz, sayfa anında açılır.
+let UYE_LISTESI_ONBELLEK = { zaman: 0, veri: null };
+
 app.get("/api/members", async (req, res) => {
+  const simdi = Date.now();
+  if (UYE_LISTESI_ONBELLEK.veri && simdi - UYE_LISTESI_ONBELLEK.zaman < 60 * 1000) {
+    return res.json(UYE_LISTESI_ONBELLEK.veri);
+  }
   const db = okuDB();
-  const idler = Object.keys(db.profiles);
+  const idler = Object.keys(db.profiles).filter(gecerliDiscordId);
   const liste = [];
   for (let i = 0; i < idler.length; i += 8) {
     const parca = await Promise.all(idler.slice(i, i + 8).map(async (id) => {
@@ -799,6 +811,7 @@ app.get("/api/members", async (req, res) => {
     }));
     liste.push(...parca.filter(Boolean));
   }
+  UYE_LISTESI_ONBELLEK = { zaman: Date.now(), veri: liste };
   res.json(liste);
 });
 
