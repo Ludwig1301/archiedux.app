@@ -286,7 +286,7 @@ function vitrinCiz(profil) {
 
   if (tur === "film") {
     const filmler = profil.filmler || GUNCEL_PROFIL_FILMLER || [];
-    const favori = filmler.find((f) => f.favori);
+    const favori = profil.favoriFilm || filmler.find((f) => f.favori);
     if (!favori) {
       vitrin.innerHTML = '<span class="bos-hint">Henüz favori film seçilmemiş.</span>';
       return;

@@ -500,6 +500,7 @@ app.get("/api/profile/:id", async (req, res) => {
         filmler: fallbackFilmler.slice(0, 12),
         filmSayisi: fallbackFilmler.length,
         vitrinGaleri: fallbackVitrinGaleri,
+        favoriFilm: fallbackFilmler.find((f) => f.favori) || null,
       },
     });
   }
@@ -523,6 +524,7 @@ app.get("/api/profile/:id", async (req, res) => {
     })
   );
   const tumFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
+  const favoriFilm = tumFilmler.find((f) => f.favori) || null;
   const vitrinGaleri = (profil.galleryEntries || []).slice(0, 4).map((e) => e.imageUrl).filter(Boolean);
   res.json({
     ...uyeBilgisi,
@@ -533,6 +535,7 @@ app.get("/api/profile/:id", async (req, res) => {
       filmler: tumFilmler.slice(0, 12),
       filmSayisi: tumFilmler.length,
       vitrinGaleri,
+      favoriFilm,
     },
   });
 });
