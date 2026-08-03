@@ -677,12 +677,12 @@ app.get("/api/sarki/arama", async (req, res) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(
+    const cevap = await fetch(
       `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=12`,
       { signal: controller.signal }
     );
-    if (!res.ok) return res.json([]);
-    const veri = await res.json();
+    if (!cevap.ok) return res.json([]);
+    const veri = await cevap.json();
     const sonuc = (veri.results || []).map((r) => ({
       ad: r.trackName || r.collectionName || "Bilinmeyen",
       sanatci: r.artistName || "",
