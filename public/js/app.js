@@ -880,18 +880,7 @@ function profilPlayerYukle(videoId, konum, ses) {
             if (konum > 1) {
               // video yüklenmeye başlayınca kaldığı yere atla
               setTimeout(() => { try { e.target.seekTo(konum, true); } catch (err) {} }, 400);
-}
-
-// ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
-try {
-  profilPlayerOlustur();
-} catch (e) {
-  /* oynatıcı sorunu sayfayı bozmasın */
-}
-setInterval(() => {
-  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
-}, 5000);
-
+            }
           },
           onStateChange: (e) => {
             GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
@@ -3157,3 +3146,14 @@ function logListeCiz(loglar) {
     </div>
   `).join("");
 }
+
+// ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
+try {
+  profilPlayerOlustur();
+} catch (e) {
+  /* oynatıcı sorunu sayfayı bozmasın */
+}
+setInterval(() => {
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
+}, 5000);
+
