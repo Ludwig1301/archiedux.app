@@ -717,6 +717,7 @@ const DURDUR_IKON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="curre
 const MUZIK_KEY = "congress.muzik";
 let GUNCEL_PLAYER = null;
 let GUNCEL_PLAYER_OYNUYOR = false;
+let GUNCEL_PLAYER_ISTEK = false; // kullanıcı müziğin çalmasını istiyor mu
 let GUNCEL_PLAYER_ID = "";
 let GUNCEL_PLAYER_AD = "";
 let YT_HAZIR_CALLBACK = null;
@@ -844,16 +845,42 @@ function profilPlayerIkonGuncelle() {
   if (btn) btn.innerHTML = GUNCEL_PLAYER_OYNUYOR ? DURDUR_IKON : PLAY_IKON;
 }
 
+function profilPlayerOynat() {
+  if (!GUNCEL_PLAYER) return;
+  GUNCEL_PLAYER_ISTEK = true;
+  GUNCEL_PLAYER.playVideo();
+}
+
+function profilPlayerDurdur() {
+  if (!GUNCEL_PLAYER) return;
+  GUNCEL_PLAYER_ISTEK = false;
+  GUNCEL_PLAYER.pauseVideo();
+}
+
+// Sekme gizlenince tarayıcı oynatıcıyı duraklatabilir; tekrar görünür olunca devam ettir
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && GUNCEL_PLAYER && GUNCEL_PLAYER_ISTEK && !GUNCEL_PLAYER_OYNUYOR) {
+    GUNCEL_PLAYER.playVideo();
+  }
+});
+window.addEventListener("focus", () => {
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_ISTEK && !GUNCEL_PLAYER_OYNUYOR) {
+    GUNCEL_PLAYER.playVideo();
+  }
+});
+
 function profilPlayerYukle(videoId, konum, ses) {
   ytApiYukle(() => {
     if (GUNCEL_PLAYER) {
       GUNCEL_PLAYER.loadVideoById(videoId);
       if (konum > 1) GUNCEL_PLAYER.seekTo(konum, true);
       GUNCEL_PLAYER.setVolume(ses || 70);
-      GUNCEL_PLAYER.playVideo();
+      profilPlayerOynat();
     } else {
       GUNCEL_PLAYER = new YT.Player("profilPlayerVideo", {
         videoId,
+        width: "200",
+        height: "113",
         playerVars: { controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
         events: {
           onReady: (e) => {
@@ -861,6 +888,7 @@ function profilPlayerYukle(videoId, konum, ses) {
             const sesEl = document.getElementById("profilPlayerSes");
             if (sesEl) sesEl.value = ses || 70;
             if (konum > 1) e.target.seekTo(konum, true);
+            GUNCEL_PLAYER_ISTEK = true;
             e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
           },
           onStateChange: (e) => {
@@ -884,7 +912,7 @@ function profilSarkiYukle(url) {
   const thumb = document.getElementById("profilPlayerThumb");
   if (thumb) thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) {
-    if (!GUNCEL_PLAYER_OYNUYOR) GUNCEL_PLAYER.playVideo();
+    if (!GUNCEL_PLAYER_OYNUYOR) profilPlayerOynat();
     return;
   }
   GUNCEL_PLAYER_ID = videoId;
@@ -894,9 +922,8 @@ function profilSarkiYukle(url) {
 }
 
 function profilPlayerToggle() {
-  if (!GUNCEL_PLAYER) return;
-  if (GUNCEL_PLAYER_OYNUYOR) GUNCEL_PLAYER.pauseVideo();
-  else GUNCEL_PLAYER.playVideo();
+  if (GUNCEL_PLAYER_OYNUYOR) profilPlayerDurdur();
+  else profilPlayerOynat();
 }
 
 function profilPlayerSesDegistir(val) {
@@ -905,6 +932,7 @@ function profilPlayerSesDegistir(val) {
 }
 
 function profilPlayerKapat() {
+  GUNCEL_PLAYER_ISTEK = false;
   if (GUNCEL_PLAYER) GUNCEL_PLAYER.pauseVideo();
   muzikTemizle();
   const kutu = document.getElementById("profilPlayer");
