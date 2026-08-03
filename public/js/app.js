@@ -885,6 +885,35 @@ function arkaplanBlurDegisti(deger) {
   canliKaydiTetikle();
 }
 
+// Yorum tarihi: kısaca göreli ("3 gün önce"), üzerine gelince tam tarih+saat
+function yorumTarihYaz(tarih) {
+  if (!tarih) return "";
+  const t = new Date(tarih);
+  if (isNaN(t.getTime())) return "";
+  const dk = Math.floor((Date.now() - t.getTime()) / 60000);
+  let kisa;
+  if (dk < 1) kisa = "şimdi";
+  else if (dk < 60) kisa = `${dk} dk önce`;
+  else if (dk < 1440) kisa = `${Math.floor(dk / 60)} saat önce`;
+  else if (dk < 10080) kisa = `${Math.floor(dk / 1440)} gün önce`;
+  else {
+    kisa = t.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+  }
+  let tam;
+  try {
+    tam = t.toLocaleString("tr-TR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (e) {
+    tam = t.toLocaleString();
+  }
+  return `<span class="yorum-tarih" title="${htmlEsc(tam)}">${htmlEsc(kisa)}</span>`;
+}
+
 function yorumlariCiz(yorumlar, sayfalama = YORUM_SAYFALAMA) {
   const kutu = document.getElementById("yorumListesi");
   if (!kutu) return;
@@ -902,9 +931,12 @@ function yorumlariCiz(yorumlar, sayfalama = YORUM_SAYFALAMA) {
         </a>
         <div class="yorum-ic">
           <div class="yorum-baslik-satir">
-            <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="yorum-yazar-link">
-              <div class="yorum-yazar">${htmlEsc(y.yazanAd)}</div>
-            </a>
+            <span class="yorum-sol">
+              <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="yorum-yazar-link">
+                <div class="yorum-yazar">${htmlEsc(y.yazanAd)}</div>
+              </a>
+              ${yorumTarihYaz(y.tarih)}
+            </span>
             ${benimProfili && y.id ? `<button type="button" class="yorum-sil" title="Yorumu sil" onclick="yorumSil('${y.id}')">×</button>` : ""}
           </div>
           <div class="yorum-metin">${htmlEsc(y.metin)}</div>

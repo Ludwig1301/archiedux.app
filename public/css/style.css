@@ -1769,6 +1769,23 @@ button.gonder-btn:hover {
   gap: 8px;
 }
 
+.yorum-sol {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.yorum-tarih {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-text-dim);
+  white-space: nowrap;
+  cursor: default;
+  border-bottom: 1px dotted var(--ink-line);
+}
+
 .yorum-sil {
   background: none;
   border: none;
