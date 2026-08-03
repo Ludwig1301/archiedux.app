@@ -426,7 +426,7 @@ async function profilSayfasiBaslat() {
 
   let res = null;
   try {
-    res = await apiFetch(`/api/profile/${GORUNTULEN_ID}?yorumSayfa=1&yorumLimit=10`);
+    res = await apiFetch(`/api/profile/${GORUNTULENEN_ID}?yorumSayfa=1&yorumLimit=10`);
   } catch (e) {
     res = null;
   }
