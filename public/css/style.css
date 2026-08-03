@@ -1221,6 +1221,41 @@ a {
   background: var(--ink);
 }
 
+/* LED tabela tarzı akan şarkı adı */
+.profil-player-marquee {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-text);
+  padding: 2px 0;
+}
+
+.profil-player-marquee-ic {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.profil-player-marquee-ic span {
+  display: inline-block;
+  padding-right: 48px;
+}
+
+.profil-player-marquee.kayiyor .profil-player-marquee-ic {
+  animation: profil-marquee-kaydir 10s linear infinite;
+}
+
+@keyframes profil-marquee-kaydir {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 .profil-player-btn {
   display: inline-flex;
   align-items: center;

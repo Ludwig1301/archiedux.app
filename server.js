@@ -745,6 +745,27 @@ async function tmdbAra(q) {
   }
 }
 
+// YouTube video başlığı (oEmbed) — profilde çalan şarkının adını göstermek için
+app.get("/api/youtube/baslik", async (req, res) => {
+  const url = String(req.query.url || "").trim().slice(0, 500);
+  if (!/youtu\.be\/|youtube\.com\//i.test(url)) return res.json({ ad: "" });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const cevap = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { signal: controller.signal }
+    );
+    if (!cevap.ok) return res.json({ ad: "" });
+    const veri = await cevap.json();
+    return res.json({ ad: veri.title || "" });
+  } catch (e) {
+    return res.json({ ad: "" });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // TMDB arama proxy'si: anahtar tarayıcıya sızmaz, sunucuda kalır.
 app.get("/api/filmler/arama", async (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 100);

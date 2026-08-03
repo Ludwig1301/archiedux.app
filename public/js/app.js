@@ -711,12 +711,14 @@ function urlIdOku() {
   return new URLSearchParams(window.location.search).get("id");
 }
 
-// ---------- Profil şarkısı (YouTube) ----------
+// ---------- Profil şarkısı (YouTube) — tüm sayfalarda çalar ----------
 const PLAY_IKON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 const DURDUR_IKON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+const MUZIK_KEY = "congress.muzik";
 let GUNCEL_PLAYER = null;
 let GUNCEL_PLAYER_OYNUYOR = false;
 let GUNCEL_PLAYER_ID = "";
+let GUNCEL_PLAYER_AD = "";
 let YT_HAZIR_CALLBACK = null;
 window.onYouTubeIframeAPIReady = function () {
   if (YT_HAZIR_CALLBACK) YT_HAZIR_CALLBACK();
@@ -749,47 +751,142 @@ function ytApiYukle(cb) {
   if (!mevcut) s.addEventListener("load", () => { s.dataset.loaded = "1"; cb(); });
 }
 
+// Oynatıcıyı her sayfaya ekle (yoksa oluştur) ve son çalan şarkıyı devam ettir
+function profilPlayerOlustur() {
+  if (document.getElementById("profilPlayer")) return;
+  const kutu = document.createElement("div");
+  kutu.className = "profil-player";
+  kutu.id = "profilPlayer";
+  kutu.style.display = "none";
+  kutu.innerHTML = `
+    <div id="profilPlayerVideo" class="profil-player-video"></div>
+    <img class="profil-player-thumb" id="profilPlayerThumb" src="" alt="" />
+    <div class="profil-player-marquee" id="profilPlayerMarquee">
+      <div class="profil-player-marquee-ic" id="profilPlayerMarqueeIc"></div>
+    </div>
+    <button type="button" class="profil-player-btn" id="profilPlayerToggle" onclick="profilPlayerToggle()" title="Oynat / Durdur"></button>
+    <input type="range" class="profil-player-ses" id="profilPlayerSes" min="0" max="100" value="70" oninput="profilPlayerSesDegistir(this.value)" title="Ses seviyesi" />
+    <button type="button" class="profil-player-btn profil-player-kapat" onclick="profilPlayerKapat()" title="Kapat">×</button>`;
+  document.body.appendChild(kutu);
+  profilPlayerIkonGuncelle();
+  profilSarkiRestore();
+}
+
+function muzikKaydet() {
+  try {
+    localStorage.setItem(MUZIK_KEY, JSON.stringify({
+      videoId: GUNCEL_PLAYER_ID,
+      ad: GUNCEL_PLAYER_AD,
+      position: GUNCEL_PLAYER ? Math.floor(GUNCEL_PLAYER.getCurrentTime() || 0) : 0,
+      volume: GUNCEL_PLAYER ? GUNCEL_PLAYER.getVolume() : 70,
+      zaman: Date.now(),
+    }));
+  } catch (e) {}
+}
+
+function muzikTemizle() {
+  try { localStorage.removeItem(MUZIK_KEY); } catch (e) {}
+}
+
+// Her sayfa yüklendiğinde son çalan şarkıyı hatırla ve kaldığı yerden devam ettir
+function profilSarkiRestore() {
+  let kayit = null;
+  try { kayit = JSON.parse(localStorage.getItem(MUZIK_KEY) || "null"); } catch (e) {}
+  if (!kayit || !kayit.videoId) return;
+  const kutu = document.getElementById("profilPlayer");
+  if (!kutu) return;
+  kutu.style.display = "flex";
+  GUNCEL_PLAYER_ID = kayit.videoId;
+  GUNCEL_PLAYER_AD = kayit.ad || "";
+  const thumb = document.getElementById("profilPlayerThumb");
+  if (thumb) thumb.src = `https://img.youtube.com/vi/${kayit.videoId}/hqdefault.jpg`;
+  profilPlayerAdGoster(GUNCEL_PLAYER_AD);
+  const sesEl = document.getElementById("profilPlayerSes");
+  if (sesEl) sesEl.value = kayit.volume || 70;
+  profilPlayerYukle(kayit.videoId, kayit.position || 0, kayit.volume || 70);
+}
+
+// Şarkı adını oEmbed ile al (YouTube oEmbed, anahtar gerekmez)
+async function muzikBaslikGetir(videoId) {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  try {
+    const res = await apiFetch(`/api/youtube/baslik?url=${encodeURIComponent(url)}`);
+    if (res.ok) {
+      const v = await res.json();
+      if (v.ad) {
+        GUNCEL_PLAYER_AD = v.ad;
+        profilPlayerAdGoster(v.ad);
+        muzikKaydet();
+      }
+    }
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+// LED tabela tarzı akan şarkı adı
+function profilPlayerAdGoster(ad) {
+  const ic = document.getElementById("profilPlayerMarqueeIc");
+  const kutu = document.getElementById("profilPlayerMarquee");
+  if (!ic || !kutu) return;
+  ic.innerHTML = ad ? `<span>${htmlEsc(ad)}</span><span>${htmlEsc(ad)}</span>` : "";
+  const tasar = ic.scrollWidth / 2;
+  if (ad && tasar > kutu.clientWidth) kutu.classList.add("kayiyor");
+  else kutu.classList.remove("kayiyor");
+}
+
 function profilPlayerIkonGuncelle() {
   const btn = document.getElementById("profilPlayerToggle");
   if (btn) btn.innerHTML = GUNCEL_PLAYER_OYNUYOR ? DURDUR_IKON : PLAY_IKON;
 }
 
-function profilSarkiYukle(url) {
-  const kutu = document.getElementById("profilPlayer");
-  if (!kutu) return;
-  const videoId = youtubeVideoIdCek(url);
-  if (!videoId) {
-    kutu.style.display = "none";
-    if (GUNCEL_PLAYER) GUNCEL_PLAYER.stopVideo();
-    return;
-  }
-  kutu.style.display = "flex";
-  const thumb = document.getElementById("profilPlayerThumb");
-  if (thumb) thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-  if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) return;
-  GUNCEL_PLAYER_ID = videoId;
+function profilPlayerYukle(videoId, konum, ses) {
   ytApiYukle(() => {
     if (GUNCEL_PLAYER) {
       GUNCEL_PLAYER.loadVideoById(videoId);
+      if (konum > 1) GUNCEL_PLAYER.seekTo(konum, true);
+      GUNCEL_PLAYER.setVolume(ses || 70);
+      GUNCEL_PLAYER.playVideo();
     } else {
       GUNCEL_PLAYER = new YT.Player("profilPlayerVideo", {
         videoId,
         playerVars: { controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
         events: {
           onReady: (e) => {
-            e.target.setVolume(70);
-            const ses = document.getElementById("profilPlayerSes");
-            if (ses) ses.value = 70;
+            e.target.setVolume(ses || 70);
+            const sesEl = document.getElementById("profilPlayerSes");
+            if (sesEl) sesEl.value = ses || 70;
+            if (konum > 1) e.target.seekTo(konum, true);
             e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
           },
           onStateChange: (e) => {
             GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
             profilPlayerIkonGuncelle();
+            if (e.data === YT.PlayerState.PLAYING) muzikKaydet();
           },
         },
       });
     }
   });
+}
+
+// Bir şarkı aç: url boşsa mevcut çalan müziğe dokunma
+function profilSarkiYukle(url) {
+  const kutu = document.getElementById("profilPlayer");
+  if (!kutu) return;
+  const videoId = youtubeVideoIdCek(url);
+  if (!videoId) return; // şarkı yoksa mevcut müzik sürsün
+  kutu.style.display = "flex";
+  const thumb = document.getElementById("profilPlayerThumb");
+  if (thumb) thumb.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) {
+    if (!GUNCEL_PLAYER_OYNUYOR) GUNCEL_PLAYER.playVideo();
+    return;
+  }
+  GUNCEL_PLAYER_ID = videoId;
+  GUNCEL_PLAYER_AD = "";
+  muzikBaslikGetir(videoId);
+  profilPlayerYukle(videoId, 0, 70);
 }
 
 function profilPlayerToggle() {
@@ -800,13 +897,21 @@ function profilPlayerToggle() {
 
 function profilPlayerSesDegistir(val) {
   if (GUNCEL_PLAYER) GUNCEL_PLAYER.setVolume(parseInt(val, 10));
+  muzikKaydet();
 }
 
 function profilPlayerKapat() {
   if (GUNCEL_PLAYER) GUNCEL_PLAYER.pauseVideo();
+  muzikTemizle();
   const kutu = document.getElementById("profilPlayer");
   if (kutu) kutu.style.display = "none";
 }
+
+// Oynatıcıyı oluştur ve çalan şarkının konumunu arka planda kaydet
+profilPlayerOlustur();
+setInterval(() => {
+  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
+}, 5000);
 
 // Düzenleme panelindeki şarkı önizlemesi
 function profilSarkiOnizlemeGuncelle() {
@@ -2597,6 +2702,8 @@ async function gunlukSayfasiBaslat() {
   GUNCEL_XP = veri.profil.xp || 0;
   GUNCEL_XP_YAZI = veri.profil.xpYazi || "";
   seviyeGoster();
+  // Üyenin şarkısı bu sayfada da çalsın (müzik devam eder)
+  profilSarkiYukle(veri.profil.profilSarkiUrl || "");
   metinRengiUygula(
     document.getElementById("pIsim"),
     veri.profil.isimRenkTuru,
