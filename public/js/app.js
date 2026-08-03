@@ -482,9 +482,8 @@ function rozetlerGoster() {
   kutu.innerHTML = list
     .map(
       (r) => `
-      <span class="rozet-oge" title="${r.ad} — ${r.aciklama}">
+      <span class="rozet-oge" title="${htmlEsc(r.ad)}">
         <span class="rozet-ikon">${rozetIkonu(r)}</span>
-        <span class="rozet-ad">${r.ad}</span>
       </span>
     `
     )
@@ -496,6 +495,10 @@ function rozetIkonu(rozet) {
     "muhr-bekcisi": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4l5 7 8-1-1 8 7 5-7 5 1 8-8-1-5 7-5-7-8 1 1-8-7-5 7-5-1-8 8 1 5-7z"/><path d="M17 24l5 5 10-11"/></svg>',
     "retro-oyuncu": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="13" width="36" height="22" rx="8"/><path d="M15 24h8m-4-4v8m12-3h.01m5-4h.01"/><path d="M12 38l5-5m19 5l-5-5"/></svg>',
     "gizli-kelime": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="21" cy="21" r="12"/><path d="M30 30l10 10M17 21h8m-4-4v8"/></svg>',
+    "perde": '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="28" rx="3"/><path d="M15 10v28m18-28v28M15 10l3 7-3 7 3 7-3 7M33 10l-3 7 3 7-3 7 3 7"/></svg>',
+    "archie-avcisi": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="20" r="12"/><path d="M29 29l11 11M15 20h10m-5-5v10"/></svg>',
+    "koleksiyoncu": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="16" cy="26" r="10"/><circle cx="32" cy="26" r="10"/><path d="M16 16a10 10 0 0 1 16 0M24 16v10"/></svg>',
+    "sinema-tutkunu": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 14l10 6v8l-10 6z"/><rect x="18" y="14" width="22" height="20" rx="3"/><path d="M22 20h8m-4-4v8"/></svg>',
   };
   return ikonlar[rozet.kod] || '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5l15 6v10c0 10-6 17-15 22C15 38 9 31 9 21V11l15-6z"/><path d="M16 24l5 5 11-12"/></svg>';
 }
@@ -564,7 +567,23 @@ async function rozetTalepEt(kod) {
       if (kelimeBuf === "congress") {
         kelimeBuf = "";
         rozetTalepEt("gizli-kelime");
+      } else if (kelimeBuf === "archie") {
+        kelimeBuf = "";
+        rozetTalepEt("archie-avcisi");
       }
+    }
+  });
+
+  // 4) Navbardaki FİLM & DİZİ yazısına 3 kez sağ tıkla
+  let perdeSayac = 0;
+  document.addEventListener("contextmenu", (e) => {
+    const link = e.target.closest('.nav-sol a[href="/filmler"]');
+    if (!link) return;
+    e.preventDefault();
+    perdeSayac++;
+    if (perdeSayac >= 3) {
+      perdeSayac = 0;
+      rozetTalepEt("perde");
     }
   });
 })();
@@ -1930,6 +1949,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     galeriLightboxKapat();
     filmModalKapat();
+    filmIzlendiKapat();
   }
 });
 
@@ -2627,5 +2647,61 @@ function logListeCiz(loglar) {
         <div class="log-zaman">${yorumTarihYaz(l.tarih)}</div>
       </div>
     </div>
+  `).join("");
+}
+
+// ---------- İzlenen Film & Dizi arama (profil) ----------
+// Profildeki Film & Dizi kutusundaki arama butonu: kişinin "izledim" dediği kayıtlarda arar.
+function filmIzlendiAc() {
+  const modal = document.getElementById("filmIzlendiModal");
+  if (!modal || !GORUNTULENEN_ID) return;
+  modal.style.display = "flex";
+  document.body.classList.add("lightbox-acik");
+  const input = document.getElementById("filmIzlendiArama");
+  if (input) input.value = "";
+  const kutu = document.getElementById("filmIzlendiSonuclar");
+  if (kutu) kutu.innerHTML = '<span class="bos-hint">Yükleniyor…</span>';
+  apiFetch(`/api/profile/${GORUNTULENEN_ID}/filmler`)
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Yüklenemedi."))))
+    .then((veri) => {
+      FILM_JURNAL = veri.filmler || [];
+      filmIzlendiFiltre();
+    })
+    .catch(() => {
+      if (kutu) kutu.innerHTML = '<span class="bos-hint">Kayıtlar yüklenemedi.</span>';
+    });
+}
+
+function filmIzlendiKapat(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById("filmIzlendiModal");
+  if (modal) modal.style.display = "none";
+  document.body.classList.remove("lightbox-acik");
+}
+
+function filmIzlendiFiltre() {
+  const input = document.getElementById("filmIzlendiArama");
+  const q = (input ? input.value : "").trim().toLowerCase();
+  const izlenenler = (FILM_JURNAL || []).filter((f) => f.durum === "izledim");
+  const sonuc = q
+    ? izlenenler.filter((f) => (f.ad || "").toLowerCase().includes(q))
+    : izlenenler;
+  const kutu = document.getElementById("filmIzlendiSonuclar");
+  if (!kutu) return;
+  if (!sonuc.length) {
+    kutu.innerHTML = '<span class="bos-hint">İzlediğin kayıtlarda sonuç bulunamadı.</span>';
+    return;
+  }
+  kutu.innerHTML = sonuc.map((f) => `
+    <a class="izlenen-sonuc" href="/gunluk?id=${GORUNTULENEN_ID}">
+      ${f.poster
+        ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="this.style.visibility='hidden';" />`
+        : `<span class="film-poster-yok">${FILM_IKON}</span>`}
+      <span class="izlenen-sonuc-ic">
+        <strong>${htmlEsc(f.ad)}</strong>
+        <span class="film-jurnal-tur">${f.tur === "film" ? "Film" : "Dizi"}${f.yil ? ` · ${htmlEsc(f.yil)}` : ""}</span>
+        <span class="izlenen-sonuc-puan">${puanYildizlariHTML(f.puan)}</span>
+      </span>
+    </a>
   `).join("");
 }

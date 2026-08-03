@@ -144,20 +144,15 @@ a {
 .navbar-mark .wordmark {
   font-family: var(--serif);
   font-weight: 700;
-  font-size: 19px;
-  color: var(--parchment);
-  letter-spacing: 0.03em;
-  line-height: 1.05;
-}
-
-.navbar-mark .wordmark span {
-  display: block;
-  font-family: var(--mono);
-  font-size: 8px;
-  font-weight: 500;
+  font-size: 23px;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  background: linear-gradient(135deg, #f3d978 0%, var(--brass-bright) 48%, #8b7322 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: var(--brass-bright);
-  letter-spacing: 0.18em;
-  margin-top: 1px;
+  filter: drop-shadow(0 2px 8px rgba(201, 162, 39, 0.35));
 }
 
 /* ---------- giriş butonu ---------- */
@@ -802,9 +797,11 @@ a {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  width: 66px;
-  padding: 10px 6px;
+  width: 54px;
+  height: 54px;
+  padding: 8px;
   border: 1px solid color-mix(in srgb, var(--profil-accent) 30%, transparent);
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--profil-accent) 6%, rgba(0,0,0,0.3));
@@ -820,14 +817,6 @@ a {
 .rozet-ikon {
   font-size: 24px;
   line-height: 1;
-}
-
-.rozet-ad {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-text);
-  text-align: center;
-  letter-spacing: 0.02em;
 }
 
 .duzenle-btn {
@@ -2814,6 +2803,113 @@ body.duzenleme-acik .duzenleme-paneli {
 
 .film-profil-baslik-link:hover {
   color: var(--parchment);
+}
+
+.film-baslik-satir {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.film-baslik-satir .hayvan-baslik {
+  margin-bottom: 0;
+}
+
+.film-ara-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--profil-accent);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.film-ara-btn:hover {
+  background-color: color-mix(in srgb, var(--profil-accent) 10%, transparent);
+  border-color: var(--profil-accent);
+  transform: translateY(-1px);
+}
+
+.film-ara-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* İzlenen Film & Dizi arama penceresi */
+.film-izlendi-baslik {
+  margin: 0 0 14px;
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--parchment);
+  padding-right: 40px;
+}
+
+.izlenen-sonuc-listesi {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+
+.izlenen-sonuc {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 20%, transparent);
+  border-radius: var(--radius);
+  padding: 8px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.izlenen-sonuc:hover {
+  border-color: color-mix(in srgb, var(--profil-accent) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.izlenen-sonuc > img {
+  width: 48px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background-color: var(--ink);
+}
+
+.izlenen-sonuc > .film-poster-yok {
+  width: 48px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
+.izlenen-sonuc-ic {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.izlenen-sonuc-ic strong {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--parchment);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.izlenen-sonuc-puan .jp-yildizlar svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* ---------- Film & Dizi Günlüğü sayfası ---------- */

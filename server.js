@@ -79,7 +79,44 @@ const EASTER_EGGS = {
   "muhr-bekcisi": { ad: "Mühür Bekçisi", aciklama: "Navbardaki mühür logosuna 3 kez sağ tıkladın.", ikon: "🛡️", xp: 100 },
   "retro-oyuncu": { ad: "Retro Oyuncu", aciklama: "Konami kodunu girdin (↑↑↓↓←→←→B A).", ikon: "🎮", xp: 100 },
   "gizli-kelime": { ad: "Gizli Kelime", aciklama: "Sitede 'congress' kelimesini yazdın.", ikon: "🔍", xp: 100 },
+  "perde": { ad: "Perde", aciklama: "Navbardaki FİLM & DİZİ yazısına 3 kez sağ tıkladın.", ikon: "🎬", xp: 100 },
+  "archie-avcisi": { ad: "Arşiv Avcısı", aciklama: "Sitede 'archie' kelimesini yazdın.", ikon: "🔎", xp: 100 },
+  "koleksiyoncu": { ad: "Koleksiyoncu", aciklama: "Günlüğüne 5 farklı film/dizi ekledin.", ikon: "📀", xp: 150 },
+  "sinema-tutkunu": { ad: "Sinema Tutkunu", aciklama: "Günlüğüne 10 farklı film/dizi ekledin.", ikon: "🎞️", xp: 200 },
 };
+
+// Rozeti kazandır (varsa tekrar kazandırmaz; XP sadece ilk alımda verilir)
+function rozetKazandir(discordId, kod) {
+  const egg = EASTER_EGGS[kod];
+  if (!egg) return null;
+  const db = okuDB();
+  const profil = profilGetir(discordId);
+  const rozetler = Array.isArray(profil.rozetler) ? profil.rozetler : [];
+  if (rozetler.some((r) => r.kod === kod)) {
+    return {
+      zatenVar: true,
+      rozetler,
+      seviye: seviyeHesapla(profil.xp || 0),
+    };
+  }
+  const rozet = {
+    kod,
+    ad: egg.ad,
+    aciklama: egg.aciklama,
+    ikon: egg.ikon,
+    tarih: new Date().toISOString(),
+  };
+  db.profiles[discordId].rozetler = [rozet, ...rozetler].slice(0, 30);
+  db.profiles[discordId].xp = (profil.xp || 0) + egg.xp;
+  yazDB(db);
+  return {
+    zatenVar: false,
+    rozet,
+    kazanilanXp: egg.xp,
+    rozetler: db.profiles[discordId].rozetler,
+    seviye: seviyeHesapla(db.profiles[discordId].xp || 0),
+  };
+}
 
 function getDiscordConfig() {
   const clientId = DISCORD_CLIENT_ID || "";
@@ -789,6 +826,13 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
   }
   yazDB(db);
 
+  // Yeni eklenen benzersiz kayıtlarda koleksiyoncu / sinema tutkunu rozetlerini kontrol et
+  if (!mevcut) {
+    const adet = filmler.length;
+    if (adet >= 5) rozetKazandir(req.session.discordId, "koleksiyoncu");
+    if (adet >= 10) rozetKazandir(req.session.discordId, "sinema-tutkunu");
+  }
+
   logEkle(
     req.session.discordId,
     null,
@@ -1043,36 +1087,9 @@ app.post("/api/profile", girisGerekli, (req, res) => {
 // Easter egg rozetini talep et (bulunan gizli şey için XP + rozet kazan)
 app.post("/api/rozet/kod", girisGerekli, (req, res) => {
   const kod = String(req.body.kod || "").trim();
-  const egg = EASTER_EGGS[kod];
-  if (!egg) return res.status(404).json({ hata: "Böyle bir rozet bulunamadı." });
-
-  const db = okuDB();
-  const profil = profilGetir(req.session.discordId);
-  const rozetler = Array.isArray(profil.rozetler) ? profil.rozetler : [];
-  const zatenVar = rozetler.some((r) => r.kod === kod);
-
-  if (zatenVar) {
-    return res.json({ basarili: true, zatenVar: true, rozetler, seviye: seviyeHesapla(profil.xp || 0) });
-  }
-
-  const rozet = {
-    kod,
-    ad: egg.ad,
-    aciklama: egg.aciklama,
-    ikon: egg.ikon,
-    tarih: new Date().toISOString(),
-  };
-  db.profiles[req.session.discordId].rozetler = [rozet, ...rozetler].slice(0, 30);
-  db.profiles[req.session.discordId].xp = (profil.xp || 0) + egg.xp;
-  yazDB(db);
-
-  res.json({
-    basarili: true,
-    kazanilanXp: egg.xp,
-    rozet,
-    rozetler: db.profiles[req.session.discordId].rozetler,
-    seviye: seviyeHesapla(db.profiles[req.session.discordId].xp || 0),
-  });
+  if (!EASTER_EGGS[kod]) return res.status(404).json({ hata: "Böyle bir rozet bulunamadı." });
+  const sonuc = rozetKazandir(req.session.discordId, kod);
+  res.json({ basarili: true, ...sonuc });
 });
 
 // Yorum (guestbook) - herhangi bir üye, giriş yapmış olmak şartıyla
