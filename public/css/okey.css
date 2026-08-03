@@ -617,6 +617,16 @@
   align-items: center;
 }
 
+.discard_pile {
+  width: 32px;
+  min-width: 32px;
+  height: 44px;
+  justify-content: center;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
 .okey-seat-cop .okey-tas {
   width: 26px;
   height: 36px;
@@ -672,6 +682,13 @@
 .okey-rak-hucre.hedef {
   background: rgba(201, 162, 39, 0.12);
   border-radius: 8px;
+}
+
+.okey-rak-hucre.highlight-slot {
+  background: rgba(255, 205, 42, 0.3);
+  border: 1px solid #ffd42a;
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(255, 212, 42, 0.55);
 }
 
 .okey-rak-hucre .okey-tas {

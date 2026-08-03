@@ -9,6 +9,10 @@ let OKEY_GRUPLAR = []; // [{id, type:'group', tiles:[], slotlar:[], totalSum, ti
 const OKEY_GRUPLAMA_ENGELI = new Set();
 let SURUKLE = null;
 let BEKLENEN_SLOT = null; // çöpten çekilen taşın konacağı slot
+let playerSelfDiscard = [];
+let playerLeftDiscard = [];
+let playerTopDiscard = [];
+let playerRightDiscard = [];
 
 const RENK_ADI = { k: "kırmızı", m: "mavi", s: "siyah", y: "yeşil" };
 const RENK_SIRA = { k: 0, m: 1, s: 2, y: 3 };
@@ -154,7 +158,8 @@ function rakGuncelle(ben) {
     OKEY_RAK[idx] = t;
   }
   BEKLENEN_SLOT = null;
-  gruplariYenile();
+  const mevcut = new Set((ben ? ben.el : []).map((t) => t.id));
+  OKEY_GRUPLAR = OKEY_GRUPLAR.filter((g) => g.tiles.every((t) => mevcut.has(t.id)));
 }
 
 // Taşı ıstakada bir slottan başka bir slota taşı (boşluklar korunur)
@@ -164,12 +169,13 @@ function okeyRakTasi(tileId, hedefIdx) {
     if (OKEY_RAK[i] && OKEY_RAK[i].id === tileId) { kaynak = i; break; }
   }
   if (kaynak === -1 || kaynak === hedefIdx) return;
+  if (OKEY_RAK[hedefIdx]) return;
   const tas = OKEY_RAK[kaynak];
-  const hedefTas = OKEY_RAK[hedefIdx];
-  OKEY_RAK[kaynak] = hedefTas;
+  const grup = OKEY_GRUPLAR.find((g) => g.tiles.some((t) => t.id === tileId));
+  if (grup) OKEY_GRUPLAR = OKEY_GRUPLAR.filter((g) => g.id !== grup.id);
+  OKEY_RAK[kaynak] = null;
   OKEY_RAK[hedefIdx] = tas;
   OKEY_GRUPLAMA_ENGELI.delete(tileId);
-  gruplariYenile();
   okeyRender(OKEY_OYUN);
 }
 
@@ -177,11 +183,8 @@ function okeySiraladiz() {
   const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
   if (!ben) return;
   const taslar = OKEY_RAK.filter((x) => x !== null);
-  taslar.sort((a, b) => (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]) || a.num - b.num);
-  OKEY_RAK.fill(null);
-  OKEY_GRUPLAMA_ENGELI.clear();
-  taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
-  gruplariYenile();
+  const { groups, remaining } = seriGruplariBul(taslar);
+  dizimleriIstakayaYerlestir(groups, remaining);
   okeyRender(OKEY_OYUN);
 }
 
@@ -189,11 +192,8 @@ function okeyCiftDiz() {
   const ben = OKEY_OYUN && OKEY_OYUN.oyuncular.find((o) => o.ben);
   if (!ben) return;
   const taslar = OKEY_RAK.filter((x) => x !== null);
-  taslar.sort((a, b) => (a.num - b.num) || (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]));
-  OKEY_RAK.fill(null);
-  OKEY_GRUPLAMA_ENGELI.clear();
-  taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
-  gruplariYenile();
+  const { groups, remaining } = ciftGruplariBul(taslar);
+  dizimleriIstakayaYerlestir(groups, remaining);
   okeyRender(OKEY_OYUN);
 }
 
@@ -202,67 +202,113 @@ function tasDegeri(t) {
   return t.sahte || t.okey ? 0 : t.num;
 }
 
-function satirMeldleri(satir) {
-  const bas = satir * OKEY_SLOT_SATIR;
-  const gruplar = [];
-  let i = 0;
-  while (i < OKEY_SLOT_SATIR) {
-    const t0 = OKEY_RAK[bas + i];
-    if (!t0) { i++; continue; }
-    let perLen = 1;
-    for (let k = i + 1; k < OKEY_SLOT_SATIR && OKEY_RAK[bas + k]; k++) {
-      const tk = OKEY_RAK[bas + k];
-      if (tk.renk === t0.renk && tk.num === t0.num + (k - i)) perLen++;
-      else break;
-    }
-    let setLen = 1;
-    for (let k = i + 1; k < OKEY_SLOT_SATIR && OKEY_RAK[bas + k]; k++) {
-      if (OKEY_RAK[bas + k].num === t0.num) setLen++;
-      else break;
-    }
-    let ciftLen = 1;
-    const yan = OKEY_RAK[bas + i + 1];
-    if (yan && yan.renk === t0.renk && yan.num === t0.num) ciftLen = 2;
+function otomatikGruplamaTasMi(t) {
+  return !!t && !t.okey && !t.sahte && Number.isInteger(t.num) && t.num >= 1 && t.num <= 13;
+}
 
-    let secilen = null;
-    if (perLen >= 3) secilen = { len: perLen };
-    if (setLen >= 3 && (!secilen || setLen > secilen.len)) secilen = { len: setLen };
-    if (!secilen && ciftLen === 2) secilen = { len: 2, cift: true };
+function yeniGrup(tiles, slotlar, tip) {
+  return {
+    id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    type: "group",
+    tiles,
+    slotlar,
+    totalSum: tiles.reduce((s, t) => s + tasDegeri(t), 0),
+    tip,
+  };
+}
 
-    if (secilen) {
-      const slotlar = [];
-      const tiles = [];
-      for (let k = 0; k < secilen.len; k++) {
-        slotlar.push(bas + i + k);
-        tiles.push(OKEY_RAK[bas + i + k]);
-      }
-      if (tiles.some((t) => OKEY_GRUPLAMA_ENGELI.has(t.id))) {
-        i++;
-        continue;
-      }
-      gruplar.push({
-        id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        type: "group",
-        tiles,
-        slotlar,
-        totalSum: tiles.reduce((s, t) => s + tasDegeri(t), 0),
-        tip: secilen.cift ? "cift" : "seri",
-      });
-      i += secilen.len;
-    } else {
-      i++;
-    }
+function seriGruplariBul(taslar) {
+  const adaylar = [];
+  const renkGruplari = {};
+  taslar.filter(otomatikGruplamaTasMi).forEach((t) => {
+    (renkGruplari[t.renk] ||= {})[t.num] ||= [];
+    renkGruplari[t.renk][t.num].push(t);
+  });
+
+  for (const [renk, sayilar] of Object.entries(renkGruplari)) {
+    const nums = Object.keys(sayilar).map(Number).sort((a, b) => a - b);
+    let run = [];
+    const ekle = () => {
+      if (run.length >= 3) adaylar.push({ tiles: run.flatMap((n) => sayilar[n].slice(0, 1)), oncelik: 0 });
+      run = [];
+    };
+    nums.forEach((num, i) => {
+      if (!run.length || num === nums[i - 1] + 1) run.push(num);
+      else { ekle(); run = [num]; }
+    });
+    ekle();
   }
-  return gruplar;
+
+  const numGruplari = {};
+  taslar.filter(otomatikGruplamaTasMi).forEach((t) => {
+    (numGruplari[t.num] ||= {})[t.renk] ||= t;
+  });
+  Object.values(numGruplari).forEach((renkler) => {
+    const tiles = Object.values(renkler);
+    if (tiles.length >= 3) adaylar.push({ tiles, oncelik: 1 });
+  });
+
+  adaylar.sort((a, b) => (b.tiles.length - a.tiles.length) || (a.oncelik - b.oncelik));
+  const kullanilan = new Set();
+  const groups = [];
+  adaylar.forEach((aday) => {
+    if (aday.tiles.some((t) => kullanilan.has(t.id))) return;
+    aday.tiles.forEach((t) => kullanilan.add(t.id));
+    groups.push({ tiles: aday.tiles, tip: "seri" });
+  });
+  return { groups, remaining: taslar.filter((t) => !kullanilan.has(t.id)) };
+}
+
+function ciftGruplariBul(taslar) {
+  const eslesmeler = {};
+  taslar.filter(otomatikGruplamaTasMi).forEach((t) => {
+    const anahtar = `${t.renk}:${t.num}`;
+    (eslesmeler[anahtar] ||= []).push(t);
+  });
+  const groups = [];
+  const kullanilan = new Set();
+  Object.values(eslesmeler).forEach((liste) => {
+    for (let i = 0; i + 1 < liste.length; i += 2) {
+      const tiles = liste.slice(i, i + 2);
+      tiles.forEach((t) => kullanilan.add(t.id));
+      groups.push({ tiles, tip: "cift" });
+    }
+  });
+  return { groups, remaining: taslar.filter((t) => !kullanilan.has(t.id)) };
+}
+
+function dizimleriIstakayaYerlestir(groups, remaining) {
+  OKEY_RAK.fill(null);
+  OKEY_GRUPLAR = [];
+  OKEY_GRUPLAMA_ENGELI.clear();
+  let slot = 0;
+  const yerlestirilebilirBas = (uzunluk) => {
+    const sutun = slot % OKEY_SLOT_SATIR;
+    if (sutun + uzunluk > OKEY_SLOT_SATIR) slot += OKEY_SLOT_SATIR - sutun;
+    return slot;
+  };
+  groups.forEach(({ tiles, tip }) => {
+    const bas = yerlestirilebilirBas(tiles.length);
+    const slotlar = tiles.map((tas, i) => {
+      OKEY_RAK[bas + i] = tas;
+      return bas + i;
+    });
+    OKEY_GRUPLAR.push(yeniGrup(tiles, slotlar, tip));
+    slot = bas + tiles.length;
+  });
+  remaining.forEach((tas) => {
+    const bas = yerlestirilebilirBas(1);
+    OKEY_RAK[bas] = tas;
+    slot = bas + 1;
+  });
 }
 
 function gruplariYenile() {
-  OKEY_GRUPLAR = satirMeldleri(0).concat(satirMeldleri(1));
+  // Gruplar yalnızca otomatik dizme butonlarıyla oluşturulur; boşlukları tarayıp
+  // çiftleri veya tesadüfi komşu taşları kendiliğinden grup yapma.
 }
 
 function okeyGrupDagit(id) {
-  const grup = OKEY_GRUPLAR.find((g) => g.id === id);
-  if (grup) grup.tiles.forEach((t) => OKEY_GRUPLAMA_ENGELI.add(t.id));
   OKEY_GRUPLAR = OKEY_GRUPLAR.filter((g) => g.id !== id);
   okeyRender(OKEY_OYUN);
 }
@@ -321,17 +367,24 @@ function okeySurukleHareket(e) {
   const hucre = alt && alt.closest(".okey-rak-hucre");
   document.querySelectorAll("#okeyAtisBolge.hedef").forEach((el) => el.classList.remove("hedef"));
   if (atis) atis.classList.add("hedef");
-  if (hucre) hucre.classList.add("hedef");
+  const bosHucre = hucre && !hucre.querySelector(".okey-tas");
+  if (SURUKLE.slot && SURUKLE.slot !== bosHucre) {
+    SURUKLE.slot.dispatchEvent(new Event("dragleave"));
+  }
+  if (bosHucre && SURUKLE.slot !== bosHucre) {
+    bosHucre.dispatchEvent(new Event("dragenter"));
+  }
 }
 
 function okeySurukleBitir(e) {
   if (!SURUKLE) return;
-  const { tileId, kaynak, ghost } = SURUKLE;
+  const { tileId, kaynak, ghost, slot } = SURUKLE;
   SURUKLE = null;
   if (ghost) ghost.remove();
   const kaynakEl = document.querySelector(`.okey-rak-hucre .okey-tas[data-id="${tileId}"], .group-wrapper .okey-tas[data-id="${tileId}"]`);
   if (kaynakEl) kaynakEl.style.opacity = "";
-  document.querySelectorAll(".okey-rak-hucre.hedef").forEach((el) => el.classList.remove("hedef"));
+  if (slot) slot.dispatchEvent(new Event("drop"));
+  document.querySelectorAll(".okey-rak-hucre.highlight-slot").forEach((el) => el.classList.remove("highlight-slot"));
   document.querySelectorAll("#okeyAtisBolge.hedef").forEach((el) => el.classList.remove("hedef"));
 
   const alt = document.elementFromPoint(e.clientX, e.clientY);
@@ -339,7 +392,7 @@ function okeySurukleBitir(e) {
   const hucre = alt && alt.closest(".okey-rak-hucre");
 
   if (kaynak === "cop") {
-    if (hucre) {
+    if (hucre && !hucre.querySelector(".okey-tas")) {
       BEKLENEN_SLOT = parseInt(hucre.dataset.hucre, 10);
       okeyCopCek();
     }
@@ -348,9 +401,28 @@ function okeySurukleBitir(e) {
 
   if (atis) {
     okeyTasAt(tileId);
-  } else if (hucre) {
+  } else if (hucre && !hucre.querySelector(".okey-tas")) {
     okeyRakTasi(tileId, parseInt(hucre.dataset.hucre, 10));
   }
+}
+
+function slotHighlightListenersEkle() {
+  document.querySelectorAll(".okey-rak-hucre").forEach((slot) => {
+    slot.addEventListener("dragenter", () => {
+      if (SURUKLE && !slot.querySelector(".okey-tas")) {
+        slot.classList.add("highlight-slot");
+        SURUKLE.slot = slot;
+      }
+    });
+    slot.addEventListener("dragleave", () => {
+      slot.classList.remove("highlight-slot");
+      if (SURUKLE && SURUKLE.slot === slot) SURUKLE.slot = null;
+    });
+    slot.addEventListener("drop", () => {
+      slot.classList.remove("highlight-slot");
+      if (SURUKLE && SURUKLE.slot === slot) SURUKLE.slot = null;
+    });
+  });
 }
 
 function hataGoster(cevap) {
@@ -391,9 +463,9 @@ function tasAd(t) {
   return `${RENK_ADI[t.renk]} ${t.num}`;
 }
 
-function oyuncuKartHTML(o, siraMi) {
+function oyuncuKartHTML(o, siraMi, discard) {
   const avatar = o.avatar || "";
-  const atilan = (o.atilan || []).slice(-8);
+  const sonAtis = discard && discard.length ? discard[discard.length - 1] : null;
   const etiket = o.acildi ? (o.acilisTipi === "cift" ? '<span class="okey-acildi">çift açtı</span>' : '<span class="okey-acildi">açtı</span>') : "";
   return `
     <div class="okey-seat">
@@ -403,8 +475,8 @@ function oyuncuKartHTML(o, siraMi) {
         ${siraMi ? '<span class="okey-sira-ok">🎯</span>' : ""}
       </div>
       ${etiket}
-      <div class="okey-seat-cop" title="Attığı taşlar">
-        ${atilan.length ? atilan.map((t) => tasKutu(t, "mini")).join("") : '<span class="okey-seat-cop-bos">·</span>'}
+      <div class="discard_pile okey-seat-cop" title="Son attığı taş">
+        ${sonAtis ? tasKutu(sonAtis, "mini") : '<span class="okey-seat-cop-bos">·</span>'}
       </div>
     </div>
   `;
@@ -448,6 +520,10 @@ function okeyTahtaCiz(durum) {
     const sag = durum.oyuncular[(benIdx + 1) % 4];
     const ust = durum.oyuncular[(benIdx + 2) % 4];
     const sol = durum.oyuncular[(benIdx + 3) % 4];
+    playerSelfDiscard = Array.isArray(ben.atilan) ? ben.atilan : [];
+    playerLeftDiscard = Array.isArray(sol.atilan) ? sol.atilan : [];
+    playerTopDiscard = Array.isArray(ust.atilan) ? ust.atilan : [];
+    playerRightDiscard = Array.isArray(sag.atilan) ? sag.atilan : [];
 
     const okeyTas = { renk: durum.okeyRenk, num: durum.okeyNum, okey: true };
     document.getElementById("okeyOkeyTas").innerHTML = tasIc(okeyTas);
@@ -464,9 +540,9 @@ function okeyTahtaCiz(durum) {
       }
     }
 
-    document.getElementById("okeyOyuncuUst").innerHTML = oyuncuKartHTML(ust, durum.tur === (benIdx + 2) % 4);
-    document.getElementById("okeyOyuncuSol").innerHTML = oyuncuKartHTML(sol, durum.tur === (benIdx + 3) % 4);
-    document.getElementById("okeyOyuncuSag").innerHTML = oyuncuKartHTML(sag, durum.tur === (benIdx + 1) % 4);
+    document.getElementById("okeyOyuncuUst").innerHTML = oyuncuKartHTML(ust, durum.tur === (benIdx + 2) % 4, playerTopDiscard);
+    document.getElementById("okeyOyuncuSol").innerHTML = oyuncuKartHTML(sol, durum.tur === (benIdx + 3) % 4, playerLeftDiscard);
+    document.getElementById("okeyOyuncuSag").innerHTML = oyuncuKartHTML(sag, durum.tur === (benIdx + 1) % 4, playerRightDiscard);
 
     const desteEl = document.getElementById("okeyDeste");
     desteEl.innerHTML = `DESTE<br/>${durum.desteSayisi}`;
@@ -541,6 +617,7 @@ function okeyTahtaCiz(durum) {
       }
     }
     kutu.innerHTML = html;
+    slotHighlightListenersEkle();
   } catch (e) {
     console.error("Okey render hatası:", e);
   }
