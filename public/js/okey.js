@@ -1,11 +1,12 @@
 // ---------- Okey 101 ----------
-const OKEY_SLOT_SATIR = 12;
-const OKEY_SLOT_TOPLAM = 24;
+const OKEY_SLOT_SATIR = 20;
+const OKEY_SLOT_TOPLAM = 40;
 
 let okeySocket = null;
 let OKEY_OYUN = null;
 let OKEY_RAK = new Array(OKEY_SLOT_TOPLAM).fill(null); // slot matrisi: [null, {tas}, null...] — boşluklar korunur
 let OKEY_GRUPLAR = []; // [{id, type:'group', tiles:[], slotlar:[], totalSum, tip}]
+const OKEY_GRUPLAMA_ENGELI = new Set();
 let SURUKLE = null;
 let BEKLENEN_SLOT = null; // çöpten çekilen taşın konacağı slot
 
@@ -123,6 +124,24 @@ function rakGuncelle(ben) {
     if (OKEY_RAK[i] && !eldekiler.has(OKEY_RAK[i].id)) OKEY_RAK[i] = null;
   }
   const yeni = (ben ? ben.el : []).filter((t) => !OKEY_RAK.some((s) => s && s.id === t.id));
+
+  // İlk dağıtımda 21/22 taşı iki satıra dengeli yerleştir; sonrasında boşlukları koru.
+  const ilkDagitim = OKEY_RAK.every((slot) => slot === null) && yeni.length > 0;
+  if (ilkDagitim) {
+    const altAdet = Math.ceil(yeni.length / 2);
+    const ustAdet = yeni.length - altAdet;
+    const altBas = Math.floor((OKEY_SLOT_SATIR - altAdet) / 2);
+    const ustBas = Math.floor((OKEY_SLOT_SATIR - ustAdet) / 2);
+    yeni.forEach((tas, i) => {
+      const ust = i >= altAdet;
+      const sutun = (ust ? ustBas + i - altAdet : altBas + i);
+      OKEY_RAK[(ust ? OKEY_SLOT_SATIR : 0) + sutun] = tas;
+    });
+    BEKLENEN_SLOT = null;
+    gruplariYenile();
+    return;
+  }
+
   for (const t of yeni) {
     let idx = -1;
     if (BEKLENEN_SLOT !== null && !OKEY_RAK[BEKLENEN_SLOT]) {
@@ -149,6 +168,7 @@ function okeyRakTasi(tileId, hedefIdx) {
   const hedefTas = OKEY_RAK[hedefIdx];
   OKEY_RAK[kaynak] = hedefTas;
   OKEY_RAK[hedefIdx] = tas;
+  OKEY_GRUPLAMA_ENGELI.delete(tileId);
   gruplariYenile();
   okeyRender(OKEY_OYUN);
 }
@@ -159,6 +179,7 @@ function okeySiraladiz() {
   const taslar = OKEY_RAK.filter((x) => x !== null);
   taslar.sort((a, b) => (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]) || a.num - b.num);
   OKEY_RAK.fill(null);
+  OKEY_GRUPLAMA_ENGELI.clear();
   taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
   gruplariYenile();
   okeyRender(OKEY_OYUN);
@@ -170,6 +191,7 @@ function okeyCiftDiz() {
   const taslar = OKEY_RAK.filter((x) => x !== null);
   taslar.sort((a, b) => (a.num - b.num) || (RENK_SIRA[a.renk] - RENK_SIRA[b.renk]));
   OKEY_RAK.fill(null);
+  OKEY_GRUPLAMA_ENGELI.clear();
   taslar.forEach((t, i) => { if (i < OKEY_SLOT_TOPLAM) OKEY_RAK[i] = t; });
   gruplariYenile();
   okeyRender(OKEY_OYUN);
@@ -214,6 +236,10 @@ function satirMeldleri(satir) {
         slotlar.push(bas + i + k);
         tiles.push(OKEY_RAK[bas + i + k]);
       }
+      if (tiles.some((t) => OKEY_GRUPLAMA_ENGELI.has(t.id))) {
+        i++;
+        continue;
+      }
       gruplar.push({
         id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         type: "group",
@@ -235,6 +261,8 @@ function gruplariYenile() {
 }
 
 function okeyGrupDagit(id) {
+  const grup = OKEY_GRUPLAR.find((g) => g.id === id);
+  if (grup) grup.tiles.forEach((t) => OKEY_GRUPLAMA_ENGELI.add(t.id));
   OKEY_GRUPLAR = OKEY_GRUPLAR.filter((g) => g.id !== id);
   okeyRender(OKEY_OYUN);
 }
