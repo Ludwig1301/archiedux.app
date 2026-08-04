@@ -3225,10 +3225,13 @@ let PET_TOP_X = 0;
 let PET_TOP_Y = 0;
 let PET_TOP_ZAMAN = 0;
 let PET_TOP_SURUKLENIYOR = false;
+let PET_TOP_YAKALANDI = false;
 let PET_AGAC_USTU = false;
 let PET_AGAC_SYNC_YAPILDI = false;
 
 let petKonusmaZamanlayici = null;
+let PET_SON_KONUSMA = "";
+let PET_SON_KONUSMA_ZAMANI = 0;
 
 function petAlanGuncelle() {
   const w = document.documentElement.clientWidth || window.innerWidth || 900;
@@ -3357,7 +3360,10 @@ function petVaris() {
     PET_TOP_ZAMAN = Date.now();
     PET_OTURMA_SURESI = 5000;
     petAnimAyarla("sit-front", true);
-    petKonusma("İplik! 😻");
+    if (!PET_TOP_YAKALANDI) {
+      PET_TOP_YAKALANDI = true;
+      petKonusma("İplik! 😻");
+    }
   } else {
     PET_MODE = "dur";
     petIdleSec(false);
@@ -3402,6 +3408,7 @@ function petTopSpawnGorsel(img) {
     return;
   }
   PET_TOP_GORSEL = img;
+  PET_TOP_YAKALANDI = false;
   petTopSpawn();
   petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
   petKonusma("Top! Yakalayacağım! 😻");
@@ -3777,6 +3784,10 @@ function petXpGoster(metin) {
 function petKonusma(metin) {
   const el = document.getElementById("petKonusma");
   if (!el) return;
+  const simdi = Date.now();
+  if (PET_SON_KONUSMA === metin && simdi - PET_SON_KONUSMA_ZAMANI < 2000) return;
+  PET_SON_KONUSMA = metin;
+  PET_SON_KONUSMA_ZAMANI = simdi;
   el.innerHTML = htmlEsc(metin);
   el.classList.add("gorunur");
   clearTimeout(petKonusmaZamanlayici);
