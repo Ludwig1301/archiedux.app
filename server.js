@@ -738,7 +738,9 @@ async function tmdbAra(q) {
         tur: oge.media_type === "movie" ? "film" : "dizi",
         ad: oge.title || oge.name || "Bilinmeyen",
         yil: (oge.release_date || oge.first_air_date || "").slice(0, 4),
-        poster: oge.poster_path ? `https://image.tmdb.org/t/p/w342${oge.poster_path}` : "",
+        poster: oge.poster_path
+          ? `/api/filmler/poster?path=${encodeURIComponent(oge.poster_path)}`
+          : "",
       });
     }
     return sonuc;
@@ -748,6 +750,37 @@ async function tmdbAra(q) {
     clearTimeout(timeout);
   }
 }
+
+// Bazı internet sağlayıcıları image.tmdb.org alan adını engelleyebiliyor.
+// Afişi sunucudan çekip tarayıcıya aynı origin üzerinden gönderiyoruz.
+app.get("/api/filmler/poster", async (req, res) => {
+  const posterPath = String(req.query.path || "").trim();
+  if (!/^\/[A-Za-z0-9/_().-]+$/.test(posterPath) || posterPath.includes("..")) {
+    return res.status(400).send("Geçersiz afiş yolu.");
+  }
+
+  const kaynaklar = [
+    `https://image.tmdb.org/t/p/w342${posterPath}`,
+    `https://media.themoviedb.org/t/p/w342${posterPath}`,
+  ];
+  for (const kaynak of kaynaklar) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const cevap = await fetch(kaynak, { signal: controller.signal });
+      if (!cevap.ok) continue;
+      const veri = Buffer.from(await cevap.arrayBuffer());
+      res.set("Content-Type", cevap.headers.get("content-type") || "image/jpeg");
+      res.set("Cache-Control", "public, max-age=86400");
+      return res.send(veri);
+    } catch (e) {
+      // İlk CDN çalışmazsa TMDB'nin alternatif alan adını dene.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return res.status(502).send("Afiş alınamadı.");
+});
 
 // YouTube video başlığı (oEmbed) — profilde çalan şarkının adını göstermek için
 app.get("/api/youtube/baslik", async (req, res) => {

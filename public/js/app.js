@@ -263,6 +263,23 @@ const VITRIN_BASLIKLAR = {
   sarki: "Favori Şarkı",
 };
 
+// TMDB afişlerini sunucu proxy'sinden geçir; bazı ağlar image.tmdb.org'u reddediyor.
+function filmPosterUrl(url) {
+  const deger = String(url || "");
+  if (!deger) return "";
+  if (deger.startsWith("/api/filmler/poster?")) return deger;
+  try {
+    const parsed = new URL(deger, window.location.origin);
+    if (parsed.hostname === "image.tmdb.org" || parsed.hostname === "media.themoviedb.org") {
+      const eslesme = parsed.pathname.match(/^\/t\/p\/[^/]+(\/[^?]+)$/);
+      if (eslesme) return `/api/filmler/poster?path=${encodeURIComponent(eslesme[1])}`;
+    }
+  } catch (e) {
+    return deger;
+  }
+  return deger;
+}
+
 let GUNCEL_VITRINLER = [];
 let GUNCEL_FAVORI_FILM = null;
 
@@ -299,7 +316,7 @@ function vitrinBirimIcerik(profil, v) {
     if (!favori) return '<span class="bos-hint">Henüz favori film seçilmemiş.</span>';
     return `
       <div class="vitrin-film">
-        ${favori.poster ? `<img src="${htmlEsc(favori.poster)}" alt="" class="vitrin-film-poster" onerror="gorselHataYerineIcon(this)" />` : ""}
+        ${favori.poster ? `<img src="${htmlEsc(filmPosterUrl(favori.poster))}" alt="" class="vitrin-film-poster" onerror="gorselHataYerineIcon(this)" />` : ""}
         <div class="proje-detay">
           <h3>${htmlEsc(favori.ad)}</h3>
           <p>${favori.tur === "film" ? "Film" : "Dizi"}${favori.yil ? ` · ${htmlEsc(favori.yil)}` : ""}</p>
@@ -721,9 +738,18 @@ let GUNCEL_PLAYER_ISTEK = false; // kullanıcı müziğin çalmasını istiyor m
 let GUNCEL_PLAYER_ID = "";
 let GUNCEL_PLAYER_AD = "";
 let GUNCEL_MUZIK_SAHIPI = ""; // hangi üyenin şarkısı çalıyor
-let YT_HAZIR_CALLBACK = null;
+let YT_HAZIR_CALLBACKLER = [];
+let YT_API_YUKLENIYOR = false;
+
+function ytApiHazirMi() {
+  return !!(window.YT && typeof window.YT.Player === "function");
+}
+
 window.onYouTubeIframeAPIReady = function () {
-  if (YT_HAZIR_CALLBACK) YT_HAZIR_CALLBACK();
+  YT_API_YUKLENIYOR = false;
+  if (!ytApiHazirMi()) return;
+  const callbacks = YT_HAZIR_CALLBACKLER.splice(0);
+  callbacks.forEach((callback) => callback());
 };
 
 function youtubeVideoIdCek(url) {
@@ -733,24 +759,24 @@ function youtubeVideoIdCek(url) {
 }
 
 function ytApiYukle(cb) {
-  if (window.YT && window.YT.Player) {
+  if (ytApiHazirMi()) {
     cb();
     return;
   }
-  const mevcut = document.getElementById("yt-api-script");
-  if (mevcut && mevcut.dataset.loaded === "1") {
-    cb();
-    return;
+  YT_HAZIR_CALLBACKLER.push(cb);
+  if (YT_API_YUKLENIYOR) return;
+
+  let script = document.getElementById("yt-api-script");
+  if (!script) {
+    script = document.createElement("script");
+    script.id = "yt-api-script";
+    script.src = "https://www.youtube.com/iframe_api";
+    script.async = true;
+    document.head.appendChild(script);
   }
-  let s = mevcut;
-  if (!s) {
-    s = document.createElement("script");
-    s.id = "yt-api-script";
-    s.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(s);
-  }
-  YT_HAZIR_CALLBACK = cb;
-  if (!mevcut) s.addEventListener("load", () => { s.dataset.loaded = "1"; cb(); });
+  // The script's load event fires before the API has installed YT.Player.
+  // Wait for YouTube's official ready callback instead of constructing early.
+  YT_API_YUKLENIYOR = true;
 }
 
 // Oynatıcıyı her sayfaya ekle (yoksa oluştur) ve son çalan şarkıyı devam ettir
@@ -859,17 +885,25 @@ window.addEventListener("focus", () => {
 
 function profilPlayerYukle(videoId, konum, ses) {
   ytApiYukle(() => {
+    if (!ytApiHazirMi()) return;
     if (GUNCEL_PLAYER) {
       GUNCEL_PLAYER.loadVideoById(videoId);
       if (konum > 1) GUNCEL_PLAYER.seekTo(konum, true);
       GUNCEL_PLAYER.setVolume(ses || 70);
       profilPlayerOynat();
     } else {
-      GUNCEL_PLAYER = new YT.Player("profilPlayerVideo", {
+      GUNCEL_PLAYER = new window.YT.Player("profilPlayerVideo", {
         videoId,
         width: "200",
         height: "113",
-        playerVars: { controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          rel: 0,
+          iv_load_policy: 3,
+          enablejsapi: 1,
+          origin: window.location.origin,
+        },
         events: {
           onReady: (e) => {
             e.target.setVolume(ses || 70);
@@ -883,9 +917,9 @@ function profilPlayerYukle(videoId, konum, ses) {
             }
           },
           onStateChange: (e) => {
-            GUNCEL_PLAYER_OYNUYOR = e.data === YT.PlayerState.PLAYING;
+            GUNCEL_PLAYER_OYNUYOR = e.data === window.YT.PlayerState.PLAYING;
             profilPlayerIkonGuncelle();
-            if (e.data === YT.PlayerState.PLAYING) muzikKaydet();
+            if (e.data === window.YT.PlayerState.PLAYING) muzikKaydet();
           },
         },
       });
@@ -2639,7 +2673,7 @@ function filmProfilGoster(filmler, sayi, filmAdet, diziAdet) {
     <div class="film-profil-afisler">
       ${gosterilecek.map((f) =>
         f.poster
-          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+          ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
           : `<span class="film-profil-afis-yok">${FILM_IKON}</span>`
       ).join("")}
     </div>`;
@@ -2681,7 +2715,7 @@ function gunlukKartHTML(f, kendi) {
   return `
     <div class="film-jurnal-kart gunluk-kart">
       ${f.poster
-        ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
         : `<span class="film-poster-yok film-poster-yok-buyuk">${FILM_IKON}</span>`}
       <div class="film-jurnal-ic">
         <div class="film-jurnal-ad">
@@ -2815,7 +2849,7 @@ function gunlukFavoriCiz() {
   alan.innerHTML = `
     <div class="favori-film-kart">
       ${favori.poster
-        ? `<img src="${htmlEsc(favori.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        ? `<img src="${htmlEsc(filmPosterUrl(favori.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
         : `<div class="favori-poster-yok">${FILM_IKON}</div>`}
       <div class="favori-film-bilgi">
         <div class="favori-film-etiket">${favori.tur === "film" ? "Favori Film" : "Favori Dizi"}</div>
@@ -2926,7 +2960,7 @@ function filmModalAc(oge) {
   const posterEl = document.getElementById("filmModalPoster");
   const yokEl = document.getElementById("filmModalPosterYok");
   if (oge.poster) {
-    posterEl.src = oge.poster;
+    posterEl.src = filmPosterUrl(oge.poster);
     posterEl.style.display = "block";
     if (yokEl) yokEl.style.display = "none";
   } else {
@@ -3045,7 +3079,7 @@ function filmSonuclariCiz() {
     FILM_ARAMA_SONUCU.map((f, i) => `
       <button type="button" class="film-kart" onclick="filmSec(${i})">
         ${f.poster
-          ? `<img src="${htmlEsc(f.poster)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+          ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
           : `<span class="film-poster-yok">${FILM_IKON}</span>`}
         <span class="film-kart-bilgi">
           <strong>${htmlEsc(f.ad)}</strong>
