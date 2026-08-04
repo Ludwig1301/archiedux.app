@@ -1350,30 +1350,43 @@ app.get("/api/members", async (req, res) => {
 });
 
 // ---------- Sunucu Pet'i: Archie ----------
-// Tüm üyelerin ortak beslediği, ekranın altında gezen site maskotu.
-// Açlık 0-100 arasıdır; zamanla düşer, beslenince artar. Durum verisi
-// data/pet.json içinde saklanır (profil DB'sini kirletmez).
+// Tüm üyelerin ortak baktığı site maskotu. Açlık ve susuzluk 0-100 arasıdır;
+// zamanla düşer. Kedi yemlikten yemek, su kabından su içmek için gider; kabı
+// dolduran üyeler XP kazanır. Durum data/pet.json içinde saklanır.
 const PET_DOSYASI = path.join(__dirname, "data", "pet.json");
-const PET_BESLEME_COOLDOWN_MS = 10 * 60 * 1000; // bir üye 10 dakikada bir besleyebilir
-const PET_DECAY_MS = 3 * 60 * 1000; // açlık her 3 dakikada 1 birim düşer (100→0: ~5 saat)
-const PET_MAMA_XP = 5;
-const PET_MAMA_MIKTARI = 25; // her mama açlığı 25 birim doldurur
-const PET_BESLEYICI_BESLEME = 15; // bu kadar mama veren üye "Besleyici" rozeti alır
+const PET_DOLDURMA_COOLDOWN_MS = 10 * 60 * 1000; // bir üye 10 dakikada bir kap doldurabilir
+const PET_ACLIK_DECAY_MS = 4 * 60 * 1000; // açlık 4 dakikada 1 birim düşer
+const PET_SU_DECAY_MS = 5 * 60 * 1000; // susuzluk 5 dakikada 1 birim düşer
+const PET_YEME_SURE_MS = 45 * 1000; // kedi 45 saniyede yemeği bitirir
+const PET_ICME_SURE_MS = 45 * 1000; // kedi 45 saniyede suyu bitirir
+const PET_YEME_ESIGI = 55; // açlık bu değerin altına düşünce kedi yemlikten yer
+const PET_ICME_ESIGI = 55; // susuzluk bu değerin altına düşünce kedi su içer
+const PET_DOLDURMA_XP = 5;
+const PET_BESLEYICI_BESLEME = 15; // toplam 15 dolum yapan üye "Besleyici" rozeti alır
 
 function petOku() {
+  const varsayilan = {
+    tree: 1,
+    yemDolu: true,
+    suDolu: true,
+    yemYiyorBasladi: null,
+    suIyiyorBasladi: null,
+    aclik: 100,
+    susuzluk: 100,
+    sonGuncelleme: Date.now(),
+    toplamMama: 0,
+    toplamSu: 0,
+    besleyenler: {},
+  };
   if (!fs.existsSync(PET_DOSYASI)) {
-    const varsayilan = { aclik: 100, sonGuncelleme: Date.now(), toplamMama: 0, besleyenler: {} };
     fs.writeFileSync(PET_DOSYASI, JSON.stringify(varsayilan, null, 2));
     return varsayilan;
   }
   try {
     const veri = JSON.parse(fs.readFileSync(PET_DOSYASI, "utf-8"));
-    if (typeof veri.aclik !== "number") veri.aclik = 100;
-    if (!veri.sonGuncelleme) veri.sonGuncelleme = Date.now();
-    if (typeof veri.toplamMama !== "number") veri.toplamMama = 0;
-    return veri;
+    return { ...varsayilan, ...veri };
   } catch (e) {
-    return { aclik: 100, sonGuncelleme: Date.now(), toplamMama: 0, besleyenler: {} };
+    return varsayilan;
   }
 }
 
@@ -1381,85 +1394,154 @@ function petYaz(veri) {
   fs.writeFileSync(PET_DOSYASI, JSON.stringify(veri, null, 2));
 }
 
-function petAclikHesapla(pet) {
-  const gecen = Date.now() - (pet.sonGuncelleme || Date.now());
-  return Math.max(0, Math.min(100, Math.floor((pet.aclik || 100) - gecen / PET_DECAY_MS)));
+// Zaman temelli simülasyon: açlık/susuzluk düşer, kedi kaplardan yiyip içer.
+// Durum gerçekten değiştiyse true döner (gereksiz disk yazımı önlenir).
+function petSimulasyon(pet) {
+  let degisti = false;
+  const simdi = Date.now();
+  const gecen = Math.max(0, simdi - (pet.sonGuncelleme || simdi));
+  pet.aclik = Math.max(0, (pet.aclik || 100) - Math.floor(gecen / PET_ACLIK_DECAY_MS));
+  pet.susuzluk = Math.max(0, (pet.susuzluk || 100) - Math.floor(gecen / PET_SU_DECAY_MS));
+  pet.sonGuncelleme = simdi;
+
+  if (pet.yemYiyorBasladi) {
+    if (simdi - pet.yemYiyorBasladi >= PET_YEME_SURE_MS) {
+      pet.yemYiyorBasladi = null;
+      pet.yemDolu = false;
+      pet.aclik = 100;
+      degisti = true;
+    }
+  } else if (pet.yemDolu && pet.aclik < PET_YEME_ESIGI && !pet.suIyiyorBasladi) {
+    pet.yemYiyorBasladi = simdi;
+    degisti = true;
+  }
+
+  if (pet.suIyiyorBasladi) {
+    if (simdi - pet.suIyiyorBasladi >= PET_ICME_SURE_MS) {
+      pet.suIyiyorBasladi = null;
+      pet.suDolu = false;
+      pet.susuzluk = 100;
+      degisti = true;
+    }
+  } else if (pet.suDolu && pet.susuzluk < PET_ICME_ESIGI && !pet.yemYiyorBasladi) {
+    pet.suIyiyorBasladi = simdi;
+    degisti = true;
+  }
+
+  return degisti;
 }
 
-function petDurum(aclik) {
-  if (aclik >= 70) return "mutlu";
-  if (aclik >= 30) return "tok";
+function petDurum(aclik, susuzluk) {
+  const enDusuk = Math.min(aclik, susuzluk);
+  if (enDusuk >= 70) return "mutlu";
+  if (enDusuk >= 35) return "tok";
   return "ac";
+}
+
+function petKullaniciVeri(pet, discordId) {
+  const k = (discordId && pet.besleyenler[discordId]) || { sayi: 0, su: 0, sonDoldurma: 0 };
+  const kalan = Math.max(0, PET_DOLDURMA_COOLDOWN_MS - (Date.now() - (k.sonDoldurma || 0)));
+  return { mamaSayisi: k.sayi || 0, suSayisi: k.su || 0, doldurabilir: kalan <= 0, kalanMs: kalan };
+}
+
+function petDurumYanit(pet, req, ekstra) {
+  return {
+    ...(ekstra || {}),
+    tree: pet.tree,
+    yemDolu: pet.yemDolu,
+    suDolu: pet.suDolu,
+    yemYiyor: !!pet.yemYiyorBasladi,
+    suIyiyor: !!pet.suIyiyorBasladi,
+    aclik: pet.aclik,
+    susuzluk: pet.susuzluk,
+    durum: petDurum(pet.aclik, pet.susuzluk),
+    toplamMama: pet.toplamMama || 0,
+    toplamSu: pet.toplamSu || 0,
+    ben: req.session.discordId ? petKullaniciVeri(pet, req.session.discordId) : null,
+  };
 }
 
 app.get("/api/pet", (req, res) => {
   const pet = petOku();
-  const aclik = petAclikHesapla(pet);
-  let ben = null;
-  if (req.session.discordId) {
-    const k = pet.besleyenler[req.session.discordId] || { sayi: 0, sonBesleme: 0 };
-    const kalan = Math.max(0, PET_BESLEME_COOLDOWN_MS - (Date.now() - (k.sonBesleme || 0)));
-    ben = { mamaSayisi: k.sayi || 0, besleyebilir: kalan <= 0, kalanMs: kalan };
-  }
-  res.json({ aclik, durum: petDurum(aclik), toplamMama: pet.toplamMama || 0, ben });
+  if (petSimulasyon(pet)) petYaz(pet);
+  res.json(petDurumYanit(pet, req));
 });
 
-app.post("/api/pet/besle", girisGerekli, (req, res) => {
+app.post("/api/pet/tree", girisGerekli, (req, res) => {
+  const tree = parseInt((req.body || {}).tree, 10);
+  if (![1, 2, 3].includes(tree)) return res.status(400).json({ hata: "Geçersiz ağaç rengi." });
   const pet = petOku();
-  const aclik = petAclikHesapla(pet);
-  const onceki = pet.besleyenler[req.session.discordId] || { sayi: 0, sonBesleme: 0 };
-  const kalan = PET_BESLEME_COOLDOWN_MS - (Date.now() - (onceki.sonBesleme || 0));
+  if (petSimulasyon(pet)) petYaz(pet);
+  pet.tree = tree;
+  petYaz(pet);
+  logEkle(req.session.discordId, null, "pet-agac", `Kedi ağacını ${tree}. renge çevirdi`);
+  res.json(petDurumYanit(pet, req, { basarili: true }));
+});
 
+// Bir kabı doldur (yem veya su). XP + rozet mantığı ortaktır.
+function petKapDoldur(req, res, tur) {
+  const pet = petOku();
+  if (petSimulasyon(pet)) petYaz(pet);
+  const kullanici = pet.besleyenler[req.session.discordId] || { sayi: 0, su: 0, sonDoldurma: 0 };
+  const kalan = PET_DOLDURMA_COOLDOWN_MS - (Date.now() - (kullanici.sonDoldurma || 0));
   if (kalan > 0) {
-    return res
-      .status(429)
-      .json({ hata: "Archie az önce beslendi, birazdan tekrar mama verebilirsin.", kalanMs: kalan });
-  }
-  if (aclik >= 100) {
-    return res.json({
-      hata: "Archie tamamen tok, şimdilik mama istemiyor. Birazdan acıkacak.",
-      aclik,
-      durum: petDurum(aclik),
+    return res.status(429).json({
+      hata: "Biraz beklemelisin, Archie'nin kapları henüz bitmedi.",
+      kalanMs: kalan,
     });
   }
 
-  onceki.sayi = (onceki.sayi || 0) + 1;
-  onceki.sonBesleme = Date.now();
-  pet.besleyenler[req.session.discordId] = onceki;
-  pet.toplamMama = (pet.toplamMama || 0) + 1;
-  pet.aclik = Math.min(100, aclik + PET_MAMA_MIKTARI);
-  pet.sonGuncelleme = Date.now();
+  const doluMu = tur === "yem" ? pet.yemDolu : pet.suDolu;
+  if (doluMu) {
+    return res.json({
+      hata: tur === "yem" ? "Yemlik zaten dolu." : "Su kabı zaten dolu.",
+      ...petDurumYanit(pet, req),
+    });
+  }
+
+  if (tur === "yem") {
+    pet.yemDolu = true;
+    pet.yemYiyorBasladi = null;
+    pet.toplamMama = (pet.toplamMama || 0) + 1;
+    kullanici.sayi = (kullanici.sayi || 0) + 1;
+  } else {
+    pet.suDolu = true;
+    pet.suIyiyorBasladi = null;
+    pet.toplamSu = (pet.toplamSu || 0) + 1;
+    kullanici.su = (kullanici.su || 0) + 1;
+  }
+  kullanici.sonDoldurma = Date.now();
+  pet.besleyenler[req.session.discordId] = kullanici;
   petYaz(pet);
 
   let kazanilanXp = 0;
   let rozet = null;
   let rozetXp = 0;
-  if (aclik < 100) {
-    profilGetir(req.session.discordId); // yoksa oluştur
-    const db = okuDB();
-    kazanilanXp = xpArtir(db.profiles[req.session.discordId], PET_MAMA_XP);
-    yazDB(db);
-  }
-  if (onceki.sayi >= PET_BESLEYICI_BESLEME) {
+  profilGetir(req.session.discordId); // yoksa oluştur
+  const db = okuDB();
+  kazanilanXp = xpArtir(db.profiles[req.session.discordId], PET_DOLDURMA_XP);
+  yazDB(db);
+  if ((kullanici.sayi || 0) + (kullanici.su || 0) >= PET_BESLEYICI_BESLEME) {
     const sonuc = rozetKazandir(req.session.discordId, "besleyici");
     if (sonuc && sonuc.rozet) {
       rozet = sonuc.rozet;
       rozetXp = sonuc.kazanilanXp || 0;
     }
   }
-  logEkle(req.session.discordId, null, "pet-besle", `Archie'yi besledi (toplam ${pet.toplamMama} mama)`);
+  logEkle(
+    req.session.discordId,
+    null,
+    "pet-besle",
+    tur === "yem"
+      ? `Yemliği doldurdu (toplam ${pet.toplamMama} yemlik)`
+      : `Su kabını doldurdu (toplam ${pet.toplamSu} su kabı)`
+  );
 
-  res.json({
-    basarili: true,
-    aclik: pet.aclik,
-    durum: petDurum(pet.aclik),
-    toplamMama: pet.toplamMama,
-    kazanilanXp,
-    rozet,
-    rozetXp,
-    ben: { mamaSayisi: onceki.sayi, besleyebilir: false, kalanMs: PET_BESLEME_COOLDOWN_MS },
-  });
-});
+  res.json(petDurumYanit(pet, req, { basarili: true, kazanilanXp, rozet, rozetXp }));
+}
+
+app.post("/api/pet/yem", girisGerekli, (req, res) => petKapDoldur(req, res, "yem"));
+app.post("/api/pet/su", girisGerekli, (req, res) => petKapDoldur(req, res, "su"));
 
 // ---------- Sunucu Başlatma ----------
 app.listen(PORT || 3000, () => {
