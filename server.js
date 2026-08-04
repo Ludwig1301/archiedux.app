@@ -83,6 +83,7 @@ const EASTER_EGGS = {
   "archie-avcisi": { ad: "Arşiv Avcısı", aciklama: "Sitede 'archie' kelimesini yazdın.", ikon: "🔎", xp: 100 },
   "koleksiyoncu": { ad: "Koleksiyoncu", aciklama: "Günlüğüne 5 farklı film/dizi ekledin.", ikon: "📀", xp: 150 },
   "sinema-tutkunu": { ad: "Sinema Tutkunu", aciklama: "Günlüğüne 10 farklı film/dizi ekledin.", ikon: "🎞️", xp: 200 },
+  "besleyici": { ad: "Besleyici", aciklama: "Archie'yi 15 kez besledin.", ikon: "🐟", xp: 100 },
 };
 
 // XP ekle; xpKilitli hesaplar için XP verme (seviyesi dondurulmuş üyeler)
@@ -1346,6 +1347,118 @@ app.get("/api/members", async (req, res) => {
   if (degisti) yazDB(db);
   UYE_LISTESI_ONBELLEK = { zaman: Date.now(), veri: liste };
   res.json(liste);
+});
+
+// ---------- Sunucu Pet'i: Archie ----------
+// Tüm üyelerin ortak beslediği, ekranın altında gezen site maskotu.
+// Açlık 0-100 arasıdır; zamanla düşer, beslenince artar. Durum verisi
+// data/pet.json içinde saklanır (profil DB'sini kirletmez).
+const PET_DOSYASI = path.join(__dirname, "data", "pet.json");
+const PET_BESLEME_COOLDOWN_MS = 10 * 60 * 1000; // bir üye 10 dakikada bir besleyebilir
+const PET_DECAY_MS = 3 * 60 * 1000; // açlık her 3 dakikada 1 birim düşer (100→0: ~5 saat)
+const PET_MAMA_XP = 5;
+const PET_MAMA_MIKTARI = 25; // her mama açlığı 25 birim doldurur
+const PET_BESLEYICI_BESLEME = 15; // bu kadar mama veren üye "Besleyici" rozeti alır
+
+function petOku() {
+  if (!fs.existsSync(PET_DOSYASI)) {
+    const varsayilan = { aclik: 100, sonGuncelleme: Date.now(), toplamMama: 0, besleyenler: {} };
+    fs.writeFileSync(PET_DOSYASI, JSON.stringify(varsayilan, null, 2));
+    return varsayilan;
+  }
+  try {
+    const veri = JSON.parse(fs.readFileSync(PET_DOSYASI, "utf-8"));
+    if (typeof veri.aclik !== "number") veri.aclik = 100;
+    if (!veri.sonGuncelleme) veri.sonGuncelleme = Date.now();
+    if (typeof veri.toplamMama !== "number") veri.toplamMama = 0;
+    return veri;
+  } catch (e) {
+    return { aclik: 100, sonGuncelleme: Date.now(), toplamMama: 0, besleyenler: {} };
+  }
+}
+
+function petYaz(veri) {
+  fs.writeFileSync(PET_DOSYASI, JSON.stringify(veri, null, 2));
+}
+
+function petAclikHesapla(pet) {
+  const gecen = Date.now() - (pet.sonGuncelleme || Date.now());
+  return Math.max(0, Math.min(100, Math.floor((pet.aclik || 100) - gecen / PET_DECAY_MS)));
+}
+
+function petDurum(aclik) {
+  if (aclik >= 70) return "mutlu";
+  if (aclik >= 30) return "tok";
+  return "ac";
+}
+
+app.get("/api/pet", (req, res) => {
+  const pet = petOku();
+  const aclik = petAclikHesapla(pet);
+  let ben = null;
+  if (req.session.discordId) {
+    const k = pet.besleyenler[req.session.discordId] || { sayi: 0, sonBesleme: 0 };
+    const kalan = Math.max(0, PET_BESLEME_COOLDOWN_MS - (Date.now() - (k.sonBesleme || 0)));
+    ben = { mamaSayisi: k.sayi || 0, besleyebilir: kalan <= 0, kalanMs: kalan };
+  }
+  res.json({ aclik, durum: petDurum(aclik), toplamMama: pet.toplamMama || 0, ben });
+});
+
+app.post("/api/pet/besle", girisGerekli, (req, res) => {
+  const pet = petOku();
+  const aclik = petAclikHesapla(pet);
+  const onceki = pet.besleyenler[req.session.discordId] || { sayi: 0, sonBesleme: 0 };
+  const kalan = PET_BESLEME_COOLDOWN_MS - (Date.now() - (onceki.sonBesleme || 0));
+
+  if (kalan > 0) {
+    return res
+      .status(429)
+      .json({ hata: "Archie az önce beslendi, birazdan tekrar mama verebilirsin.", kalanMs: kalan });
+  }
+  if (aclik >= 100) {
+    return res.json({
+      hata: "Archie tamamen tok, şimdilik mama istemiyor. Birazdan acıkacak.",
+      aclik,
+      durum: petDurum(aclik),
+    });
+  }
+
+  onceki.sayi = (onceki.sayi || 0) + 1;
+  onceki.sonBesleme = Date.now();
+  pet.besleyenler[req.session.discordId] = onceki;
+  pet.toplamMama = (pet.toplamMama || 0) + 1;
+  pet.aclik = Math.min(100, aclik + PET_MAMA_MIKTARI);
+  pet.sonGuncelleme = Date.now();
+  petYaz(pet);
+
+  let kazanilanXp = 0;
+  let rozet = null;
+  let rozetXp = 0;
+  if (aclik < 100) {
+    profilGetir(req.session.discordId); // yoksa oluştur
+    const db = okuDB();
+    kazanilanXp = xpArtir(db.profiles[req.session.discordId], PET_MAMA_XP);
+    yazDB(db);
+  }
+  if (onceki.sayi >= PET_BESLEYICI_BESLEME) {
+    const sonuc = rozetKazandir(req.session.discordId, "besleyici");
+    if (sonuc && sonuc.rozet) {
+      rozet = sonuc.rozet;
+      rozetXp = sonuc.kazanilanXp || 0;
+    }
+  }
+  logEkle(req.session.discordId, null, "pet-besle", `Archie'yi besledi (toplam ${pet.toplamMama} mama)`);
+
+  res.json({
+    basarili: true,
+    aclik: pet.aclik,
+    durum: petDurum(pet.aclik),
+    toplamMama: pet.toplamMama,
+    kazanilanXp,
+    rozet,
+    rozetXp,
+    ben: { mamaSayisi: onceki.sayi, besleyebilir: false, kalanMs: PET_BESLEME_COOLDOWN_MS },
+  });
 });
 
 // ---------- Sunucu Başlatma ----------

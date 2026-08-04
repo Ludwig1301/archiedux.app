@@ -3130,6 +3130,7 @@ const LOG_TUR_ETIKET = {
   "yorum": "profiline yorum yazdı",
   "galeri-ekle": "galeriye görsel ekledi",
   "galeri-yorum": "galeriye yorum yazdı",
+  "pet-besle": "Archie'yi besledi",
 };
 
 async function logSayfasiBaslat() {
@@ -3181,6 +3182,277 @@ function logListeCiz(loglar) {
   `).join("");
 }
 
+// ---------- Sunucu Pet'i: Archie (tüm sayfalarda alt şeritte gezer) ----------
+const PET_DURUM_ADI = { mutlu: "Mutlu", tok: "Tok", ac: "Aç" };
+const PET_BESLEME_COOLDOWN_MS = 10 * 60 * 1000;
+let PET_DURUM = "mutlu";
+let PET_ACLIK = 100;
+let PET_TOPLAM_MAMA = 0;
+let PET_BESLEYEBILIR = false;
+let PET_COOLDOWN_MS = 0;
+let PET_GIRIS = false;
+let PET_X = 24;
+let PET_YON = 1;
+let PET_HAREKET_DURUMU = "yuru";
+let PET_HAREKET_SURUCU = null;
+let PET_AC_ANONSU = false;
+let PET_SAYAC_CALISIYOR = false;
+let petKonusmaZamanlayici = null;
+
+function petSvgCiz(durum) {
+  const gozler =
+    durum === "mutlu"
+      ? '<path d="M52 49 q4 -6 8 0 M80 49 q4 -6 8 0" fill="none" stroke="#1c1a12" stroke-width="3" stroke-linecap="round"/>'
+      : durum === "ac"
+        ? '<path d="M50 52 h12 M78 52 h12" stroke="#1c1a12" stroke-width="3.2" stroke-linecap="round"/><path d="M56 57 q5 3 10 0" fill="none" stroke="#1c1a12" stroke-width="2.2" stroke-linecap="round"/>'
+        : '<circle cx="56" cy="49" r="4.2" fill="#1c1a12"/><circle cx="84" cy="49" r="4.2" fill="#1c1a12"/>';
+  const agiz =
+    durum === "ac"
+      ? '<path d="M66 60 q2 -3 4 0 q2 3 4 0" fill="none" stroke="#1c1a12" stroke-width="2.2" stroke-linecap="round"/>'
+      : '<path d="M64 59 q6 7 12 0" fill="none" stroke="#1c1a12" stroke-width="2.2" stroke-linecap="round"/>';
+  return `
+    <svg viewBox="0 0 140 120" aria-label="Archie">
+      <path d="M104 92 q26 -6 22 -32 q-3 -13 -12 -15" fill="none" stroke="#c9a227" stroke-width="11" stroke-linecap="round"/>
+      <path d="M32 118 Q24 92 46 82 Q80 71 106 84 Q120 91 116 118 Z" fill="#c9a227"/>
+      <path d="M46 118 Q40 100 62 96 Q88 92 102 101 Q110 107 106 118 Z" fill="#f4e3b0" opacity="0.92"/>
+      <circle cx="70" cy="52" r="30" fill="#c9a227"/>
+      <path d="M46 34 L40 8 L62 24 Z" fill="#c9a227"/>
+      <path d="M94 34 L100 8 L78 24 Z" fill="#c9a227"/>
+      <path d="M49 31 L45 14 L58 24 Z" fill="#8a6d14"/>
+      <path d="M91 31 L95 14 L82 24 Z" fill="#8a6d14"/>
+      ${gozler}
+      <path d="M66 56 h8 v2 q-4 5 -8 0 Z" fill="#1c1a12"/>
+      ${agiz}
+      <path d="M38 54 h-13 M38 62 h-13 M102 54 h13 M102 62 h13" stroke="#8a6d14" stroke-width="2" stroke-linecap="round"/>
+      <ellipse cx="46" cy="62" rx="4.5" ry="3" fill="#f7b7c2" opacity="0.7"/>
+      <ellipse cx="94" cy="62" rx="4.5" ry="3" fill="#f7b7c2" opacity="0.7"/>
+      <ellipse cx="52" cy="112" rx="13" ry="6" fill="#a8861c"/>
+      <ellipse cx="88" cy="112" rx="13" ry="6" fill="#a8861c"/>
+    </svg>`;
+}
+
+function petSvgGuncelle(durum) {
+  const alan = document.getElementById("petSvg");
+  if (alan) alan.innerHTML = petSvgCiz(durum);
+}
+
+function petKurulum() {
+  if (document.getElementById("petSistemi")) return;
+  const kutu = document.createElement("div");
+  kutu.id = "petSistemi";
+  kutu.className = "pet-sistemi";
+  kutu.innerHTML = `
+    <div class="pet-bar"></div>
+    <div class="pet-alan" id="petAlan">
+      <div class="pet-nesne yuruyor" id="petNesne">
+        <div class="pet-svg" id="petSvg"></div>
+        <div class="pet-konuisma" id="petKonusma"></div>
+      </div>
+    </div>
+    <div class="pet-panel" id="petPanel">
+      <div class="pet-panel-ust">
+        <span class="pet-panel-isim">ARCHIE</span>
+        <span class="pet-panel-durum" id="petDurumEtiketi">Mutlu</span>
+      </div>
+      <div class="pet-aclik-cubuk"><div class="pet-aclik-doluluk" id="petAclikDoluluk"></div></div>
+      <div class="pet-panel-alt">
+        <span class="pet-mama-sayisi" id="petMamaSayisi"></span>
+        <button type="button" class="pet-besle-btn" id="petBesleBtn">Mama Ver</button>
+      </div>
+    </div>`;
+  document.body.appendChild(kutu);
+  const btn = document.getElementById("petBesleBtn");
+  if (btn) btn.addEventListener("click", petBesle);
+  petSvgGuncelle(PET_DURUM);
+  petVeriYukle();
+  petHareketBaslat();
+}
+
+async function petVeriYukle() {
+  try {
+    const res = await apiFetch("/api/pet", {}, 8000);
+    if (!res.ok) return;
+    const veri = await res.json();
+    PET_ACLIK = veri.aclik;
+    PET_DURUM = veri.durum || "mutlu";
+    PET_TOPLAM_MAMA = veri.toplamMama || 0;
+    PET_GIRIS = !!veri.ben;
+    if (veri.ben) {
+      PET_BESLEYEBILIR = veri.ben.besleyebilir;
+      PET_COOLDOWN_MS = veri.ben.kalanMs || 0;
+    }
+    petArayuzGuncelle();
+    if (PET_DURUM === "ac" && !PET_AC_ANONSU) {
+      PET_AC_ANONSU = true;
+      petKonusma("Miyav, karnım aç! 🐟");
+      setTimeout(() => { PET_AC_ANONSU = false; }, 60000);
+    }
+  } catch (e) {
+    /* pet hatası sayfayı bozmasın */
+  }
+}
+
+function petArayuzGuncelle() {
+  const doluluk = document.getElementById("petAclikDoluluk");
+  if (doluluk) doluluk.style.width = `${PET_ACLIK}%`;
+  const etiket = document.getElementById("petDurumEtiketi");
+  if (etiket) etiket.textContent = PET_DURUM_ADI[PET_DURUM] || PET_DURUM;
+  const sayi = document.getElementById("petMamaSayisi");
+  if (sayi) sayi.textContent = `${PET_TOPLAM_MAMA} mama`;
+  const btn = document.getElementById("petBesleBtn");
+  if (!btn) return;
+  if (!PET_GIRIS) {
+    btn.textContent = "Giriş Yap";
+    btn.classList.remove("bekliyor");
+    PET_SAYAC_CALISIYOR = false;
+  } else if (!PET_BESLEYEBILIR) {
+    btn.textContent = "Beslendi ✓";
+    btn.classList.add("bekliyor");
+    petCooldownSayacGuncelle();
+  } else {
+    btn.textContent = "Mama Ver";
+    btn.classList.remove("bekliyor");
+    PET_SAYAC_CALISIYOR = false;
+  }
+  petSvgGuncelle(PET_DURUM);
+}
+
+function petCooldownSayacGuncelle() {
+  const btn = document.getElementById("petBesleBtn");
+  if (!btn || !btn.classList.contains("bekliyor")) {
+    PET_SAYAC_CALISIYOR = false;
+    return;
+  }
+  if (PET_SAYAC_CALISIYOR) return;
+  PET_SAYAC_CALISIYOR = true;
+  const adim = () => {
+    const guncelBtn = document.getElementById("petBesleBtn");
+    if (!guncelBtn || !guncelBtn.classList.contains("bekliyor")) {
+      PET_SAYAC_CALISIYOR = false;
+      return;
+    }
+    if (PET_COOLDOWN_MS <= 0) {
+      PET_BESLEYEBILIR = true;
+      PET_SAYAC_CALISIYOR = false;
+      guncelBtn.textContent = "Mama Ver";
+      guncelBtn.classList.remove("bekliyor");
+      return;
+    }
+    const sn = Math.max(0, Math.ceil(PET_COOLDOWN_MS / 1000));
+    const mm = String(Math.floor(sn / 60)).padStart(2, "0");
+    const ss = String(sn % 60).padStart(2, "0");
+    guncelBtn.textContent = `Beslendi ✓ ${mm}:${ss}`;
+    PET_COOLDOWN_MS -= 1000;
+    setTimeout(adim, 1000);
+  };
+  adim();
+}
+
+async function petBesle() {
+  const btn = document.getElementById("petBesleBtn");
+  if (!btn) return;
+  if (!PET_GIRIS) {
+    window.location.href = "/auth/login";
+    return;
+  }
+  if (!PET_BESLEYEBILIR || btn.classList.contains("mesgul")) return;
+  btn.classList.add("mesgul");
+  btn.textContent = "Mama veriliyor...";
+  try {
+    const res = await fetch("/api/pet/besle", { method: "POST" });
+    const veri = await res.json();
+    if (!res.ok) {
+      if (veri.hata) petKonusma(veri.hata);
+      PET_BESLEYEBILIR = false;
+      PET_COOLDOWN_MS = veri.kalanMs || PET_BESLEME_COOLDOWN_MS;
+      petArayuzGuncelle();
+      return;
+    }
+    PET_ACLIK = veri.aclik;
+    PET_DURUM = veri.durum || PET_DURUM;
+    PET_TOPLAM_MAMA = veri.toplamMama;
+    PET_BESLEYEBILIR = false;
+    PET_COOLDOWN_MS = (veri.ben && veri.ben.kalanMs) || PET_BESLEME_COOLDOWN_MS;
+    petKalpler();
+    petKonusma("Miyav! Çok lezzetli ❤");
+    if (veri.kazanilanXp > 0) petXpGoster(`+${veri.kazanilanXp} XP`);
+    if (veri.rozet) {
+      petXpGoster(`🎉 ${veri.rozet.ad} rozeti!`);
+      if (veri.rozetXp > 0) petXpGoster(`+${veri.rozetXp} XP`);
+    }
+    petArayuzGuncelle();
+  } catch (e) {
+    petKonusma("Mama verilemedi, tekrar dene.");
+  } finally {
+    btn.classList.remove("mesgul");
+  }
+}
+
+function petKalpler(adet) {
+  const alan = document.getElementById("petAlan");
+  if (!alan) return;
+  const sayac = adet || 6;
+  const ikonlar = ["❤", "💖", "💗", "💕"];
+  for (let i = 0; i < sayac; i++) {
+    const kalp = document.createElement("span");
+    kalp.className = "pet-kalp";
+    kalp.textContent = ikonlar[i % ikonlar.length];
+    kalp.style.left = `${30 + Math.random() * 46}%`;
+    kalp.style.animationDelay = `${Math.random() * 0.4}s`;
+    alan.appendChild(kalp);
+    setTimeout(() => kalp.remove(), 1800);
+  }
+}
+
+function petXpGoster(metin) {
+  const alan = document.getElementById("petAlan");
+  if (!alan) return;
+  const el = document.createElement("div");
+  el.className = "pet-xp-uc";
+  el.textContent = metin;
+  el.style.left = `${20 + Math.random() * 30}%`;
+  alan.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+
+function petKonusma(metin) {
+  const el = document.getElementById("petKonusma");
+  if (!el) return;
+  el.innerHTML = htmlEsc(metin);
+  el.classList.add("gorunur");
+  clearTimeout(petKonusmaZamanlayici);
+  petKonusmaZamanlayici = setTimeout(() => el.classList.remove("gorunur"), 3500);
+}
+
+function petHareketBaslat() {
+  if (PET_HAREKET_SURUCU) return;
+  const nesne = document.getElementById("petNesne");
+  if (!nesne) return;
+  PET_X = 24;
+  PET_YON = 1;
+  nesne.style.left = PET_X + "px";
+  nesne.style.transform = `scaleX(${PET_YON})`;
+  PET_HAREKET_SURUCU = setInterval(() => {
+    const genislik = document.documentElement.clientWidth || window.innerWidth || 900;
+    const panelGenisligi = Math.min(240, genislik * 0.55);
+    const altSinir = Math.min(240, panelGenisligi + 16);
+    const ustSinir = Math.max(altSinir + 60, genislik - 120);
+    PET_X += PET_YON * (PET_HAREKET_DURUMU === "yuru" ? 1.15 : 0);
+    if (PET_X > ustSinir) { PET_X = ustSinir; PET_YON = -1; }
+    if (PET_X < altSinir) { PET_X = altSinir; PET_YON = 1; }
+    nesne.style.left = PET_X + "px";
+    nesne.style.transform = `scaleX(${PET_YON})`;
+    if (PET_HAREKET_DURUMU === "yuru" && Math.random() < 0.0025) {
+      PET_HAREKET_DURUMU = "otur";
+      nesne.classList.remove("yuruyor");
+      setTimeout(() => {
+        PET_HAREKET_DURUMU = "yuru";
+        nesne.classList.add("yuruyor");
+      }, 2200 + Math.random() * 3200);
+    }
+  }, 40);
+}
+
 // ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
 try {
   profilPlayerOlustur();
@@ -3190,4 +3462,10 @@ try {
 setInterval(() => {
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
 }, 5000);
+try {
+  petKurulum();
+} catch (e) {
+  /* pet sorunu sayfayı bozmasın */
+}
+setInterval(petVeriYukle, 60000);
 
