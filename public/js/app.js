@@ -3213,7 +3213,8 @@ let PET_HEDEF = null;
 let PET_MODE = "dur"; // hareket | dur | yemek | icki
 let PET_ANIM = "sit-front";
 let PET_ANIM_FRAME = 0;
-let PET_ANIM_TICK = 0;
+let PET_ANIM_SON_ZAMAN = 0;
+const PET_FRAME_ONBELLEK = {};
 let PET_OTURMA_SURESI = 0;
 let PET_SURUCU = null;
 let PET_ALAN = { minX: 10, maxX: 700, minY: 10, maxY: 300 };
@@ -3245,23 +3246,45 @@ function petAnimAyarla(set, reset) {
   PET_ANIM = set;
   if (reset) {
     PET_ANIM_FRAME = 0;
-    PET_ANIM_TICK = 0;
+    PET_ANIM_SON_ZAMAN = performance.now();
   }
   petKareGoster();
 }
 
 function petKareGoster() {
   const kare = document.getElementById("petKare");
-  if (kare) kare.src = `/pet/${PET_ANIM}-${PET_ANIM_FRAME + 1}.png`;
+  if (!kare) return;
+  const url = `/pet/${PET_ANIM}-${PET_ANIM_FRAME + 1}.png`;
+  const onbellek = PET_FRAME_ONBELLEK[url];
+  kare.src = onbellek && onbellek.complete ? onbellek.src : url;
 }
 
 function petFrameTik() {
-  PET_ANIM_TICK++;
-  const aralik = PET_HEDEF && PET_HEDEF.mod === "kos" ? 90 : PET_HEDEF ? 150 : 240;
-  if (PET_ANIM_TICK * 40 >= aralik) {
-    PET_ANIM_TICK = 0;
-    PET_ANIM_FRAME = (PET_ANIM_FRAME + 1) % 4;
-    petKareGoster();
+  const simdi = performance.now();
+  if (!PET_ANIM_SON_ZAMAN) PET_ANIM_SON_ZAMAN = simdi;
+  const hareketEdiyor = PET_TOP_SURUKLENIYOR || PET_MODE === "hareket";
+  const aralik = hareketEdiyor && PET_HEDEF && PET_HEDEF.mod === "kos" ? 90 : hareketEdiyor ? 150 : 240;
+  const gecen = simdi - PET_ANIM_SON_ZAMAN;
+  if (gecen < aralik) return;
+  const adim = Math.max(1, Math.floor(gecen / aralik));
+  PET_ANIM_FRAME = (PET_ANIM_FRAME + adim) % 4;
+  PET_ANIM_SON_ZAMAN += adim * aralik;
+  petKareGoster();
+}
+
+function petFrameOnbellekle() {
+  const setler = [
+    "walk-down", "walk-left", "walk-right", "walk-up",
+    "run-down", "run-left", "run-right", "run-up",
+    "sit-front", "sit-back", "lay-front", "lay-left", "sleep", "drink",
+  ];
+  for (const set of setler) {
+    for (let i = 1; i <= 4; i++) {
+      const url = `/pet/${set}-${i}.png`;
+      const img = new Image();
+      img.src = url;
+      PET_FRAME_ONBELLEK[url] = img;
+    }
   }
 }
 
@@ -3286,6 +3309,11 @@ function petRastgeleNokta() {
 function petHedefGit(x, y, mod, varis) {
   PET_HEDEF = { x, y, mod, varis };
   PET_MODE = "hareket";
+  const dx = x - PET_X;
+  const dy = y - PET_Y;
+  const yatay = Math.abs(dx) > Math.abs(dy);
+  const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
+  petYuruSet((mod === "kos" ? "run-" : "walk-") + yon);
 }
 
 function petHedefSec() {
@@ -3337,6 +3365,7 @@ function petVaris() {
 }
 
 function petIdleSec(agacta) {
+  PET_HEDEF = null;
   const ac = PET_DURUM === "ac";
   let liste;
   if (agacta) liste = [["sleep", 5], ["lay-front", 3], ["lay-left", 2], ["sit-front", 2], ["sit-back", 2]];
@@ -3516,7 +3545,8 @@ function petKurulum() {
   petTopSurukleme();
   petAlanGuncelle();
   window.addEventListener("resize", petAlanGuncelle);
-  petAnimAyarla("sit-front");
+  petFrameOnbellekle();
+  petAnimAyarla("sit-front", true);
   petKareGoster();
   petPozisyonUygula();
   petVeriYukle();
