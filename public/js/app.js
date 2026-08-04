@@ -3191,7 +3191,7 @@ const PET_DOLDURMA_COOLDOWN_MS = 10 * 60 * 1000;
 const PET_KUTU = { w: 130, h: 130 };
 const PET_AGAC = { x: 16, y: 14, w: 240, h: 230 };
 const PET_KAB_RENK = { 1: "blue", 2: "green", 3: "red" };
-const PET_TOP_GORSEL = ["ball-red.png", "ball-green.png", "yarn-blue.png", "yarn-green.png"];
+let PET_TOP_GORSEL = "ball-red.png";
 
 let PET_DURUM = "mutlu";
 let PET_ACLIK = 100;
@@ -3224,7 +3224,6 @@ let PET_TOP_X = 0;
 let PET_TOP_Y = 0;
 let PET_TOP_ZAMAN = 0;
 let PET_TOP_SURUKLENIYOR = false;
-let PET_TOP_ROLL_ZAMAN = Date.now() + 15000;
 let PET_AGAC_USTU = false;
 let PET_AGAC_SYNC_YAPILDI = false;
 
@@ -3241,11 +3240,11 @@ function petAlanGuncelle() {
   };
 }
 
-function petAnimAyarla(set) {
-  if (PET_ANIM === set) return;
+function petAnimAyarla(set, reset) {
+  if (PET_ANIM === set && !reset) return;
   PET_ANIM = set;
-  PET_ANIM_FRAME = 0;
   PET_ANIM_TICK = 0;
+  if (reset) PET_ANIM_FRAME = 0;
   petKareGoster();
 }
 
@@ -3300,11 +3299,6 @@ function petHedefSec() {
     petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
     return;
   }
-  if (!PET_TOP_AKTIF && Date.now() > PET_TOP_ROLL_ZAMAN) {
-    petTopSpawn();
-    petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
-    return;
-  }
   if (Math.random() < 0.2) {
     petHedefGit(PET_AGAC.x + PET_AGAC.w / 2 - PET_KUTU.w / 2, PET_AGAC.y + PET_AGAC.h - 6, "yuru", "agac");
   } else {
@@ -3319,11 +3313,11 @@ function petVaris() {
   PET_AGAC_USTU = v === "agac";
   if (v === "yemek") {
     PET_MODE = "yemek";
-    petAnimAyarla("sit-front");
+    petAnimAyarla("sit-front", true);
     petKonusma("Mmm, yemek! 😋");
   } else if (v === "icki") {
     PET_MODE = "icki";
-    petAnimAyarla("drink");
+    petAnimAyarla("drink", true);
     petKonusma("Şık şık şık... 💧");
   } else if (v === "agac") {
     PET_MODE = "dur";
@@ -3331,7 +3325,8 @@ function petVaris() {
   } else if (v === "top") {
     PET_MODE = "dur";
     PET_TOP_ZAMAN = Date.now();
-    petIdleSec(false);
+    PET_OTURMA_SURESI = 5000;
+    petAnimAyarla("sit-front", true);
     petKonusma("İplik! 😻");
   } else {
     PET_MODE = "dur";
@@ -3352,7 +3347,7 @@ function petIdleSec(agacta) {
     if (r < w) { sec = ad; break; }
     r -= w;
   }
-  petAnimAyarla(sec);
+  petAnimAyarla(sec, true);
   PET_OTURMA_SURESI = sec === "sleep" ? 7000 + Math.random() * 7000 : 3500 + Math.random() * 5000;
 }
 
@@ -3362,7 +3357,7 @@ function petTopSpawn() {
   PET_TOP_Y = n.y;
   const top = document.getElementById("petTop");
   if (top) {
-    top.innerHTML = `<img src="/pet/${PET_TOP_GORSEL[Math.floor(Math.random() * PET_TOP_GORSEL.length)]}" alt="">`;
+    top.innerHTML = `<img src="/pet/${PET_TOP_GORSEL}" alt="">`;
     top.style.left = `${PET_TOP_X}px`;
     top.style.bottom = `${PET_TOP_Y}px`;
     top.style.display = "";
@@ -3370,8 +3365,50 @@ function petTopSpawn() {
   PET_TOP_AKTIF = true;
 }
 
+function petTopSpawnGorsel(img) {
+  if (PET_TOP_AKTIF) {
+    petKonusma("Archie şu an topu kovalıyor, az sonra!");
+    return;
+  }
+  PET_TOP_GORSEL = img;
+  petTopSpawn();
+  petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
+  petKonusma("Top! Yakalayacağım! 😻");
+}
+
+function petYuruSet(set) {
+  const ayniAile = PET_ANIM.startsWith("run-") || PET_ANIM.startsWith("walk-");
+  petAnimAyarla(set, !ayniAile);
+}
+
+function petDragTakip() {
+  const hedefX = Math.max(PET_ALAN.minX, PET_TOP_X - 55);
+  const dx = hedefX - PET_X;
+  const dy = PET_TOP_Y - PET_Y;
+  const mesafe = Math.hypot(dx, dy);
+  if (mesafe < 7) {
+    if (PET_MODE !== "top-oyna") {
+      PET_MODE = "top-oyna";
+      petAnimAyarla("sit-front", true);
+    }
+  } else {
+    if (PET_MODE !== "hareket") {
+      PET_MODE = "hareket";
+      PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
+    }
+    const hiz = 3.6;
+    PET_X += (dx / mesafe) * hiz;
+    PET_Y += (dy / mesafe) * hiz;
+    const yatay = Math.abs(dx) > Math.abs(dy);
+    const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
+    petYuruSet("run-" + yon);
+  }
+}
+
 function petSurucuTik() {
-  if (PET_MODE === "hareket" && PET_HEDEF) {
+  if (PET_TOP_SURUKLENIYOR) {
+    petDragTakip();
+  } else if (PET_MODE === "hareket" && PET_HEDEF) {
     const dx = PET_HEDEF.x - PET_X;
     const dy = PET_HEDEF.y - PET_Y;
     const mesafe = Math.hypot(dx, dy);
@@ -3385,13 +3422,12 @@ function petSurucuTik() {
       PET_Y += (dy / mesafe) * hiz;
       const yatay = Math.abs(dx) > Math.abs(dy);
       const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
-      petAnimAyarla((PET_HEDEF.mod === "kos" ? "run-" : "walk-") + yon);
+      petYuruSet((PET_HEDEF.mod === "kos" ? "run-" : "walk-") + yon);
     }
   } else if (PET_MODE === "dur") {
     if (PET_TOP_AKTIF && PET_TOP_ZAMAN && Date.now() - PET_TOP_ZAMAN > 5000) {
       PET_TOP_AKTIF = false;
       PET_TOP_ZAMAN = 0;
-      PET_TOP_ROLL_ZAMAN = Date.now() + 25000 + Math.random() * 30000;
       const top = document.getElementById("petTop");
       if (top) top.style.display = "none";
     }
@@ -3440,6 +3476,7 @@ function petKurulum() {
       <div class="pet-panel-ust">
         <span class="pet-panel-isim">ARCHIE</span>
         <span class="pet-panel-durum" id="petDurumEtiketi">Mutlu</span>
+        <button type="button" class="pet-panel-kapat" onclick="petPanelAcKapat()" aria-label="Kapat">×</button>
       </div>
       <div class="pet-agac-secici">
         <span class="pet-agac-etiket">Kedi Ağacı</span>
@@ -3447,6 +3484,15 @@ function petKurulum() {
           <button type="button" class="pet-agac-btn" data-tree="1" onclick="petAgacSec(1)"><img src="/pet/tree-1.png" alt="1" /></button>
           <button type="button" class="pet-agac-btn" data-tree="2" onclick="petAgacSec(2)"><img src="/pet/tree-2.png" alt="2" /></button>
           <button type="button" class="pet-agac-btn" data-tree="3" onclick="petAgacSec(3)"><img src="/pet/tree-3.png" alt="3" /></button>
+        </div>
+      </div>
+      <div class="pet-top-secici">
+        <span class="pet-agac-etiket">Toplar</span>
+        <div class="pet-top-butonlar">
+          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('ball-red.png')"><img src="/pet/ball-red.png" alt="Kırmızı top" /></button>
+          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('ball-green.png')"><img src="/pet/ball-green.png" alt="Yeşil top" /></button>
+          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('yarn-blue.png')"><img src="/pet/yarn-blue.png" alt="Mavi iplik" /></button>
+          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('yarn-green.png')"><img src="/pet/yarn-green.png" alt="Yeşil iplik" /></button>
         </div>
       </div>
       <div class="pet-aclik-satir">
@@ -3461,7 +3507,10 @@ function petKurulum() {
         <span class="pet-mama-sayisi" id="petMamaSayisi"></span>
         <span class="pet-su-sayisi" id="petSuSayisi"></span>
       </div>
-    </div>`;
+    </div>
+    <button type="button" class="pet-panel-acil" id="petPanelAcil" onclick="petPanelAcKapat()" title="Archie'nin bakımı" aria-label="Bakım panelini aç">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 3-3 3h-1.5c-1 0-1.8.8-1.8 1.8 0 .5.2.9.5 1.2.3.4.5.8.5 1.2 0 1-.8 1.8-1.7 1.8z"/><circle cx="7.5" cy="10.5" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="10.5" r="1.2"/></svg>
+    </button>`;
   document.body.appendChild(kutu);
   petTopSurukleme();
   petAlanGuncelle();
@@ -3559,6 +3608,14 @@ function petArayuzGuncelle() {
   if (suImg) suImg.src = `/pet/bowl-water-${PET_SU_DOLU ? "full" : "empty"}.png`;
 }
 
+function petPanelAcKapat() {
+  const panel = document.getElementById("petPanel");
+  const acil = document.getElementById("petPanelAcil");
+  if (!panel) return;
+  const acik = panel.classList.toggle("acik");
+  if (acil) acil.classList.toggle("kapali", acik);
+}
+
 async function petAgacSec(tree) {
   if (!PET_GIRIS) {
     window.location.href = "/auth/login";
@@ -3644,8 +3701,17 @@ function petTopSurukleme() {
     PET_HEDEF = { x: Math.max(PET_ALAN.minX, x - 55), y, mod: "kos", varis: "top" };
     PET_MODE = "hareket";
   });
-  top.addEventListener("pointerup", () => { PET_TOP_SURUKLENIYOR = false; });
-  top.addEventListener("pointercancel", () => { PET_TOP_SURUKLENIYOR = false; });
+  const topBirakildi = () => {
+    PET_TOP_SURUKLENIYOR = false;
+    if (PET_MODE === "top-oyna") {
+      PET_MODE = "dur";
+      PET_TOP_ZAMAN = Date.now();
+      PET_OTURMA_SURESI = 5000;
+      petAnimAyarla("sit-front", true);
+    }
+  };
+  top.addEventListener("pointerup", topBirakildi);
+  top.addEventListener("pointercancel", topBirakildi);
 }
 
 function petKalpler(adet) {
