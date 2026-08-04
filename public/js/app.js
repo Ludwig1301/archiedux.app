@@ -3243,8 +3243,10 @@ function petAlanGuncelle() {
 function petAnimAyarla(set, reset) {
   if (PET_ANIM === set && !reset) return;
   PET_ANIM = set;
-  PET_ANIM_TICK = 0;
-  if (reset) PET_ANIM_FRAME = 0;
+  if (reset) {
+    PET_ANIM_FRAME = 0;
+    PET_ANIM_TICK = 0;
+  }
   petKareGoster();
 }
 
@@ -3389,13 +3391,12 @@ function petDragTakip() {
   if (mesafe < 7) {
     if (PET_MODE !== "top-oyna") {
       PET_MODE = "top-oyna";
+      PET_HEDEF = null;
       petAnimAyarla("sit-front", true);
     }
   } else {
-    if (PET_MODE !== "hareket") {
-      PET_MODE = "hareket";
-      PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
-    }
+    PET_MODE = "hareket";
+    PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
     const hiz = 3.6;
     PET_X += (dx / mesafe) * hiz;
     PET_Y += (dy / mesafe) * hiz;
