@@ -3231,9 +3231,55 @@ function petSvgCiz(durum) {
     </svg>`;
 }
 
+// Kedinin çizimini kullanmak için: public/ klasörüne şu dosyaları at
+// (PNG, şeffaf arka plan, kedinin tamamı görünsün):
+//   pet-archie.png         -> normal/tok hali
+//   pet-archie-mutlu.png   -> mutlu hali (opsiyonel)
+//   pet-archie-ac.png      -> aç hali (opsiyonel)
+// Dosyalar yoksa yerleşik SVG çizim kullanılır.
+const PET_IMG_YOLLAR = {
+  varsayilan: "/pet-archie.png",
+  mutlu: "/pet-archie-mutlu.png",
+  tok: "/pet-archie.png",
+  ac: "/pet-archie-ac.png",
+};
+let PET_IMG_AKTIF = false;
+
+function petImgSrc(durum) {
+  return PET_IMG_YOLLAR[durum] || PET_IMG_YOLLAR.varsayilan;
+}
+
 function petSvgGuncelle(durum) {
   const alan = document.getElementById("petSvg");
   if (alan) alan.innerHTML = petSvgCiz(durum);
+}
+
+function petGorunumGuncelle(durum) {
+  const img = document.getElementById("petImg");
+  const svg = document.getElementById("petSvg");
+  if (!img) return;
+  if (PET_IMG_AKTIF) {
+    img.src = petImgSrc(durum);
+    img.style.display = "";
+    if (svg) svg.style.display = "none";
+  } else {
+    petSvgGuncelle(durum);
+    if (svg) svg.style.display = "";
+    img.style.display = "none";
+  }
+}
+
+function petImgHazirla() {
+  const img = document.getElementById("petImg");
+  if (!img) return;
+  img.addEventListener("load", () => {
+    PET_IMG_AKTIF = true;
+    petGorunumGuncelle(PET_DURUM);
+  });
+  img.addEventListener("error", () => {
+    PET_IMG_AKTIF = false;
+    petGorunumGuncelle(PET_DURUM);
+  });
 }
 
 function petKurulum() {
@@ -3245,6 +3291,7 @@ function petKurulum() {
     <div class="pet-bar"></div>
     <div class="pet-alan" id="petAlan">
       <div class="pet-nesne yuruyor" id="petNesne">
+        <img class="pet-img" id="petImg" src="/pet-archie.png" alt="Archie" />
         <div class="pet-svg" id="petSvg"></div>
         <div class="pet-konuisma" id="petKonusma"></div>
       </div>
@@ -3263,7 +3310,8 @@ function petKurulum() {
   document.body.appendChild(kutu);
   const btn = document.getElementById("petBesleBtn");
   if (btn) btn.addEventListener("click", petBesle);
-  petSvgGuncelle(PET_DURUM);
+  petImgHazirla();
+  petGorunumGuncelle(PET_DURUM);
   petVeriYukle();
   petHareketBaslat();
 }
@@ -3314,7 +3362,7 @@ function petArayuzGuncelle() {
     btn.classList.remove("bekliyor");
     PET_SAYAC_CALISIYOR = false;
   }
-  petSvgGuncelle(PET_DURUM);
+  petGorunumGuncelle(PET_DURUM);
 }
 
 function petCooldownSayacGuncelle() {
@@ -3393,11 +3441,12 @@ function petKalpler(adet) {
   if (!alan) return;
   const sayac = adet || 6;
   const ikonlar = ["❤", "💖", "💗", "💕"];
+  const merkez = PET_X + 65;
   for (let i = 0; i < sayac; i++) {
     const kalp = document.createElement("span");
     kalp.className = "pet-kalp";
     kalp.textContent = ikonlar[i % ikonlar.length];
-    kalp.style.left = `${30 + Math.random() * 46}%`;
+    kalp.style.left = `${Math.max(8, merkez - 26 + Math.random() * 52)}px`;
     kalp.style.animationDelay = `${Math.random() * 0.4}s`;
     alan.appendChild(kalp);
     setTimeout(() => kalp.remove(), 1800);
@@ -3410,7 +3459,7 @@ function petXpGoster(metin) {
   const el = document.createElement("div");
   el.className = "pet-xp-uc";
   el.textContent = metin;
-  el.style.left = `${20 + Math.random() * 30}%`;
+  el.style.left = `${Math.max(8, PET_X + 20 + Math.random() * 40)}px`;
   alan.appendChild(el);
   setTimeout(() => el.remove(), 1800);
 }

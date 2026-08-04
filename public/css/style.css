@@ -4075,8 +4075,8 @@ body.duzenleme-acik .duzenleme-paneli {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 118px;
-  overflow: hidden;
+  height: 230px;
+  overflow: visible;
   pointer-events: none;
 }
 
@@ -4094,20 +4094,19 @@ body.duzenleme-acik .duzenleme-paneli {
   transform-origin: 50% 100%;
 }
 
-.pet-nesne.yuruyor .pet-svg {
-  animation: pet-zipzip 0.45s ease-in-out infinite;
-}
-
-@keyframes pet-zipzip {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+.pet-nesne .pet-img {
+  width: 130px;
+  height: 110px;
+  object-fit: contain;
+  object-position: bottom center;
+  transform-origin: 50% 100%;
 }
 
 .pet-konuisma {
   position: absolute;
-  bottom: 100px;
+  bottom: 116px;
   left: 44px;
-  max-width: 210px;
+  max-width: 230px;
   background: rgba(20, 20, 23, 0.96);
   border: 1px solid var(--brass-bright);
   color: var(--ink-text);
@@ -4120,6 +4119,7 @@ body.duzenleme-acik .duzenleme-paneli {
   transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: none;
   white-space: nowrap;
+  z-index: 2;
 }
 
 .pet-konuisma.gorunur {
@@ -4230,7 +4230,7 @@ body.duzenleme-acik .duzenleme-paneli {
 
 .pet-kalp {
   position: absolute;
-  bottom: 40px;
+  bottom: 78px;
   font-size: 22px;
   animation: pet-kalp-uc 1.5s ease-out forwards;
   pointer-events: none;
@@ -4239,12 +4239,12 @@ body.duzenleme-acik .duzenleme-paneli {
 @keyframes pet-kalp-uc {
   0% { opacity: 0; transform: translateY(0) scale(0.6); }
   15% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-70px) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-78px) scale(1.25); }
 }
 
 .pet-xp-uc {
   position: absolute;
-  bottom: 104px;
+  bottom: 128px;
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 700;
@@ -4252,6 +4252,7 @@ body.duzenleme-acik .duzenleme-paneli {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   animation: pet-xp-uc 1.5s ease-out forwards;
   pointer-events: none;
+  white-space: nowrap;
 }
 
 @keyframes pet-xp-uc {
