@@ -30,10 +30,22 @@
   <div class="mainframe">
     <div class="filmler-page">
       <div class="filmler-hero">
-        <div class="film-hero-eyebrow">ARCH / SİNEMA ARŞİVİ</div>
-        <h1>Ne izlemek istersin?</h1>
-        <p id="filmFormHint">Film ve dizileri keşfet, puanlarını karşılaştır ve kendi izleme günlüğünü oluştur.</p>
-        <a id="filmBack" class="gallery-back" href="#" style="display:none;">← Profilime Dön</a>
+        <div class="film-hero-icerik">
+          <div>
+            <div class="film-hero-eyebrow">ARCH / SİNEMA ARŞİVİ</div>
+            <h1>Ne izlemek istersin?</h1>
+            <p id="filmFormHint">Film ve dizileri keşfet, puanlarını karşılaştır ve kendi izleme günlüğünü oluştur.</p>
+            <a id="filmBack" class="gallery-back" href="#" style="display:none;">← Profilime Dön</a>
+          </div>
+          <div class="rastgele-zar-kutu">
+            <button type="button" class="rastgele-zar" id="rastgeleZar" onclick="rastgeleFilmAc()" aria-label="Rastgele film seç" title="Rastgele bir film seç">
+              <svg class="zar-svg" id="zarYuz" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="2.3"/>
+              </svg>
+            </button>
+            <span class="rastgele-zar-etiket">Rastgele Film</span>
+          </div>
+        </div>
       </div>
 
       <div class="film-ara-kutu" id="filmAraKutu">
@@ -162,6 +174,14 @@
         <span class="film-modal-durum" id="filmDurumMetni"></span>
         <button type="button" class="form-kaydet" id="filmKaydetBtn" onclick="filmKaydet()">Kaydet</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Rastgele film penceresi -->
+  <div class="film-modal-overlay" id="rastgeleModal" style="display:none;" onclick="rastgeleModalKapat(event)">
+    <div class="rastgele-modal" onclick="event.stopPropagation()">
+      <button type="button" class="film-modal-kapat" onclick="rastgeleModalKapat()" aria-label="Kapat">×</button>
+      <div id="rastgeleIcerik" class="rastgele-ic"></div>
     </div>
   </div>
 

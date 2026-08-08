@@ -878,6 +878,42 @@ app.get("/api/filmler/kesfet", async (req, res) => {
   res.json({ sonuc: sonuc.slice(0, 24), sayfa, toplam, toplamSayfa: Math.max(...cevaplar.map((v) => v.toplamSayfa), 0) });
 });
 
+// Rastgele film: keşfet listesinden rastgele bir sayfa alıp rastgele bir film seçer;
+// detayını (süre, tür adları, IMDb kimliği) TMDB'den çekerek döndürür.
+app.get("/api/filmler/rastgele", async (req, res) => {
+  if (!TMDB_API_KEY) return res.status(503).json({ hata: "TMDB anahtarı tanımlı değil." });
+  const sayfa = Math.floor(Math.random() * 80) + 1;
+  const kesfet = await tmdbIstek("discover/movie", {
+    page: String(sayfa),
+    sort_by: "popularity.desc",
+    "vote_count.gte": "100",
+  });
+  const sonuclar = (kesfet?.results || []).filter((o) => o.poster_path);
+  if (!sonuclar.length) return res.status(404).json({ hata: "Rastgele film bulunamadı." });
+  const secilen = sonuclar[Math.floor(Math.random() * sonuclar.length)];
+  const detay = await tmdbIstek(`movie/${secilen.id}`);
+  const genreMap = TMDB_TURLER.film || {};
+  const turler = (detay?.genres || secilen.genre_ids || [])
+    .map((g) => typeof g === "string" ? g : (g.name || genreMap[g.id] || ""))
+    .filter(Boolean)
+    .slice(0, 4);
+  const puanKaynak = typeof detay?.vote_average === "number" ? detay.vote_average : secilen.vote_average;
+  res.json({
+    id: secilen.id,
+    tur: "film",
+    ad: detay?.title || secilen.title || "Bilinmeyen",
+    yil: (detay?.release_date || secilen.release_date || "").slice(0, 4),
+    tarih: detay?.release_date || secilen.release_date || "",
+    poster: `/api/filmler/poster?path=${encodeURIComponent(secilen.poster_path)}`,
+    puan: typeof puanKaynak === "number" ? Math.round(puanKaynak * 10) / 10 : null,
+    oySayisi: detay?.vote_count || secilen.vote_count || 0,
+    turler,
+    suresi: detay?.runtime || 0,
+    ozet: detay?.overview || secilen.overview || "",
+    imdbId: detay?.imdb_id || "",
+  });
+});
+
 // Bazı internet sağlayıcıları image.tmdb.org alan adını engelleyebiliyor.
 // Afişi sunucudan çekip tarayıcıya aynı origin üzerinden gönderiyoruz.
 app.get("/api/filmler/poster", async (req, res) => {

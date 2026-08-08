@@ -3318,6 +3318,130 @@ function filmAramaEnter(e) {
   }
 }
 
+// ---------- Rastgele film zarı ----------
+let RASTGELE_FILM = null;
+let ZAR_SAYACI = null;
+
+function zarYuzSVG(sayi) {
+  const konum = {
+    1: [[2, 2]],
+    2: [[1, 1], [3, 3]],
+    3: [[1, 1], [2, 2], [3, 3]],
+    4: [[1, 1], [1, 3], [3, 1], [3, 3]],
+    5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
+    6: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 1], [3, 3]],
+  };
+  const noktalar = (konum[sayi] || []).map(([r, c]) => `<circle cx="${c * 8 - 4}" cy="${r * 8 - 4}" r="2.3"/>`).join("");
+  return `<svg viewBox="0 0 24 24" class="zar-svg">${noktalar}</svg>`;
+}
+
+function zarYuzGuncelle() {
+  const yuz = document.getElementById("zarYuz");
+  if (yuz) yuz.outerHTML = zarYuzSVG(Math.floor(Math.random() * 6) + 1);
+}
+
+// Zarın üzerine gelince yüzü sürekli değişir (random olduğunu belli eder)
+(function zarDinle() {
+  const zar = document.getElementById("rastgeleZar");
+  if (!zar) return;
+  zar.addEventListener("pointerenter", () => {
+    zar.classList.add("zar-beklemede");
+    if (!ZAR_SAYACI) ZAR_SAYACI = setInterval(zarYuzGuncelle, 160);
+    zarYuzGuncelle();
+  });
+  zar.addEventListener("pointerleave", () => {
+    zar.classList.remove("zar-beklemede");
+    clearInterval(ZAR_SAYACI);
+    ZAR_SAYACI = null;
+    zarYuzGuncelle();
+  });
+})();
+
+async function rastgeleFilmAc() {
+  const zar = document.getElementById("rastgeleZar");
+  const modal = document.getElementById("rastgeleModal");
+  const kutu = document.getElementById("rastgeleIcerik");
+  if (zar) {
+    if (zar.disabled) return;
+    zar.disabled = true;
+    zar.classList.add("zar-yuvarlaniyor");
+  }
+  if (modal) modal.style.display = "flex";
+  if (kutu) kutu.innerHTML = '<span class="bos-hint">Zar atılıyor...</span>';
+  document.body.classList.add("lightbox-acik");
+  try {
+    await rastgeleDoldur();
+  } catch (e) {
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Rastgele film şu anda yüklenemedi. Tekrar dene.</span>';
+  } finally {
+    if (zar) {
+      zar.disabled = false;
+      zar.classList.remove("zar-yuvarlaniyor");
+    }
+  }
+}
+
+async function rastgeleDoldur() {
+  const kutu = document.getElementById("rastgeleIcerik");
+  if (!kutu) return;
+  kutu.innerHTML = '<span class="bos-hint">Zar atılıyor...</span>';
+  const res = await apiFetch("/api/filmler/rastgele");
+  if (!res.ok) throw new Error("Rastgele film alınamadı.");
+  const f = await res.json();
+  RASTGELE_FILM = f;
+  kutu.innerHTML = rastgeleKartHTML(f);
+}
+
+function rastgeleKartHTML(f) {
+  const poster = f.poster
+    ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="${htmlEsc(f.ad)}" onerror="gorselHataYerineIcon(this)" />`
+    : `<div class="film-modal-poster-yok" style="display:flex;">${FILM_IKON}</div>`;
+  const meta = [f.tur === "film" ? "Film" : "Dizi", f.yil, f.suresi ? `${f.suresi} dk` : ""].filter(Boolean).join(" · ");
+  const imdb = f.imdbId ? `<a class="imdb-link" href="https://www.imdb.com/title/${htmlEsc(f.imdbId)}" target="_blank" rel="noopener">IMDb</a>` : "";
+  return `
+    <div class="rastgele-poster">${poster}</div>
+    <div class="rastgele-bilgi">
+      <div class="rastgele-etiket">🎲 Rastgele Film</div>
+      <h2>${htmlEsc(f.ad)}</h2>
+      <div class="rastgele-meta">${meta}</div>
+      ${f.turler && f.turler.length ? `<div class="rastgele-turler">${f.turler.map((t) => `<span>${htmlEsc(t)}</span>`).join("")}</div>` : ""}
+      <div class="rastgele-puan">
+        <span class="rastgele-yildiz">★ ${f.puan ? Number(f.puan).toFixed(1) : "—"}</span>
+        <span class="rastgele-oy">/10</span>
+        ${imdb}
+        ${f.oySayisi ? `<span class="rastgele-oy">${f.oySayisi.toLocaleString("tr-TR")} oy</span>` : ""}
+      </div>
+      <p class="rastgele-ozet">${htmlEsc(f.ozet) || '<span class="bos-hint">Konu bilgisi bulunamadı.</span>'}</p>
+      <div class="rastgele-alt">
+        <button type="button" class="form-kaydet" onclick="rastgeleEkle()">Günlüğüne Ekle</button>
+        <button type="button" class="form-vazgec" onclick="rastgeleTekrar()">Başka Bir Film</button>
+      </div>
+    </div>`;
+}
+
+async function rastgeleTekrar() {
+  try {
+    await rastgeleDoldur();
+  } catch (e) {
+    const kutu = document.getElementById("rastgeleIcerik");
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Rastgele film şu anda yüklenemedi. Tekrar dene.</span>';
+  }
+}
+
+function rastgeleEkle() {
+  if (!RASTGELE_FILM) return;
+  rastgeleModalKapat();
+  filmModalAc(RASTGELE_FILM);
+}
+
+function rastgeleModalKapat(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById("rastgeleModal");
+  if (modal) modal.style.display = "none";
+  document.body.classList.remove("lightbox-acik");
+}
+
+
 function filmKatalogKartHTML(f, i) {
   const kayitli = FILM_JURNAL.some((kayit) => kayit.id === f.id && kayit.tur === f.tur);
   const turler = Array.isArray(f.turler) ? f.turler.slice(0, 2).join(" · ") : "";
