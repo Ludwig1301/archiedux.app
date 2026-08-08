@@ -2661,6 +2661,7 @@ let KITAP_ARAMA_SONUCU = [];
 let GUNCEL_GUNLUK_SAYFA = 1;
 let FILM_KESFET_SAYFA = 1;
 let FILM_KESFET_ISTEK = 0;
+let FILM_FILTRE = { tur: "tum", kategori: "", yil: "", minPuan: "0", sirala: "popularity.desc" };
 const GUNLUK_SAYFA_LIMIT = 10;
 
 // Google Books kapaklarını sunucu proxy'sinden geçir (TMDB afiş proxy'si gibi)
@@ -3349,48 +3350,67 @@ function filmKesfetSonuclariCiz(sonuc, bilgi) {
 }
 
 async function filmKategorileriYukle() {
-  const kategoriEl = document.getElementById("filmKategoriFiltresi");
-  if (!kategoriEl) return;
+  const kategoriSatir = document.getElementById("filtreKategori");
+  if (!kategoriSatir) return;
   try {
     const res = await apiFetch("/api/filmler/kategoriler");
     if (!res.ok) return;
     const veri = await res.json();
-    const tur = document.getElementById("filmTurFiltresi")?.value || "tum";
+    const tur = FILM_FILTRE.tur;
     const liste = tur === "film" ? veri.film : tur === "dizi" ? veri.dizi : [...veri.film, ...veri.dizi]
       .filter((item, index, arr) => arr.findIndex((x) => x.id === item.id) === index);
-    const secili = kategoriEl.value;
-    kategoriEl.innerHTML = '<option value="">Tüm kategoriler</option>' + liste
-      .map((item) => `<option value="${item.id}">${htmlEsc(item.ad)}</option>`).join("");
-    if (liste.some((item) => String(item.id) === secili)) kategoriEl.value = secili;
+    const secili = FILM_FILTRE.kategori;
+    kategoriSatir.innerHTML =
+      `<button type="button" class="filtre-cip ${!secili ? "secili" : ""}" data-deger="" onclick="filtreSec('kategori','',this)">Tümü</button>` +
+      liste.map((item) => `<button type="button" class="filtre-cip ${String(item.id) === secili ? "secili" : ""}" data-deger="${item.id}" onclick="filtreSec('kategori','${item.id}',this)">${htmlEsc(item.ad)}</button>`).join("");
   } catch (e) {
     /* Kategori listesi gelmezse temel katalog yine kullanılabilir. */
   }
 }
 
-async function filmTurDegisti() {
-  await filmKategorileriYukle();
+// Filtre çipi seçilince durumu günceller ve kataloğu yeniden çeker
+function filtreSec(alan, deger, cipEl) {
+  FILM_FILTRE[alan] = deger;
+  if (cipEl) {
+    const satir = cipEl.closest(".filtre-cip-satir");
+    if (satir) satir.querySelectorAll(".filtre-cip").forEach((c) => c.classList.toggle("secili", c === cipEl));
+  }
+  if (alan === "tur") {
+    // tür değişince kategori listesi türe göre yenilenir, seçili kategori sıfırlanır
+    FILM_FILTRE.kategori = "";
+    const kategoriSatir = document.getElementById("filtreKategori");
+    if (kategoriSatir) kategoriSatir.querySelectorAll(".filtre-cip").forEach((c) => c.classList.toggle("secili", c.dataset.deger === ""));
+    filmKategorileriYukle();
+  }
+  FILM_KESFET_SAYFA = 1;
   filmKesfet();
 }
 
 function filmYilFiltresiDoldur() {
-  const el = document.getElementById("filmYilFiltresi");
-  if (!el || el.options.length > 1) return;
-  const mevcut = new Date().getFullYear();
-  for (let yil = mevcut; yil >= 1950; yil--) {
-    el.insertAdjacentHTML("beforeend", `<option value="${yil}">${yil}</option>`);
-  }
+  const satir = document.getElementById("filtreYil");
+  if (!satir) return;
+  const cYil = new Date().getFullYear();
+  const secenekler = [{ deger: "", etiket: "Tümü" }];
+  for (let i = 0; i < 6; i++) secenekler.push({ deger: String(cYil - i), etiket: String(cYil - i) });
+  secenekler.push({ deger: "2010-2019", etiket: "2010'lar" });
+  secenekler.push({ deger: "2000-2009", etiket: "2000'ler" });
+  secenekler.push({ deger: "1990-1999", etiket: "90'lar" });
+  secenekler.push({ deger: "1980-1989", etiket: "80'ler" });
+  secenekler.push({ deger: "1970-1979", etiket: "70'ler" });
+  satir.innerHTML = secenekler.map((s) =>
+    `<button type="button" class="filtre-cip ${!s.deger ? "secili" : ""}" data-deger="${s.deger}" onclick="filtreSec('yil','${s.deger}',this)">${s.etiket}</button>`
+  ).join("");
 }
 
 async function filmKesfet() {
   const kutu = document.getElementById("filmSonuclar");
   if (!kutu) return;
   const istek = ++FILM_KESFET_ISTEK;
-  FILM_KESFET_SAYFA = arguments[0] === "sayfa" ? FILM_KESFET_SAYFA : 1;
-  const tur = document.getElementById("filmTurFiltresi")?.value || "tum";
-  const kategori = document.getElementById("filmKategoriFiltresi")?.value || "";
-  const yil = document.getElementById("filmYilFiltresi")?.value || "";
-  const minPuan = document.getElementById("filmPuanFiltresi")?.value || "0";
-  const sirala = document.getElementById("filmSiralama")?.value || "popularity.desc";
+  const tur = FILM_FILTRE.tur;
+  const kategori = FILM_FILTRE.kategori;
+  const yil = FILM_FILTRE.yil;
+  const minPuan = FILM_FILTRE.minPuan;
+  const sirala = FILM_FILTRE.sirala;
   kutu.innerHTML = '<span class="bos-hint">Katalog hazırlanıyor...</span>';
   try {
     const query = new URLSearchParams({ tur, kategori, yil, minPuan, sirala, sayfa: FILM_KESFET_SAYFA });
@@ -3422,16 +3442,19 @@ function filmKesfetSayfayaGit(sayfa) {
 }
 
 function filmFiltreleriSifirla() {
-  const tur = document.getElementById("filmTurFiltresi");
-  const kategori = document.getElementById("filmKategoriFiltresi");
-  const yil = document.getElementById("filmYilFiltresi");
-  const puan = document.getElementById("filmPuanFiltresi");
-  const sirala = document.getElementById("filmSiralama");
-  if (tur) tur.value = "tum";
-  if (kategori) kategori.value = "";
-  if (yil) yil.value = "";
-  if (puan) puan.value = "0";
-  if (sirala) sirala.value = "popularity.desc";
+  FILM_FILTRE = { tur: "tum", kategori: "", yil: "", minPuan: "0", sirala: "popularity.desc" };
+  const beklenenler = {
+    filtreTur: "tum",
+    filtreKategori: "",
+    filtreYil: "",
+    filtrePuan: "0",
+    filtreSirala: "popularity.desc",
+  };
+  document.querySelectorAll(".filtre-cip-satir").forEach((satir) => {
+    const beklenen = beklenenler[satir.id];
+    satir.querySelectorAll(".filtre-cip").forEach((c) => c.classList.toggle("secili", c.dataset.deger === beklenen));
+  });
+  FILM_KESFET_SAYFA = 1;
   filmKategorileriYukle().then(() => filmKesfet());
 }
 

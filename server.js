@@ -810,7 +810,18 @@ app.get("/api/filmler/kategoriler", (req, res) => {
 app.get("/api/filmler/kesfet", async (req, res) => {
   const tur = ["film", "dizi"].includes(req.query.tur) ? req.query.tur : "tum";
   const kategori = String(req.query.kategori || "").trim();
-  const yil = String(req.query.yil || "").match(/^\d{4}$/) ? String(req.query.yil) : "";
+  // Yıl: tek yıl (2024) veya aralık (2010-2019) kabul edilir
+  const yilHam = String(req.query.yil || "").trim();
+  let yilBas = "";
+  let yilBit = "";
+  const aralik = yilHam.match(/^(\d{4})-(\d{4})$/);
+  if (aralik) {
+    yilBas = aralik[1];
+    yilBit = aralik[2];
+  } else if (/^\d{4}$/.test(yilHam)) {
+    yilBas = yilHam;
+    yilBit = yilHam;
+  }
   const minPuan = Math.min(10, Math.max(0, parseFloat(req.query.minPuan) || 0));
   const sayfa = Math.min(500, Math.max(1, parseInt(req.query.sayfa, 10) || 1));
   const sirala = [
@@ -831,8 +842,23 @@ app.get("/api/filmler/kesfet", async (req, res) => {
       ...ortak,
       sort_by: tip === "dizi" ? sirala.replace("primary_release_date", "first_air_date") : sirala,
     };
-    if (tip === "film" && yil) params.primary_release_year = yil;
-    if (tip === "dizi" && yil) params.first_air_date_year = yil;
+    if (yilBas) {
+      if (tip === "film") {
+        if (yilBas === yilBit) {
+          params.primary_release_year = yilBas;
+        } else {
+          params["primary_release_date.gte"] = `${yilBas}-01-01`;
+          params["primary_release_date.lte"] = `${yilBit}-12-31`;
+        }
+      } else {
+        if (yilBas === yilBit) {
+          params.first_air_date_year = yilBas;
+        } else {
+          params["first_air_date.gte"] = `${yilBas}-01-01`;
+          params["first_air_date.lte"] = `${yilBit}-12-31`;
+        }
+      }
+    }
     const veri = await tmdbIstek(`discover/${tip === "film" ? "movie" : "tv"}`, params);
     return {
       tip,

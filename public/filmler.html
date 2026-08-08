@@ -42,56 +42,70 @@
           <button type="button" class="sekmeler-btn" id="sekmeKitap" onclick="aramaSekmesi('kitap')">Kitap</button>
         </div>
         <div id="filmKatalogIcerik">
-          <div class="film-ara-satir film-katalog-arama">
-            <input id="filmAramaInput" type="text" maxlength="100" placeholder="Film veya dizi ara... (örn: Interstellar)"
-              onkeydown="filmAramaEnter(event)" />
-            <button type="button" onclick="filmAra()">Ara</button>
-          </div>
-          <div class="film-filtreler" aria-label="Film ve dizi filtreleri">
-            <label>Tür
-              <select id="filmTurFiltresi" onchange="filmTurDegisti()">
-                <option value="tum">Film + Dizi</option>
-                <option value="film">Sadece Filmler</option>
-                <option value="dizi">Sadece Diziler</option>
-              </select>
-            </label>
-            <label>Kategori
-              <select id="filmKategoriFiltresi" onchange="filmKesfet()">
-                <option value="">Tüm kategoriler</option>
-              </select>
-            </label>
-            <label>Yayın yılı
-              <select id="filmYilFiltresi" onchange="filmKesfet()">
-                <option value="">Tüm yıllar</option>
-              </select>
-            </label>
-            <label>Minimum puan
-              <select id="filmPuanFiltresi" onchange="filmKesfet()">
-                <option value="0">Tümü</option>
-                <option value="7">7 ve üzeri</option>
-                <option value="8">8 ve üzeri</option>
-                <option value="9">9 ve üzeri</option>
-              </select>
-            </label>
-            <label>Sırala
-              <select id="filmSiralama" onchange="filmKesfet()">
-                <option value="popularity.desc">En popüler</option>
-                <option value="vote_average.desc">En yüksek puanlı</option>
-                <option value="primary_release_date.desc">En yeni</option>
-                <option value="primary_release_date.asc">En eski</option>
-              </select>
-            </label>
-            <button type="button" class="film-filtre-sifirla" onclick="filmFiltreleriSifirla()">Sıfırla</button>
-          </div>
-          <div class="film-katalog-ust">
-            <div>
-              <div class="film-katalog-baslik" id="filmKesfetBaslik">Şimdi keşfet</div>
-              <span class="film-ara-ipucu" id="filmAraIpucu">TMDB verileriyle güncel film ve dizi kataloğu.</span>
+          <div class="film-katalog-duzen">
+            <div class="film-katalog-ana">
+              <div class="film-katalog-ust">
+                <div>
+                  <div class="film-katalog-baslik" id="filmKesfetBaslik">Şimdi keşfet</div>
+                  <span class="film-ara-ipucu" id="filmAraIpucu">TMDB verileriyle güncel film ve dizi kataloğu.</span>
+                </div>
+                <span class="film-katalog-sayac" id="filmKesfetBilgi"></span>
+              </div>
+              <div id="filmSonuclar" class="film-sonuclar"></div>
+              <div id="filmKesfetSayfalama" class="film-kesfet-sayfalama"></div>
             </div>
-            <span class="film-katalog-sayac" id="filmKesfetBilgi"></span>
+
+            <aside class="film-filtre-panel" id="filmFiltrePanel">
+              <div class="film-arama-mini">
+                <input id="filmAramaInput" type="text" maxlength="100" placeholder="Ara... (örn: Interstellar)"
+                  onkeydown="filmAramaEnter(event)" />
+                <button type="button" onclick="filmAra()" title="Ara" aria-label="Ara">→</button>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Tür</div>
+                <div class="filtre-cip-satir" id="filtreTur">
+                  <button type="button" class="filtre-cip secili" data-deger="tum" onclick="filtreSec('tur','tum',this)">Film + Dizi</button>
+                  <button type="button" class="filtre-cip" data-deger="film" onclick="filtreSec('tur','film',this)">Film</button>
+                  <button type="button" class="filtre-cip" data-deger="dizi" onclick="filtreSec('tur','dizi',this)">Dizi</button>
+                </div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Kategori</div>
+                <div class="filtre-cip-satir" id="filtreKategori">
+                  <button type="button" class="filtre-cip secili" data-deger="" onclick="filtreSec('kategori','',this)">Tümü</button>
+                </div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Yayın yılı</div>
+                <div class="filtre-cip-satir" id="filtreYil"></div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Minimum puan</div>
+                <div class="filtre-cip-satir" id="filtrePuan">
+                  <button type="button" class="filtre-cip secili" data-deger="0" onclick="filtreSec('minPuan','0',this)">Tümü</button>
+                  <button type="button" class="filtre-cip" data-deger="7" onclick="filtreSec('minPuan','7',this)">7+</button>
+                  <button type="button" class="filtre-cip" data-deger="8" onclick="filtreSec('minPuan','8',this)">8+</button>
+                  <button type="button" class="filtre-cip" data-deger="9" onclick="filtreSec('minPuan','9',this)">9+</button>
+                </div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Sırala</div>
+                <div class="filtre-cip-satir" id="filtreSirala">
+                  <button type="button" class="filtre-cip secili" data-deger="popularity.desc" onclick="filtreSec('sirala','popularity.desc',this)">En popüler</button>
+                  <button type="button" class="filtre-cip" data-deger="vote_average.desc" onclick="filtreSec('sirala','vote_average.desc',this)">En yüksek puanlı</button>
+                  <button type="button" class="filtre-cip" data-deger="primary_release_date.desc" onclick="filtreSec('sirala','primary_release_date.desc',this)">En yeni</button>
+                  <button type="button" class="filtre-cip" data-deger="primary_release_date.asc" onclick="filtreSec('sirala','primary_release_date.asc',this)">En eski</button>
+                </div>
+              </div>
+
+              <button type="button" class="film-filtre-sifirla" onclick="filmFiltreleriSifirla()">Filtreleri Sıfırla</button>
+            </aside>
           </div>
-          <div id="filmSonuclar" class="film-sonuclar"></div>
-          <div id="filmKesfetSayfalama" class="film-kesfet-sayfalama"></div>
         </div>
         <div id="kitapKatalogIcerik" style="display:none;">
           <div class="film-ara-satir">
