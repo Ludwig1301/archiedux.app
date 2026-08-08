@@ -3321,8 +3321,9 @@ function filmAramaEnter(e) {
 // ---------- Rastgele film zarı ----------
 let RASTGELE_FILM = null;
 let ZAR_SAYACI = null;
+let ZAR_YUZ = 1;
 
-function zarYuzSVG(sayi) {
+function zarYuzNoktalar(sayi) {
   const konum = {
     1: [[2, 2]],
     2: [[1, 1], [3, 3]],
@@ -3331,30 +3332,24 @@ function zarYuzSVG(sayi) {
     5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
     6: [[1, 1], [1, 3], [2, 1], [2, 3], [3, 1], [3, 3]],
   };
-  const noktalar = (konum[sayi] || []).map(([r, c]) => `<circle cx="${c * 8 - 4}" cy="${r * 8 - 4}" r="2.3"/>`).join("");
-  return `<svg viewBox="0 0 24 24" class="zar-svg">${noktalar}</svg>`;
+  return (konum[sayi] || []).map(([r, c]) => `<circle cx="${c * 8 - 4}" cy="${r * 8 - 4}" r="2.3"/>`).join("");
 }
 
 function zarYuzGuncelle() {
   const yuz = document.getElementById("zarYuz");
-  if (yuz) yuz.outerHTML = zarYuzSVG(Math.floor(Math.random() * 6) + 1);
+  if (yuz) yuz.innerHTML = zarYuzNoktalar(ZAR_YUZ);
 }
 
-// Zarın üzerine gelince yüzü sürekli değişir (random olduğunu belli eder)
+// Zar sürekli 1-2-3-4-5-6 diye döner (random olduğunu belli eder)
 (function zarDinle() {
   const zar = document.getElementById("rastgeleZar");
   if (!zar) return;
-  zar.addEventListener("pointerenter", () => {
-    zar.classList.add("zar-beklemede");
-    if (!ZAR_SAYACI) ZAR_SAYACI = setInterval(zarYuzGuncelle, 160);
+  zar.classList.add("zar-beklemede");
+  zarYuzGuncelle();
+  ZAR_SAYACI = setInterval(() => {
+    ZAR_YUZ = (ZAR_YUZ % 6) + 1;
     zarYuzGuncelle();
-  });
-  zar.addEventListener("pointerleave", () => {
-    zar.classList.remove("zar-beklemede");
-    clearInterval(ZAR_SAYACI);
-    ZAR_SAYACI = null;
-    zarYuzGuncelle();
-  });
+  }, 120);
 })();
 
 async function rastgeleFilmAc() {
