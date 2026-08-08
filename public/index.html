@@ -32,12 +32,9 @@
 
   <div class="mainframe akis-mainframe">
     <div class="akis-sayfa">
-      <div class="akis-ust">
-        <div class="akis-ust-baslik">
-          <span class="akis-eyebrow">#CONGRESS SOFRASI</span>
-          <h1>Topluluk Akışı</h1>
-          <p>Oyun klipleri, yazılar, sohbet... Hepsi tek akışta. Beğen, Riley'le.</p>
-        </div>
+      <div class="akis-cubuk">
+        <span class="akis-cubuk-baslik">Ana Sayfa</span>
+        <button type="button" class="akis-yenile" onclick="gonderiAkisYukle(true)" title="Akışı yenile">↻</button>
       </div>
 
       <div class="akis-govde">
@@ -54,15 +51,14 @@
             </div>
             <div class="komp-alt">
               <div class="komp-medya-butonlar">
-                <button type="button" class="komp-medya-btn" onclick="document.getElementById('gonderiMedyaInput').click()" title="Görsel veya video ekle">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                  <span>Medya</span>
+                <button type="button" class="komp-medya-btn" onclick="document.getElementById('gonderiMedyaInput').click()" title="Medya ekle (sürükle-bırak veya yapıştır da çalışır)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                 </button>
                 <input type="file" id="gonderiMedyaInput" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none;" onchange="gonderiMedyaSec(this.files[0])" />
+                <span class="komp-surukle-ipucu" id="kompSurukleIpucu">Sürükle-bırak veya yapıştır</span>
                 <span class="komp-durum" id="kompDurum"></span>
               </div>
               <button type="button" class="komp-paylas-btn" id="kompPaylasBtn" onclick="gonderiPaylas()">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
                 <span>Paylaş</span>
               </button>
             </div>
@@ -78,27 +74,36 @@
             <a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a>
           </div>
 
-          <div class="akis-baslik-satir">
-            <span class="akis-baslik2">Akış</span>
-            <button type="button" class="akis-yenile" onclick="gonderiAkisYukle(true)" title="Akışı yenile">↻ Yenile</button>
-          </div>
           <div id="gonderiAkis" class="gonderi-akis">
-            <span class="bos-hint">Yükleniyor...</span>
+            <span class="bos-hint" style="padding: 48px 0;">Yükleniyor...</span>
           </div>
         </div>
 
         <aside class="akis-sag">
           <div class="akis-kutu">
-            <div class="akis-kutu-baslik">§ Nedir bu?</div>
-            <p>Topluluğun ortak akışı. Oyun anlarından klipler, yazılar, her şey burada paylaşılır.</p>
+            <div class="akis-kutu-baslik">Gündem</div>
+            <div class="akis-gundem">
+              <a href="/filmler">
+                <span class="gundem-etiket">Film &amp; Dizi</span>
+                <span class="gundem-baslik">Yeni katalog ve keşfet</span>
+              </a>
+              <a href="/gunluk">
+                <span class="gundem-etiket">Günlük</span>
+                <span class="gundem-baslik">İzlediklerini, okuduklarını kaydet</span>
+              </a>
+              <a href="/uyeler">
+                <span class="gundem-etiket">Topluluk</span>
+                <span class="gundem-baslik">Üye galerisi</span>
+              </a>
+            </div>
           </div>
+
           <div class="akis-kutu">
-            <div class="akis-kutu-baslik">§ Riley nedir?</div>
-            <p>Riley, bir gönderiyi kendi takipçilerinle yeniden paylaşmaktır (retweet gibi). Profilinde Riley'lediklerini görebilirsin.</p>
-          </div>
-          <div class="akis-kutu">
-            <div class="akis-kutu-baslik">§ Kurallar</div>
-            <p>Saygı çerçevesinde kal. Uygunsuz içeriği yöneticiler kaldırabilir.</p>
+            <div class="akis-kutu-baslik">Önerilen üyeler</div>
+            <div class="akis-oneriler" id="akisOneriler">
+              <span class="akis-yukleniyor">Yükleniyor...</span>
+            </div>
+            <a class="akis-diger" href="/uyeler">Tüm üyeleri gör →</a>
           </div>
         </aside>
       </div>

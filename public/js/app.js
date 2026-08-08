@@ -3961,7 +3961,83 @@ async function anasayfaAkisBaslat() {
     if (kompozitor) kompozitor.style.display = "none";
     if (girisUyari) girisUyari.style.display = "";
   }
+  gonderiSuruklemeKur();
+  akisSagYukle();
   await gonderiAkisYukle();
+}
+
+// Kompozitöre sürükle-bırak ve panodan yapıştırma (medya ekleme)
+function gonderiSuruklemeKur() {
+  const komp = document.getElementById("gonderiKompozitor");
+  const metin = document.getElementById("gonderiMetni");
+  if (!komp || !metin) return;
+  // Tarayıcının dosyayı yeni sekmede açmasını engelle
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => e.preventDefault());
+  let surukleSayac = 0;
+  komp.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    surukleSayac++;
+    komp.classList.add("surukleniyor");
+  });
+  komp.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  komp.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    surukleSayac = Math.max(0, surukleSayac - 1);
+    if (surukleSayac === 0) komp.classList.remove("surukleniyor");
+  });
+  komp.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    surukleSayac = 0;
+    komp.classList.remove("surukleniyor");
+    const dosya = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (dosya) gonderiMedyaSec(dosya);
+  });
+  metin.addEventListener("paste", (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.kind === "file") {
+        const dosya = it.getAsFile();
+        if (dosya) {
+          e.preventDefault();
+          gonderiMedyaSec(dosya);
+          return;
+        }
+      }
+    }
+  });
+}
+
+// Sağ panel: önerilen üyeler (twitter'daki "kimler takip edilmeli" gibi)
+async function akisSagYukle() {
+  const kutu = document.getElementById("akisOneriler");
+  if (!kutu) return;
+  try {
+    const res = await apiFetch("/api/members");
+    if (!res.ok) throw new Error("Üyeler yüklenemedi.");
+    const liste = (await res.json())
+      .filter((m) => m.id !== BENIM_ID)
+      .slice(0, 3);
+    if (!liste.length) {
+      kutu.innerHTML = '<span class="akis-yukleniyor">Henüz üye yok.</span>';
+      return;
+    }
+    kutu.innerHTML = liste.map((m) => `
+      <a class="akis-uye" href="/profil?id=${encodeURIComponent(m.id)}">
+        <img src="${htmlEsc(m.profilAvatar || m.avatar)}" alt="" loading="lazy" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+        <span class="akis-uye-ad">${htmlEsc(m.kullaniciAdi)}</span>
+      </a>
+    `).join("");
+  } catch (e) {
+    kutu.innerHTML = '<span class="akis-yukleniyor">Üyeler yüklenemedi.</span>';
+  }
 }
 
 async function gonderiAkisYukle(yenile) {
@@ -4014,10 +4090,8 @@ function gonderiKartHTML(g) {
       </a>
       <div class="gonderi-ic">
         <div class="gonderi-ust">
-          <span class="gonderi-sol">
-            <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-yazar">${htmlEsc(yazan.kullaniciAdi)}</a>
-            ${gonderiTarihYaz(g.tarih)}
-          </span>
+          <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-yazar">${htmlEsc(yazan.kullaniciAdi)}</a>
+          <span class="gonderi-zaman">· ${gonderiTarihYaz(g.tarih)}</span>
           ${silinebilir ? `<button type="button" class="gonderi-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>` : ""}
         </div>
         ${g.metin ? `<p class="gonderi-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
