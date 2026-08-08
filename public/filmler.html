@@ -120,13 +120,51 @@
           </div>
         </div>
         <div id="kitapKatalogIcerik" style="display:none;">
-          <div class="film-ara-satir">
-            <input id="kitapAramaInput" type="text" maxlength="100" placeholder="Kitap ara... (örn: Küçük Prens)"
-              onkeydown="kitapAramaEnter(event)" />
-            <button type="button" onclick="kitapAra()">Ara</button>
+          <div class="film-katalog-duzen">
+            <div class="film-katalog-ana">
+              <div class="film-katalog-ust">
+                <div>
+                  <div class="film-katalog-baslik" id="kitapKesfetBaslik">Şimdi keşfet</div>
+                  <span class="film-ara-ipucu" id="kitapAraIpucu">Open Library verileriyle kitap kataloğu.</span>
+                </div>
+                <span class="film-katalog-sayac" id="kitapKesfetBilgi"></span>
+              </div>
+              <div id="kitapSonuclar" class="film-sonuclar"></div>
+              <div id="kitapKesfetSayfalama" class="film-kesfet-sayfalama"></div>
+            </div>
+
+            <aside class="film-filtre-panel" id="kitapFiltrePanel">
+              <div class="film-arama-mini">
+                <input id="kitapAramaInput" type="text" maxlength="100" placeholder="Ara... (örn: Küçük Prens)"
+                  onkeydown="kitapAramaEnter(event)" />
+                <button type="button" onclick="kitapAra()" title="Ara" aria-label="Ara">→</button>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Kategori</div>
+                <div class="filtre-cip-satir" id="filtreKitapKategori">
+                  <button type="button" class="filtre-cip secili" data-deger="" onclick="kitapFiltreSec('kategori','',this)">Tümü</button>
+                </div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Yayın yılı</div>
+                <div class="filtre-cip-satir" id="filtreKitapYil"></div>
+              </div>
+
+              <div class="film-filtre-grup">
+                <div class="film-filtre-baslik">Sırala</div>
+                <div class="filtre-cip-satir" id="filtreKitapSirala">
+                  <button type="button" class="filtre-cip secili" data-deger="editions.desc" onclick="kitapFiltreSec('sirala','editions.desc',this)">En popüler</button>
+                  <button type="button" class="filtre-cip" data-deger="rating.desc" onclick="kitapFiltreSec('sirala','rating.desc',this)">En yüksek puanlı</button>
+                  <button type="button" class="filtre-cip" data-deger="new.desc" onclick="kitapFiltreSec('sirala','new.desc',this)">En yeni</button>
+                  <button type="button" class="filtre-cip" data-deger="old.asc" onclick="kitapFiltreSec('sirala','old.asc',this)">En eski</button>
+                </div>
+              </div>
+
+              <button type="button" class="film-filtre-sifirla" onclick="kitapFiltreleriSifirla()">Filtreleri Sıfırla</button>
+            </aside>
           </div>
-          <span class="film-ara-ipucu">Arama Google Books üzerinden yapılır.</span>
-          <div id="kitapSonuclar" class="film-sonuclar"></div>
         </div>
       </div>
     </div>

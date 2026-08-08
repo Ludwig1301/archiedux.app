@@ -3,6 +3,5 @@ node_modules/
 _srv_out.txt
 _srv_err.txt
 data/db.json
-data/pet.json
 public/uploads/*
 !public/uploads/.gitkeep

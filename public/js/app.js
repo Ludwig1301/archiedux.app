@@ -809,6 +809,7 @@ function muzikKaydet() {
       ad: GUNCEL_PLAYER_AD,
       position: GUNCEL_PLAYER ? Math.floor(GUNCEL_PLAYER.getCurrentTime() || 0) : 0,
       volume: GUNCEL_PLAYER ? GUNCEL_PLAYER.getVolume() : 70,
+      oynuyor: GUNCEL_PLAYER_ISTEK && GUNCEL_PLAYER_OYNUYOR,
       sahip: GUNCEL_MUZIK_SAHIPI,
       zaman: Date.now(),
     }));
@@ -819,9 +820,10 @@ function muzikTemizle() {
   try { localStorage.removeItem(MUZIK_KEY); } catch (e) {}
 }
 
-// Sayfadan çıkarken (yeni sayfaya geçişte) çalan konumu kaydet
+// Sayfadan çıkarken (yeni sayfaya geçişte) çalan konumu + durumu kaydet.
+// Duraklatılmış müzik başka sayfada kaldığı yerden değil, duraklatılmış olarak devam eder.
 window.addEventListener("pagehide", () => {
-  if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
+  if (GUNCEL_PLAYER) muzikKaydet();
 });
 
 // Şarkı adını oEmbed ile al (YouTube oEmbed, anahtar gerekmez)
@@ -870,28 +872,21 @@ function profilPlayerDurdur() {
   if (!GUNCEL_PLAYER) return;
   GUNCEL_PLAYER_ISTEK = false;
   GUNCEL_PLAYER.pauseVideo();
+  muzikKaydet();
 }
 
-// Sekme gizlenince tarayıcı oynatıcıyı duraklatabilir; tekrar görünür olunca devam ettir
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && GUNCEL_PLAYER && GUNCEL_PLAYER_ISTEK && !GUNCEL_PLAYER_OYNUYOR) {
-    GUNCEL_PLAYER.playVideo();
-  }
-});
-window.addEventListener("focus", () => {
-  if (GUNCEL_PLAYER && GUNCEL_PLAYER_ISTEK && !GUNCEL_PLAYER_OYNUYOR) {
-    GUNCEL_PLAYER.playVideo();
-  }
-});
+// Sekme değişince müzik kendiliğinden başlamasın. Duraklatılmış müzik
+// duraklatılmış kalır; geri dönünce otomatik devam YOKTUR (kullanıcı Oynat'a basar).
 
-function profilPlayerYukle(videoId, konum, ses) {
+function profilPlayerYukle(videoId, konum, ses, cal) {
   ytApiYukle(() => {
     if (!ytApiHazirMi()) return;
     if (GUNCEL_PLAYER) {
       GUNCEL_PLAYER.loadVideoById(videoId);
       if (konum > 1) GUNCEL_PLAYER.seekTo(konum, true);
-      GUNCEL_PLAYER.setVolume(ses || 70);
-      profilPlayerOynat();
+      GUNCEL_PLAYER.setVolume(ses ?? 70);
+      if (cal) profilPlayerOynat();
+      else profilPlayerDurdur();
     } else {
       GUNCEL_PLAYER = new window.YT.Player("profilPlayerVideo", {
         videoId,
@@ -907,11 +902,12 @@ function profilPlayerYukle(videoId, konum, ses) {
         },
         events: {
           onReady: (e) => {
-            e.target.setVolume(ses || 70);
+            e.target.setVolume(ses ?? 70);
             const sesEl = document.getElementById("profilPlayerSes");
-            if (sesEl) sesEl.value = ses || 70;
-            GUNCEL_PLAYER_ISTEK = true;
-            e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
+            if (sesEl) sesEl.value = ses ?? 70;
+            GUNCEL_PLAYER_ISTEK = !!cal;
+            if (cal) e.target.playVideo(); // otomatik oynatma denemesi; tarayıcı engellerse butonla
+            else muzikKaydet(); // duraklatılmış durum yeni sayfada da korunsun
             if (konum > 1) {
               // video yüklenmeye başlayınca kaldığı yere atla
               setTimeout(() => { try { e.target.seekTo(konum, true); } catch (err) {} }, 400);
@@ -945,8 +941,12 @@ function profilSarkiGoster(url, sahipId) {
   let kayit = null;
   try { kayit = JSON.parse(localStorage.getItem(MUZIK_KEY) || "null"); } catch (e) {}
   // Aynı üyenin aynı şarkısıysa kaldığı yerden devam et
-  const devamKonum = kayit && kayit.sahip === sahipId && kayit.videoId === videoId ? (kayit.position || 0) : 0;
-  const ses = kayit && kayit.sahip === sahipId ? (kayit.volume || 70) : 70;
+  const ayniKayit = kayit && kayit.sahip === sahipId && kayit.videoId === videoId;
+  const devamKonum = ayniKayit ? (kayit.position || 0) : 0;
+  // Ses seviyesi ve duraklatma durumu kullanıcı tercihi olarak korunur:
+  // sıfıra çekilen ses (0) "70'e dönme" hatası olmadan kalır, kapatılan müzik yeniden başlamaz.
+  const ses = kayit ? (kayit.volume ?? 70) : 70;
+  const cal = ayniKayit ? kayit.oynuyor !== false : true;
   GUNCEL_MUZIK_SAHIPI = sahipId;
   kutu.style.display = "flex";
   const thumb = document.getElementById("profilPlayerThumb");
@@ -954,13 +954,14 @@ function profilSarkiGoster(url, sahipId) {
   const sesEl = document.getElementById("profilPlayerSes");
   if (sesEl) sesEl.value = ses;
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_ID === videoId) {
-    if (!GUNCEL_PLAYER_OYNUYOR) profilPlayerOynat();
+    if (cal && !GUNCEL_PLAYER_OYNUYOR) profilPlayerOynat();
+    else if (!cal && GUNCEL_PLAYER_OYNUYOR) profilPlayerDurdur();
     return;
   }
   GUNCEL_PLAYER_ID = videoId;
   GUNCEL_PLAYER_AD = "";
   muzikBaslikGetir(videoId);
-  profilPlayerYukle(videoId, devamKonum, ses);
+  profilPlayerYukle(videoId, devamKonum, ses, cal);
 }
 
 // Düzenleme panelinde şarkı değişince (sahip kendi profili)
@@ -2662,6 +2663,9 @@ let GUNCEL_GUNLUK_SAYFA = 1;
 let FILM_KESFET_SAYFA = 1;
 let FILM_KESFET_ISTEK = 0;
 let FILM_FILTRE = { tur: "tum", kategori: "", yil: "", minPuan: "0", sirala: "popularity.desc" };
+let KITAP_KESFET_SAYFA = 1;
+let KITAP_KESFET_ISTEK = 0;
+let KITAP_FILTRE = { kategori: "", yil: "", sirala: "editions.desc" };
 const GUNLUK_SAYFA_LIMIT = 10;
 
 // Google Books kapaklarını sunucu proxy'sinden geçir (TMDB afiş proxy'si gibi)
@@ -3194,7 +3198,9 @@ function filmModalAc(oge) {
   const puanEl = document.getElementById("filmModalPuan");
   const ozetEl = document.getElementById("filmModalOzet");
   if (tarihEl) tarihEl.innerText = kitapModu ? "" : (oge.tarih ? `Yayın ${oge.tarih}` : "");
-  if (puanEl) puanEl.innerText = kitapModu ? "" : (oge.puan ? `IMDb/TMDB ${Number(oge.puan).toFixed(1)}/10` : "");
+  if (puanEl) puanEl.innerText = kitapModu
+    ? (oge.puan ? `★ ${Number(oge.puan).toFixed(1)}/5${oge.oySayisi ? ` · ${Number(oge.oySayisi).toLocaleString("tr-TR")} oy` : ""}` : "")
+    : (oge.puan ? `IMDb/TMDB ${Number(oge.puan).toFixed(1)}/10` : "");
   if (ozetEl) {
     ozetEl.innerText = kitapModu ? "" : (oge.ozet || "");
     ozetEl.style.display = kitapModu || !oge.ozet ? "none" : "block";
@@ -3636,10 +3642,13 @@ function aramaSekmesi(mod) {
   const kitapIcerik = document.getElementById("kitapKatalogIcerik");
   if (filmIcerik) filmIcerik.style.display = kitap ? "none" : "";
   if (kitapIcerik) kitapIcerik.style.display = kitap ? "" : "none";
-  const kitapSonuclar = document.getElementById("kitapSonuclar");
-  if (kitapSonuclar) kitapSonuclar.innerHTML = "";
-  FILM_ARAMA_SONUCU = [];
-  KITAP_ARAMA_SONUCU = [];
+  if (kitap) kitapKatalogHazirla();
+}
+
+function kitapKatalogHazirla() {
+  if (!document.getElementById("filtreKitapYil")) return;
+  if (document.getElementById("filtreKitapYil").children.length === 0) kitapYilFiltresiDoldur();
+  kitapKategorileriYukle().then(() => kitapKesfet());
 }
 
 function kitapAramaEnter(e) {
@@ -3662,10 +3671,32 @@ async function kitapAra() {
     if (!res.ok) throw new Error("Arama yapılamadı.");
     const sonuc = await res.json();
     KITAP_ARAMA_SONUCU = Array.isArray(sonuc) ? sonuc : [];
+    const sayfalama = document.getElementById("kitapKesfetSayfalama");
+    if (sayfalama) sayfalama.innerHTML = "";
+    const baslik = document.getElementById("kitapKesfetBaslik");
+    if (baslik) baslik.innerText = `“${q}” arama sonuçları`;
+    const sayac = document.getElementById("kitapKesfetBilgi");
+    if (sayac) sayac.innerText = `${KITAP_ARAMA_SONUCU.length} sonuç`;
     kitapSonuclariCiz();
   } catch (e) {
     if (kutu) kutu.innerHTML = '<span class="bos-hint">Arama şu anda yapılamadı.</span>';
   }
+}
+
+function kitapKatalogKartHTML(k, i) {
+  const kayitli = KITAP_JURNAL.some((kayit) => kayit.id === k.id);
+  return `
+    <button type="button" class="film-kart film-katalog-kart" onclick="kitapSec(${i})">
+      ${k.kapak
+        ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="${htmlEsc(k.ad)}" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        : `<span class="film-poster-yok">${KITAP_IKON}</span>`}
+      <span class="film-kart-bilgi">
+        <strong>${htmlEsc(k.ad)}</strong>
+        <span class="film-kart-meta">${k.yazar ? htmlEsc(k.yazar) : "Kitap"}${k.yil ? ` · ${htmlEsc(k.yil)}` : ""}</span>
+        <span class="film-kart-puan">${k.puan ? `★ ${Number(k.puan).toFixed(1)}` : "Puan yok"}${k.oySayisi ? ` <i>${Number(k.oySayisi).toLocaleString("tr-TR")} oy</i>` : ""}</span>
+        ${kayitli ? '<span class="film-kart-ekli">Günlüğünde · Düzenle</span>' : '<span class="film-kart-ekle">+ Günlüğüne ekle</span>'}
+      </span>
+    </button>`;
 }
 
 function kitapSonuclariCiz() {
@@ -3675,19 +3706,116 @@ function kitapSonuclariCiz() {
     kutu.innerHTML = '<span class="bos-hint">Sonuç bulunamadı. Farklı bir isim dene.</span>';
     return;
   }
-  kutu.innerHTML =
-    '<div class="film-ara-baslik">Kitap sonuçları</div>' +
-    KITAP_ARAMA_SONUCU.map((k, i) => `
-      <button type="button" class="film-kart" onclick="kitapSec(${i})">
-        ${k.kapak
-          ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
-          : `<span class="film-poster-yok">${KITAP_IKON}</span>`}
-        <span class="film-kart-bilgi">
-          <strong>${htmlEsc(k.ad)}</strong>
-          <span>${k.yazar ? htmlEsc(k.yazar) : "Kitap"}${k.yil ? ` · ${htmlEsc(k.yil)}` : ""}</span>
-        </span>
-      </button>
-    `).join("");
+  kutu.innerHTML = KITAP_ARAMA_SONUCU.map((k, i) => kitapKatalogKartHTML(k, i)).join("");
+}
+
+function kitapKesfetSonuclariCiz(sonuc, bilgi) {
+  const kutu = document.getElementById("kitapSonuclar");
+  const sayac = document.getElementById("kitapKesfetBilgi");
+  if (!kutu) return;
+  KITAP_ARAMA_SONUCU = Array.isArray(sonuc) ? sonuc : [];
+  if (sayac) sayac.innerText = bilgi || "";
+  if (!KITAP_ARAMA_SONUCU.length) {
+    kutu.innerHTML = '<span class="bos-hint">Bu filtrelerle sonuç bulunamadı. Filtreleri biraz genişletmeyi dene.</span>';
+    return;
+  }
+  kutu.innerHTML = KITAP_ARAMA_SONUCU.map((k, i) => kitapKatalogKartHTML(k, i)).join("");
+}
+
+function kitapKesfetSayfayaGit(sayfa) {
+  KITAP_KESFET_SAYFA = Math.max(1, parseInt(sayfa, 10) || 1);
+  kitapKesfet();
+  document.getElementById("filmAraKutu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function kitapKategorileriYukle() {
+  const kategoriSatir = document.getElementById("filtreKitapKategori");
+  if (!kategoriSatir) return;
+  try {
+    const res = await apiFetch("/api/kitap/kategoriler");
+    if (!res.ok) return;
+    const veri = await res.json();
+    const secili = KITAP_FILTRE.kategori;
+    kategoriSatir.innerHTML =
+      `<button type="button" class="filtre-cip ${!secili ? "secili" : ""}" data-deger="" onclick="kitapFiltreSec('kategori','',this)">Tümü</button>` +
+      (veri.kategori || []).map((item) =>
+        `<button type="button" class="filtre-cip ${item.id === secili ? "secili" : ""}" data-deger="${item.id.replace(/"/g, "&quot;")}" onclick="kitapFiltreSec('kategori',this.dataset.deger,this)">${htmlEsc(item.ad)}</button>`
+      ).join("");
+  } catch (e) {
+    /* kategori listesi gelmezse arama yine kullanılabilir */
+  }
+}
+
+function kitapFiltreSec(alan, deger, cipEl) {
+  KITAP_FILTRE[alan] = deger;
+  if (cipEl) {
+    const satir = cipEl.closest(".filtre-cip-satir");
+    if (satir) satir.querySelectorAll(".filtre-cip").forEach((c) => c.classList.toggle("secili", c === cipEl));
+  }
+  KITAP_KESFET_SAYFA = 1;
+  kitapKesfet();
+}
+
+function kitapYilFiltresiDoldur() {
+  const satir = document.getElementById("filtreKitapYil");
+  if (!satir) return;
+  const cYil = new Date().getFullYear();
+  const secenekler = [{ deger: "", etiket: "Tümü" }];
+  for (let i = 0; i < 6; i++) secenekler.push({ deger: String(cYil - i), etiket: String(cYil - i) });
+  secenekler.push({ deger: "2010-2019", etiket: "2010'lar" });
+  secenekler.push({ deger: "2000-2009", etiket: "2000'ler" });
+  secenekler.push({ deger: "1990-1999", etiket: "90'lar" });
+  secenekler.push({ deger: "1980-1989", etiket: "80'ler" });
+  secenekler.push({ deger: "1970-1979", etiket: "70'ler" });
+  satir.innerHTML = secenekler.map((s) =>
+    `<button type="button" class="filtre-cip ${!s.deger ? "secili" : ""}" data-deger="${s.deger}" onclick="kitapFiltreSec('yil','${s.deger}',this)">${s.etiket}</button>`
+  ).join("");
+}
+
+function kitapFiltreleriSifirla() {
+  KITAP_FILTRE = { kategori: "", yil: "", sirala: "editions.desc" };
+  const beklenenler = {
+    filtreKitapKategori: "",
+    filtreKitapYil: "",
+    filtreKitapSirala: "editions.desc",
+  };
+  document.querySelectorAll(".filtre-cip-satir").forEach((satir) => {
+    if (!(satir.id in beklenenler)) return;
+    satir.querySelectorAll(".filtre-cip").forEach((c) => c.classList.toggle("secili", c.dataset.deger === beklenenler[satir.id]));
+  });
+  KITAP_KESFET_SAYFA = 1;
+  kitapKesfet();
+}
+
+async function kitapKesfet() {
+  const kutu = document.getElementById("kitapSonuclar");
+  if (!kutu) return;
+  const istek = ++KITAP_KESFET_ISTEK;
+  const kategori = KITAP_FILTRE.kategori;
+  const yil = KITAP_FILTRE.yil;
+  const sirala = KITAP_FILTRE.sirala;
+  kutu.innerHTML = '<span class="bos-hint">Katalog hazırlanıyor...</span>';
+  try {
+    const query = new URLSearchParams({ kategori, yil, sirala, sayfa: KITAP_KESFET_SAYFA });
+    const res = await apiFetch(`/api/kitap/kesfet?${query}`);
+    if (!res.ok) throw new Error("Katalog yüklenemedi.");
+    const veri = await res.json();
+    if (istek !== KITAP_KESFET_ISTEK) return;
+    const baslik = document.getElementById("kitapKesfetBaslik");
+    if (baslik) baslik.innerText = "Şimdi keşfet";
+    kitapKesfetSonuclariCiz(veri.sonuc, veri.toplam ? `${veri.toplam.toLocaleString("tr-TR")} kitap` : "");
+    const sayfalama = document.getElementById("kitapKesfetSayfalama");
+    const toplamSayfa = Math.min(20, veri.toplamSayfa || 1);
+    if (sayfalama && toplamSayfa > 1) {
+      sayfalama.innerHTML = Array.from({ length: toplamSayfa }, (_, index) => index + 1)
+        .map((sayfa) => `<button type="button" class="yorum-sayfa ${sayfa === KITAP_KESFET_SAYFA ? "aktif" : ""}" onclick="kitapKesfetSayfayaGit(${sayfa})">${sayfa}</button>`)
+        .join("");
+    } else if (sayfalama) {
+      sayfalama.innerHTML = "";
+    }
+  } catch (e) {
+    if (istek === KITAP_KESFET_ISTEK) kutu.innerHTML = '<span class="bos-hint">Katalog şu anda yüklenemedi. Birkaç saniye sonra tekrar dene.</span>';
+  }
 }
 
 function kitapSec(i) {
@@ -3739,6 +3867,8 @@ async function filmlerSayfasiBaslat() {
   filmYilFiltresiDoldur();
   await filmKategorileriYukle();
   await filmKesfet();
+  kitapYilFiltresiDoldur();
+  await kitapKategorileriYukle();
 }
 
 // ---------- Etkinlik Günlüğü (admin) ----------
@@ -3752,8 +3882,6 @@ const LOG_TUR_ETIKET = {
   "yorum": "profiline yorum yazdı",
   "galeri-ekle": "galeriye görsel ekledi",
   "galeri-yorum": "galeriye yorum yazdı",
-  "pet-besle": "Archie'nin kabını doldurdu",
-  "pet-agac": "Archie'nin ağacını değiştirdi",
 };
 
 async function logSayfasiBaslat() {
@@ -3805,688 +3933,6 @@ function logListeCiz(loglar) {
   `).join("");
 }
 
-// ---------- Sunucu Pet'i: Archie (tüm sayfalarda serbest gezen animasyonlu kedi) ----------
-// Aseprite'ten alınan frame'ler /pet/ klasöründe. Kedi ekranda üst/alt/sağ/sol gezer,
-// kedi ağacına çıkıp uyuyabilir, yemlik/su kabından yer ve içer, iplik topunu kovalar.
-const PET_DURUM_ADI = { mutlu: "Mutlu", tok: "Tok", ac: "Aç" };
-const PET_DOLDURMA_COOLDOWN_MS = 10 * 60 * 1000;
-const PET_KUTU = { w: 130, h: 130 };
-const PET_AGAC = { x: 16, y: 14, w: 240, h: 230 };
-const PET_KAB_RENK = { 1: "blue", 2: "green", 3: "red" };
-let PET_TOP_GORSEL = "ball-red.png";
-
-let PET_DURUM = "mutlu";
-let PET_ACLIK = 100;
-let PET_SUSUZLUK = 100;
-let PET_YEM_DOLU = true;
-let PET_SU_DOLU = true;
-let PET_YEM_YIYOR = false;
-let PET_SU_IYIYOR = false;
-let PET_TREE = 1;
-let PET_TOPLAM_MAMA = 0;
-let PET_TOPLAM_SU = 0;
-let PET_GIRIS = false;
-let PET_DOLDURABILIR = false;
-let PET_COOLDOWN_MS = 0;
-
-let PET_X = 120;
-let PET_Y = 30;
-let PET_HEDEF = null;
-let PET_MODE = "dur"; // hareket | dur | yemek | icki
-let PET_ANIM = "sit-front";
-let PET_ANIM_FRAME = 0;
-let PET_ANIM_SON_ZAMAN = 0;
-const PET_FRAME_ONBELLEK = {};
-let PET_OTURMA_SURESI = 0;
-let PET_SURUCU = null;
-let PET_ALAN = { minX: 10, maxX: 700, minY: 10, maxY: 300 };
-let PET_AC_ANONSU = false;
-
-let PET_TOP_AKTIF = false;
-let PET_TOP_X = 0;
-let PET_TOP_Y = 0;
-let PET_TOP_ZAMAN = 0;
-let PET_TOP_SURUKLENIYOR = false;
-let PET_TOP_UCUS = false;
-let PET_TOP_VX = 0;
-let PET_TOP_VY = 0;
-let PET_TOP_RAF = null;
-let PET_TOP_SON_ZAMAN = 0;
-let PET_TOP_YAKALANDI = false;
-let PET_AGAC_USTU = false;
-let PET_AGAC_SYNC_YAPILDI = false;
-
-let petKonusmaZamanlayici = null;
-let PET_SON_KONUSMA = "";
-let PET_SON_KONUSMA_ZAMANI = 0;
-
-function petAlanGuncelle() {
-  const w = document.documentElement.clientWidth || window.innerWidth || 900;
-  const h = document.documentElement.clientHeight || window.innerHeight || 600;
-  PET_ALAN = {
-    minX: 10,
-    maxX: Math.max(150, w - PET_KUTU.w - 10),
-    minY: 10,
-    maxY: Math.max(120, h - 64 - PET_KUTU.h - 8),
-  };
-}
-
-function petAnimAyarla(set, reset) {
-  if (PET_ANIM === set && !reset) return;
-  PET_ANIM = set;
-  if (reset) {
-    PET_ANIM_FRAME = 0;
-    PET_ANIM_SON_ZAMAN = performance.now();
-  }
-  petKareGoster();
-}
-
-function petKareGoster() {
-  const kare = document.getElementById("petKare");
-  if (!kare) return;
-  const url = `/pet/${PET_ANIM}-${PET_ANIM_FRAME + 1}.png`;
-  const onbellek = PET_FRAME_ONBELLEK[url];
-  kare.src = onbellek && onbellek.complete ? onbellek.src : url;
-}
-
-function petFrameTik() {
-  const simdi = performance.now();
-  if (!PET_ANIM_SON_ZAMAN) PET_ANIM_SON_ZAMAN = simdi;
-  const hareketEdiyor = PET_TOP_SURUKLENIYOR || PET_TOP_UCUS || PET_MODE === "hareket";
-  const aralik = hareketEdiyor && PET_HEDEF && PET_HEDEF.mod === "kos" ? 90 : hareketEdiyor ? 150 : 240;
-  const gecen = simdi - PET_ANIM_SON_ZAMAN;
-  if (gecen < aralik) return;
-  const adim = Math.max(1, Math.floor(gecen / aralik));
-  PET_ANIM_FRAME = (PET_ANIM_FRAME + adim) % 4;
-  PET_ANIM_SON_ZAMAN += adim * aralik;
-  petKareGoster();
-}
-
-function petFrameOnbellekle() {
-  const setler = [
-    "walk-down", "walk-left", "walk-right", "walk-up",
-    "run-down", "run-left", "run-right", "run-up",
-    "sit-front", "sit-back", "lay-front", "lay-left", "sleep", "drink",
-  ];
-  for (const set of setler) {
-    for (let i = 1; i <= 4; i++) {
-      const url = `/pet/${set}-${i}.png`;
-      const img = new Image();
-      img.src = url;
-      PET_FRAME_ONBELLEK[url] = img;
-    }
-  }
-}
-
-function petPozisyonUygula() {
-  const varlik = document.getElementById("petVarlik");
-  if (varlik) {
-    varlik.style.left = `${PET_X}px`;
-    varlik.style.bottom = `${PET_Y}px`;
-  }
-}
-
-function petRastgeleNokta() {
-  for (let i = 0; i < 25; i++) {
-    const x = PET_ALAN.minX + Math.random() * (PET_ALAN.maxX - PET_ALAN.minX);
-    const y = PET_ALAN.minY + Math.random() * (PET_ALAN.maxY - PET_ALAN.minY);
-    if (x > PET_AGAC.x + PET_AGAC.w + 30) return { x, y };
-    if (y > PET_AGAC.y + PET_AGAC.h + 20) return { x, y };
-  }
-  return { x: PET_ALAN.maxX - 50, y: PET_ALAN.minY + 20 };
-}
-
-function petHedefGit(x, y, mod, varis) {
-  PET_HEDEF = { x, y, mod, varis };
-  PET_MODE = "hareket";
-  const dx = x - PET_X;
-  const dy = y - PET_Y;
-  const yatay = Math.abs(dx) > Math.abs(dy);
-  const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
-  petYuruSet((mod === "kos" ? "run-" : "walk-") + yon);
-}
-
-function petHedefSec() {
-  if (PET_YEM_YIYOR) {
-    petHedefGit(PET_AGAC.x + PET_AGAC.w - 50, PET_AGAC.y + 4, "yuru", "yemek");
-    return;
-  }
-  if (PET_SU_IYIYOR) {
-    petHedefGit(PET_AGAC.x + PET_AGAC.w + 140, PET_AGAC.y + 6, "yuru", "icki");
-    return;
-  }
-  if (PET_TOP_AKTIF && !PET_TOP_SURUKLENIYOR) {
-    petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
-    return;
-  }
-  if (Math.random() < 0.2) {
-    petHedefGit(PET_AGAC.x + PET_AGAC.w / 2 - PET_KUTU.w / 2, PET_AGAC.y + PET_AGAC.h - 6, "yuru", "agac");
-  } else {
-    const n = petRastgeleNokta();
-    petHedefGit(n.x, n.y, Math.random() < 0.14 ? "kos" : "yuru", "hareket");
-  }
-}
-
-function petVaris() {
-  const v = PET_HEDEF ? PET_HEDEF.varis : "hareket";
-  PET_HEDEF = null;
-  PET_AGAC_USTU = v === "agac";
-  if (v === "yemek") {
-    PET_MODE = "yemek";
-    petAnimAyarla("sit-front", true);
-    petKonusma("Mmm, yemek! 😋");
-  } else if (v === "icki") {
-    PET_MODE = "icki";
-    petAnimAyarla("drink", true);
-    petKonusma("Şık şık şık... 💧");
-  } else if (v === "agac") {
-    PET_MODE = "dur";
-    petIdleSec(true);
-  } else if (v === "top") {
-    PET_MODE = "dur";
-    PET_TOP_ZAMAN = Date.now();
-    PET_OTURMA_SURESI = 5000;
-    petAnimAyarla("sit-front", true);
-    if (!PET_TOP_YAKALANDI) {
-      PET_TOP_YAKALANDI = true;
-      petKonusma("İplik! 😻");
-    }
-  } else {
-    PET_MODE = "dur";
-    petIdleSec(false);
-  }
-}
-
-function petIdleSec(agacta) {
-  PET_HEDEF = null;
-  const ac = PET_DURUM === "ac";
-  let liste;
-  if (agacta) liste = [["sleep", 5], ["lay-front", 3], ["lay-left", 2], ["sit-front", 2], ["sit-back", 2]];
-  else if (ac) liste = [["sleep", 4], ["sit-front", 3], ["lay-front", 2], ["sit-back", 2], ["lay-left", 1]];
-  else liste = [["sit-front", 3], ["sit-back", 2], ["lay-front", 2], ["lay-left", 2], ["sleep", 1]];
-  const toplam = liste.reduce((s, o) => s + o[1], 0);
-  let r = Math.random() * toplam;
-  let sec = liste[0][0];
-  for (const [ad, w] of liste) {
-    if (r < w) { sec = ad; break; }
-    r -= w;
-  }
-  petAnimAyarla(sec, true);
-  PET_OTURMA_SURESI = sec === "sleep" ? 7000 + Math.random() * 7000 : 3500 + Math.random() * 5000;
-}
-
-function petTopSpawn() {
-  const n = petRastgeleNokta();
-  PET_TOP_X = n.x + 50;
-  PET_TOP_Y = n.y;
-  const top = document.getElementById("petTop");
-  if (top) {
-    top.innerHTML = `<img src="/pet/${PET_TOP_GORSEL}" alt="">`;
-    top.style.left = `${PET_TOP_X}px`;
-    top.style.bottom = `${PET_TOP_Y}px`;
-    top.style.display = "";
-  }
-  PET_TOP_AKTIF = true;
-}
-
-function petTopSpawnGorsel(img) {
-  if (PET_TOP_AKTIF) {
-    petKonusma("Archie şu an topu kovalıyor, az sonra!");
-    return;
-  }
-  PET_TOP_GORSEL = img;
-  PET_TOP_YAKALANDI = false;
-  petTopSpawn();
-  petHedefGit(Math.max(PET_ALAN.minX, PET_TOP_X - 55), PET_TOP_Y, "kos", "top");
-  petKonusma("Top! Yakalayacağım! 😻");
-}
-
-function petYuruSet(set) {
-  const ayniAile = PET_ANIM.startsWith("run-") || PET_ANIM.startsWith("walk-");
-  petAnimAyarla(set, !ayniAile);
-}
-
-function petTopKovala() {
-  const hedefX = Math.max(PET_ALAN.minX, PET_TOP_X - 55);
-  PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
-  PET_MODE = "hareket";
-}
-
-// Fırlatılan topu sahnede konumlandırır
-function petTopKonumUygula() {
-  const top = document.getElementById("petTop");
-  if (!top) return;
-  top.style.left = `${PET_TOP_X}px`;
-  top.style.bottom = `${PET_TOP_Y}px`;
-}
-
-// Fırlatılan topun fizik döngüsü: hareket, sürtünme, duvar/köşe sekmeleri
-function petTopFizikBaslat() {
-  if (PET_TOP_RAF) return;
-  PET_TOP_SON_ZAMAN = performance.now();
-  const adim = (simdi) => {
-    const dt = Math.min(0.05, Math.max(0.001, (simdi - PET_TOP_SON_ZAMAN) / 1000));
-    PET_TOP_SON_ZAMAN = simdi;
-    if (PET_TOP_UCUS) {
-      PET_TOP_X += PET_TOP_VX * dt;
-      PET_TOP_Y += PET_TOP_VY * dt;
-      const surtunme = Math.max(0, 1 - 1.8 * dt);
-      PET_TOP_VX *= surtunme;
-      PET_TOP_VY *= surtunme;
-      const genislik = document.documentElement.clientWidth || window.innerWidth || 900;
-      const yukseklik = window.innerHeight || document.documentElement.clientHeight || 600;
-      const sinirX = genislik - 56;
-      const sinirY = yukseklik - 70;
-      const esneklik = 0.72;
-      if (PET_TOP_X < 8) {
-        PET_TOP_X = 8;
-        PET_TOP_VX = Math.abs(PET_TOP_VX) * esneklik;
-      } else if (PET_TOP_X > sinirX) {
-        PET_TOP_X = sinirX;
-        PET_TOP_VX = -Math.abs(PET_TOP_VX) * esneklik;
-      }
-      if (PET_TOP_Y < 8) {
-        PET_TOP_Y = 8;
-        PET_TOP_VY = Math.abs(PET_TOP_VY) * esneklik;
-      } else if (PET_TOP_Y > sinirY) {
-        PET_TOP_Y = sinirY;
-        PET_TOP_VY = -Math.abs(PET_TOP_VY) * esneklik;
-      }
-      if (Math.abs(PET_TOP_VX) < 28 && Math.abs(PET_TOP_VY) < 28) {
-        PET_TOP_VX = 0;
-        PET_TOP_VY = 0;
-        PET_TOP_UCUS = false;
-      }
-      petTopKonumUygula();
-    }
-    PET_TOP_RAF = requestAnimationFrame(adim);
-  };
-  PET_TOP_RAF = requestAnimationFrame(adim);
-}
-
-function petSurucuTik() {
-  if (PET_TOP_SURUKLENIYOR || PET_TOP_UCUS) {
-    petTopKovala();
-  }
-  if (PET_MODE === "hareket" && PET_HEDEF) {
-    const dx = PET_HEDEF.x - PET_X;
-    const dy = PET_HEDEF.y - PET_Y;
-    const mesafe = Math.hypot(dx, dy);
-    if (mesafe < 7) {
-      PET_X = PET_HEDEF.x;
-      PET_Y = PET_HEDEF.y;
-      petVaris();
-    } else {
-      const hiz = PET_HEDEF.mod === "kos" ? 3.6 : 1.7;
-      PET_X += (dx / mesafe) * hiz;
-      PET_Y += (dy / mesafe) * hiz;
-      const yatay = Math.abs(dx) > Math.abs(dy);
-      const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
-      petYuruSet((PET_HEDEF.mod === "kos" ? "run-" : "walk-") + yon);
-    }
-  } else if (PET_MODE === "dur") {
-    if (PET_TOP_AKTIF && PET_TOP_ZAMAN && !PET_TOP_UCUS && Date.now() - PET_TOP_ZAMAN > 5000) {
-      PET_TOP_AKTIF = false;
-      PET_TOP_ZAMAN = 0;
-      const top = document.getElementById("petTop");
-      if (top) top.style.display = "none";
-    }
-    PET_OTURMA_SURESI -= 40;
-    if (PET_OTURMA_SURESI <= 0) petHedefSec();
-  } else if (PET_MODE === "yemek") {
-    if (!PET_YEM_YIYOR) {
-      PET_MODE = "dur";
-      PET_OTURMA_SURESI = 1200;
-      petKonusma("Doydum! 😋");
-    }
-  } else if (PET_MODE === "icki") {
-    if (!PET_SU_IYIYOR) {
-      PET_MODE = "dur";
-      PET_OTURMA_SURESI = 1200;
-      petKonusma("Suyum bitti, şık! 💧");
-    }
-  }
-  petFrameTik();
-  petPozisyonUygula();
-  const varlik = document.getElementById("petVarlik");
-  if (varlik) varlik.classList.toggle("pet-ustte", PET_AGAC_USTU);
-}
-
-function petKurulum() {
-  if (document.getElementById("petSistemi")) return;
-  const kutu = document.createElement("div");
-  kutu.id = "petSistemi";
-  kutu.className = "pet-sistemi";
-  kutu.innerHTML = `
-    <div class="pet-sahne" id="petSahne">
-      <div class="pet-agac" id="petAgac"><img id="petAgacImg" src="/pet/tree-1.png" alt="Kedi ağacı" /></div>
-      <button type="button" class="pet-kap pet-yem-kab" id="petYemKab" onclick="petKapDoldur('yem')" title="Yemliği doldur">
-        <img id="petYemImg" src="/pet/bowl-food-full-blue.png" alt="Yemlik" />
-      </button>
-      <button type="button" class="pet-kap pet-su-kab" id="petSuKab" onclick="petKapDoldur('su')" title="Su kabını doldur">
-        <img id="petSuImg" src="/pet/bowl-water-full.png" alt="Su kabı" />
-      </button>
-      <div class="pet-top" id="petTop" style="display:none;"></div>
-      <div class="pet-varlik" id="petVarlik">
-        <img class="pet-kare" id="petKare" alt="Archie" />
-        <div class="pet-konuisma" id="petKonusma"></div>
-      </div>
-    </div>
-    <div class="pet-panel" id="petPanel">
-      <div class="pet-panel-ust">
-        <span class="pet-panel-isim">ARCHIE</span>
-        <span class="pet-panel-durum" id="petDurumEtiketi">Mutlu</span>
-        <button type="button" class="pet-panel-kapat" onclick="petPanelAcKapat()" aria-label="Kapat">×</button>
-      </div>
-      <div class="pet-agac-secici">
-        <span class="pet-agac-etiket">Kedi Ağacı</span>
-        <div class="pet-agac-butonlar">
-          <button type="button" class="pet-agac-btn" data-tree="1" onclick="petAgacSec(1)"><img src="/pet/tree-1.png" alt="1" /></button>
-          <button type="button" class="pet-agac-btn" data-tree="2" onclick="petAgacSec(2)"><img src="/pet/tree-2.png" alt="2" /></button>
-          <button type="button" class="pet-agac-btn" data-tree="3" onclick="petAgacSec(3)"><img src="/pet/tree-3.png" alt="3" /></button>
-        </div>
-      </div>
-      <div class="pet-top-secici">
-        <span class="pet-agac-etiket">Toplar</span>
-        <div class="pet-top-butonlar">
-          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('ball-red.png')"><img src="/pet/ball-red.png" alt="Kırmızı top" /></button>
-          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('ball-green.png')"><img src="/pet/ball-green.png" alt="Yeşil top" /></button>
-          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('yarn-blue.png')"><img src="/pet/yarn-blue.png" alt="Mavi iplik" /></button>
-          <button type="button" class="pet-top-btn" onclick="petTopSpawnGorsel('yarn-green.png')"><img src="/pet/yarn-green.png" alt="Yeşil iplik" /></button>
-        </div>
-      </div>
-      <div class="pet-aclik-satir">
-        <span class="pet-etiket">Açlık</span>
-        <div class="pet-aclik-cubuk"><div class="pet-aclik-doluluk pet-aclik-renk" id="petAclikDoluluk"></div></div>
-      </div>
-      <div class="pet-aclik-satir">
-        <span class="pet-etiket">Susuzluk</span>
-        <div class="pet-aclik-cubuk"><div class="pet-aclik-doluluk pet-su-renk" id="petSuDoluluk"></div></div>
-      </div>
-      <div class="pet-panel-alt">
-        <span class="pet-mama-sayisi" id="petMamaSayisi"></span>
-        <span class="pet-su-sayisi" id="petSuSayisi"></span>
-      </div>
-    </div>
-    <button type="button" class="pet-panel-acil" id="petPanelAcil" onclick="petPanelAcKapat()" title="Archie'nin bakımı" aria-label="Bakım panelini aç">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 3-3 3h-1.5c-1 0-1.8.8-1.8 1.8 0 .5.2.9.5 1.2.3.4.5.8.5 1.2 0 1-.8 1.8-1.7 1.8z"/><circle cx="7.5" cy="10.5" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="10.5" r="1.2"/></svg>
-    </button>`;
-  document.body.appendChild(kutu);
-  petTopSurukleme();
-  petAlanGuncelle();
-  window.addEventListener("resize", petAlanGuncelle);
-  petFrameOnbellekle();
-  petAnimAyarla("sit-front", true);
-  petKareGoster();
-  petPozisyonUygula();
-  petVeriYukle();
-  petSurucuBaslat();
-}
-
-function petSurucuBaslat() {
-  if (PET_SURUCU) return;
-  PET_SURUCU = setInterval(petSurucuTik, 40);
-}
-
-async function petVeriYukle() {
-  try {
-    const res = await apiFetch("/api/pet", {}, 8000);
-    if (!res.ok) return;
-    const v = await res.json();
-    PET_ACLIK = v.aclik;
-    PET_SUSUZLUK = v.susuzluk;
-    PET_YEM_DOLU = v.yemDolu;
-    PET_SU_DOLU = v.suDolu;
-    const yemYiyor = v.yemYiyor;
-    const suIyiyor = v.suIyiyor;
-    PET_TREE = v.tree;
-    PET_DURUM = v.durum || "mutlu";
-    PET_TOPLAM_MAMA = v.toplamMama;
-    PET_TOPLAM_SU = v.toplamSu;
-    PET_GIRIS = !!v.ben;
-    if (v.ben) {
-      PET_DOLDURABILIR = v.ben.doldurabilir;
-      PET_COOLDOWN_MS = v.ben.kalanMs || 0;
-    }
-    petArayuzGuncelle();
-    if (PET_GIRIS && !PET_AGAC_SYNC_YAPILDI) {
-      PET_AGAC_SYNC_YAPILDI = true;
-      try {
-        const pref = parseInt(localStorage.getItem("congress.petTree"), 10);
-        if ([1, 2, 3].includes(pref) && pref !== PET_TREE) {
-          fetch("/api/pet/tree", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tree: pref }),
-          })
-            .then((r) => r.json())
-            .then((v2) => {
-              if (v2.basarili) {
-                PET_TREE = pref;
-                petArayuzGuncelle();
-              }
-            })
-            .catch(() => {});
-        }
-      } catch (e) { /* yoksay */ }
-    }
-    if ((yemYiyor || suIyiyor) && PET_MODE !== "yemek" && PET_MODE !== "icki" && !(PET_HEDEF && (PET_HEDEF.varis === "yemek" || PET_HEDEF.varis === "icki"))) {
-      PET_MODE = "dur";
-      PET_OTURMA_SURESI = 1;
-    }
-    if (PET_DURUM === "ac" && !PET_AC_ANONSU) {
-      PET_AC_ANONSU = true;
-      petKonusma("Miyav, karnım aç!");
-      setTimeout(() => { PET_AC_ANONSU = false; }, 60000);
-    }
-  } catch (e) {
-    /* pet hatası sayfayı bozmasın */
-  }
-}
-
-function petArayuzGuncelle() {
-  const aclikDoluluk = document.getElementById("petAclikDoluluk");
-  if (aclikDoluluk) aclikDoluluk.style.width = `${PET_ACLIK}%`;
-  const suDoluluk = document.getElementById("petSuDoluluk");
-  if (suDoluluk) suDoluluk.style.width = `${PET_SUSUZLUK}%`;
-  const etiket = document.getElementById("petDurumEtiketi");
-  if (etiket) etiket.textContent = PET_DURUM_ADI[PET_DURUM] || PET_DURUM;
-  const mamaSayi = document.getElementById("petMamaSayisi");
-  if (mamaSayi) mamaSayi.textContent = `🍖 ${PET_TOPLAM_MAMA}`;
-  const suSayi = document.getElementById("petSuSayisi");
-  if (suSayi) suSayi.textContent = `💧 ${PET_TOPLAM_SU}`;
-
-  const agacImg = document.getElementById("petAgacImg");
-  if (agacImg) agacImg.src = `/pet/tree-${PET_TREE}.png`;
-  document.querySelectorAll(".pet-agac-btn").forEach((b) => {
-    b.classList.toggle("aktif", parseInt(b.dataset.tree, 10) === PET_TREE);
-  });
-
-  const renk = PET_KAB_RENK[PET_TREE] || "blue";
-  const yemImg = document.getElementById("petYemImg");
-  if (yemImg) yemImg.src = `/pet/bowl-food-${PET_YEM_DOLU ? "full" : "empty"}-${renk}.png`;
-  const suImg = document.getElementById("petSuImg");
-  if (suImg) suImg.src = `/pet/bowl-water-${PET_SU_DOLU ? "full" : "empty"}.png`;
-}
-
-function petPanelAcKapat() {
-  const panel = document.getElementById("petPanel");
-  const acil = document.getElementById("petPanelAcil");
-  if (!panel) return;
-  const acik = panel.classList.toggle("acik");
-  if (acil) acil.classList.toggle("kapali", acik);
-}
-
-async function petAgacSec(tree) {
-  if (!PET_GIRIS) {
-    window.location.href = "/auth/login";
-    return;
-  }
-  if (tree === PET_TREE) return;
-  try {
-    const res = await fetch("/api/pet/tree", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tree }),
-    });
-    const v = await res.json();
-    if (v.basarili) {
-      PET_TREE = tree;
-      try { localStorage.setItem("congress.petTree", String(tree)); } catch (e) { /* yoksay */ }
-      petArayuzGuncelle();
-      petKonusma("Yeni ağacım! 🎄");
-    }
-  } catch (e) {
-    /* yoksay */
-  }
-}
-
-async function petKapDoldur(tur) {
-  if (!PET_GIRIS) {
-    window.location.href = "/auth/login";
-    return;
-  }
-  const btn = document.getElementById(tur === "yem" ? "petYemKab" : "petSuKab");
-  if (!btn || btn.classList.contains("mesgul")) return;
-  btn.classList.add("mesgul");
-  try {
-    const res = await fetch(`/api/pet/${tur}`, { method: "POST" });
-    const v = await res.json();
-    if (v.hata) {
-      petKonusma(v.hata);
-      if (v.kalanMs) PET_COOLDOWN_MS = v.kalanMs;
-    } else if (v.basarili) {
-      PET_YEM_DOLU = v.yemDolu;
-      PET_SU_DOLU = v.suDolu;
-      PET_TOPLAM_MAMA = v.toplamMama;
-      PET_TOPLAM_SU = v.toplamSu;
-      petKalpler();
-      petKonusma(tur === "yem" ? "Miyav! Yemek geldi ❤" : "Şık şık, taze su! ❤");
-      if (v.kazanilanXp > 0) petXpGoster(`+${v.kazanilanXp} XP`);
-      if (v.rozet) petXpGoster(`🎉 ${v.rozet.ad} rozeti!`);
-      if (v.ben) {
-        PET_DOLDURABILIR = v.ben.doldurabilir;
-        PET_COOLDOWN_MS = v.ben.kalanMs || 0;
-      }
-      petArayuzGuncelle();
-    }
-  } catch (e) {
-    petKonusma("İşlem yapılamadı, tekrar dene.");
-  } finally {
-    btn.classList.remove("mesgul");
-  }
-}
-
-function petTopSurukleme() {
-  const top = document.getElementById("petTop");
-  if (!top) return;
-  let izler = [];
-  top.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    PET_TOP_UCUS = false;
-    PET_TOP_VX = 0;
-    PET_TOP_VY = 0;
-    PET_TOP_SURUKLENIYOR = true;
-    PET_TOP_AKTIF = true;
-    PET_TOP_ZAMAN = 0;
-    izler = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
-    try { top.setPointerCapture(e.pointerId); } catch (err) { /* yoksay */ }
-  });
-  top.addEventListener("pointermove", (e) => {
-    if (!PET_TOP_SURUKLENIYOR) return;
-    const yukseklik = window.innerHeight || document.documentElement.clientHeight;
-    const genislik = document.documentElement.clientWidth || window.innerWidth || 900;
-    let x = e.clientX - 24;
-    let y = yukseklik - e.clientY - 24;
-    x = Math.max(8, Math.min(x, genislik - 44));
-    y = Math.max(8, Math.min(y, yukseklik - 70));
-    PET_TOP_X = x;
-    PET_TOP_Y = y;
-    petTopKonumUygula();
-    izler.push({ x: e.clientX, y: e.clientY, t: performance.now() });
-    if (izler.length > 8) izler.shift();
-    petTopKovala();
-  });
-  const topBirakildi = () => {
-    PET_TOP_SURUKLENIYOR = false;
-    let vx = 0, vy = 0, hiz = 0;
-    if (izler.length >= 2) {
-      const ilk = izler[0];
-      const son = izler[izler.length - 1];
-      const dt = (son.t - ilk.t) / 1000;
-      if (dt > 0.02) {
-        vx = (son.x - ilk.x) / dt;
-        vy = (son.y - ilk.y) / dt;
-        hiz = Math.hypot(vx, vy);
-      }
-    }
-    izler = [];
-    if (hiz > 700) {
-      // Fırlatma: hızı oynanabilir sınıra ölçekle ve duvarlarda sektir
-      const olcek = Math.min(1, 3400 / Math.max(1, hiz));
-      PET_TOP_VX = vx * olcek * 0.85;
-      PET_TOP_VY = vy * olcek * 0.85;
-      PET_TOP_UCUS = true;
-      petTopFizikBaslat();
-      petKonusma("Top fırladı! 😆");
-    } else {
-      PET_TOP_UCUS = false;
-      PET_TOP_VX = 0;
-      PET_TOP_VY = 0;
-    }
-    if (PET_MODE === "top-oyna") {
-      PET_MODE = "dur";
-      PET_TOP_ZAMAN = Date.now();
-      PET_OTURMA_SURESI = 5000;
-      petAnimAyarla("sit-front", true);
-    }
-  };
-  top.addEventListener("pointerup", topBirakildi);
-  top.addEventListener("pointercancel", topBirakildi);
-}
-
-function petKalpler(adet) {
-  const sahne = document.getElementById("petSahne");
-  if (!sahne) return;
-  const sayac = adet || 6;
-  const ikonlar = ["❤", "💖", "💗", "💕"];
-  for (let i = 0; i < sayac; i++) {
-    const kalp = document.createElement("span");
-    kalp.className = "pet-kalp";
-    kalp.textContent = ikonlar[i % ikonlar.length];
-    kalp.style.left = `${PET_X + 30 + Math.random() * 40}px`;
-    kalp.style.bottom = `${PET_Y + 110}px`;
-    kalp.style.animationDelay = `${Math.random() * 0.4}s`;
-    sahne.appendChild(kalp);
-    setTimeout(() => kalp.remove(), 1800);
-  }
-}
-
-function petXpGoster(metin) {
-  const sahne = document.getElementById("petSahne");
-  if (!sahne) return;
-  const el = document.createElement("div");
-  el.className = "pet-xp-uc";
-  el.textContent = metin;
-  el.style.left = `${PET_X + 20 + Math.random() * 40}px`;
-  el.style.bottom = `${PET_Y + 140}px`;
-  sahne.appendChild(el);
-  setTimeout(() => el.remove(), 1800);
-}
-
-function petKonusma(metin) {
-  const el = document.getElementById("petKonusma");
-  if (!el) return;
-  const simdi = Date.now();
-  if (PET_SON_KONUSMA === metin && simdi - PET_SON_KONUSMA_ZAMANI < 2000) return;
-  PET_SON_KONUSMA = metin;
-  PET_SON_KONUSMA_ZAMANI = simdi;
-  el.innerHTML = htmlEsc(metin);
-  el.classList.add("gorunur");
-  clearTimeout(petKonusmaZamanlayici);
-  petKonusmaZamanlayici = setTimeout(() => el.classList.remove("gorunur"), 3500);
-}
-
 // ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
 try {
   profilPlayerOlustur();
@@ -4496,10 +3942,4 @@ try {
 setInterval(() => {
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
 }, 5000);
-try {
-  petKurulum();
-} catch (e) {
-  /* pet sorunu sayfayı bozmasın */
-}
-setInterval(petVeriYukle, 5000);
 
