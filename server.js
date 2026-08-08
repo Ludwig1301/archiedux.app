@@ -1846,6 +1846,53 @@ app.post("/api/rozet/kod", girisGerekli, (req, res) => {
 });
 
 // Yorum (guestbook) - herhangi bir üye, giriş yapmış olmak şartıyla
+
+// Bildirim ekle: bir kullanıcıya zil bildirimi gönderir
+function bildirimEkle(hedefId, veri) {
+  if (!gecerliDiscordId(hedefId)) return;
+  profilGetir(hedefId); // yoksa profil oluştur (giriş yapmamış üyeler de bildirim alır)
+  const db = okuDB(); // taze oku
+  db.profiles[hedefId].bildirimler = db.profiles[hedefId].bildirimler || [];
+  db.profiles[hedefId].bildirimler.unshift({
+    id: `bildirim-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    okundu: false,
+    tarih: new Date().toISOString(),
+    ...veri,
+  });
+  db.profiles[hedefId].bildirimler = db.profiles[hedefId].bildirimler.slice(0, 30);
+  db.profiles[hedefId].okunmamisYorum = (db.profiles[hedefId].okunmamisYorum || 0) + 1;
+  yazDB(db);
+}
+
+// Metin içindeki @etiketleri çöz: "@isim" → { ad, id } listesi
+// Boşluklu isimleri de yakalamak için en uzun isimden başlayarak arar.
+async function etiketleriBul(metin) {
+  if (!metin || !metin.includes("@")) return [];
+  const uyeHaritasi = await discordUyeleriTopluCek();
+  const adlar = [];
+  for (const [id, uye] of uyeHaritasi) {
+    const ad = (uye.kullaniciAdi || "").trim();
+    if (ad) adlar.push({ ad, id });
+  }
+  adlar.sort((a, b) => b.ad.length - a.ad.length);
+  const alt = metin.toLowerCase();
+  const bulunan = [];
+  const goruldu = new Set();
+  for (const { ad, id } of adlar) {
+    if (goruldu.has(id)) continue;
+    const anahtar = ad.toLowerCase();
+    const idx = alt.indexOf("@" + anahtar);
+    if (idx === -1) continue;
+    // @'den sonra isim tam bitti mi? (harf/rakam/alt çizgi devam etmemeli)
+    const son = idx + 1 + ad.length;
+    const devam = alt[son] && /[\p{L}\p{N}_]/u.test(alt[son]);
+    if (devam) continue;
+    goruldu.add(id);
+    bulunan.push({ ad, id });
+  }
+  return bulunan;
+}
+
 app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
   const metin = (req.body.metin || "").trim().slice(0, 300);
   if (!metin) return res.status(400).json({ hata: "Boş yorum gönderilemez." });
@@ -1855,6 +1902,7 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
   const yazanId = yazan ? yazan.id : req.session.discordId;
   const yazanAd = yazan ? yazan.kullaniciAdi : "Üye";
   const yazanAvatar = yazan ? yazan.avatar : "";
+  const etiketler = await etiketleriBul(metin);
   const db = okuDB();
   profilGetir(req.params.id); // hedef profili garantiye al
   db.profiles[req.params.id].yorumlar.unshift({
@@ -1863,24 +1911,30 @@ app.post("/api/profile/:id/comments", girisGerekli, async (req, res) => {
     yazanAd,
     yazanAvatar,
     metin,
+    mentions: etiketler,
     tarih: new Date().toISOString(),
   });
   db.profiles[req.params.id].yorumlar = db.profiles[req.params.id].yorumlar.slice(0, 500);
   // Kendi profiline yorum yazmıyorsa, profil sahibi için okunmamış yorum sayısını artır
   if (req.params.id !== req.session.discordId) {
-    db.profiles[req.params.id].okunmamisYorum =
-      (db.profiles[req.params.id].okunmamisYorum || 0) + 1;
-    db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler || [];
-    db.profiles[req.params.id].bildirimler.unshift({
-      id: `bildirim-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    bildirimEkle(req.params.id, {
       tur: "yorum",
-      yazanId: yazan.id,
-      yazanAd: yazan.kullaniciAdi,
-      yorumMetni: metin.slice(0, 90),
-      tarih: new Date().toISOString(),
-      okundu: false,
+      yazanId: yazanId,
+      yazanAd: yazanAd,
+      metin: metin.slice(0, 90),
+      link: `/profil?id=${req.params.id}`,
     });
-    db.profiles[req.params.id].bildirimler = db.profiles[req.params.id].bildirimler.slice(0, 20);
+  }
+  // Etiketlenen kullanıcılara bildirim (kendine etiket atmadıysa)
+  for (const et of etiketler) {
+    if (et.id === yazanId) continue;
+    bildirimEkle(et.id, {
+      tur: "etiket",
+      yazanId: yazanId,
+      yazanAd: yazanAd,
+      metin: `${metin.slice(0, 60)}`,
+      link: `/profil?id=${req.params.id}`,
+    });
   }
   yazDB(db);
   logEkle(
@@ -2064,15 +2118,28 @@ app.post("/api/gonderiler", girisGerekli, async (req, res) => {
     yazanId: req.session.discordId,
     metin,
     medya,
+    mentions: [],
     begenenler: [],
     rileyler: [],
     yorumlar: [],
     tarih: new Date().toISOString(),
   };
+  if (metin) gonderi.mentions = await etiketleriBul(metin);
   db.gonderiler.unshift(gonderi);
   db.gonderiler = db.gonderiler.slice(0, 1000);
   yazDB(db);
   const uye = await discordUyeBilgisiCek(req.session.discordId);
+  // Etiketlenen kullanıcılara bildirim (kendine etiket atmadıysa)
+  for (const et of gonderi.mentions) {
+    if (et.id === req.session.discordId) continue;
+    bildirimEkle(et.id, {
+      tur: "etiket",
+      yazanId: req.session.discordId,
+      yazanAd: uye ? uye.kullaniciAdi : "Üye",
+      metin: metin ? metin.slice(0, 60) : "seni etiketledi",
+      link: `/gonderi?id=${gonderi.id}`,
+    });
+  }
   logEkle(
     req.session.discordId,
     uye ? uye.kullaniciAdi : "Üye",
@@ -2143,6 +2210,7 @@ app.post("/api/gonderiler/:id/yorum", girisGerekli, async (req, res) => {
   const yazanId = yazan ? yazan.id : req.session.discordId;
   const yazanAd = yazan ? yazan.kullaniciAdi : "Üye";
   const yazanAvatar = yazan ? yazan.avatar : "";
+  const etiketler = await etiketleriBul(metin);
   g.yorumlar = Array.isArray(g.yorumlar) ? g.yorumlar : [];
   g.yorumlar.unshift({
     id: `gonderi-yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
@@ -2150,10 +2218,32 @@ app.post("/api/gonderiler/:id/yorum", girisGerekli, async (req, res) => {
     yazanAd,
     yazanAvatar,
     metin,
+    mentions: etiketler,
     tarih: new Date().toISOString(),
   });
   g.yorumlar = g.yorumlar.slice(0, 200);
   yazDB(db);
+  // Gönderi sahibine "gönderine yorum yapıldı" bildirimi (kendi gönderisiyse atla)
+  if (g.yazanId !== yazanId) {
+    bildirimEkle(g.yazanId, {
+      tur: "gonderi-yorum",
+      yazanId: yazanId,
+      yazanAd: yazanAd,
+      metin: metin.slice(0, 90),
+      link: `/gonderi?id=${g.id}`,
+    });
+  }
+  // Etiketlenenlere bildirim
+  for (const et of etiketler) {
+    if (et.id === yazanId) continue;
+    bildirimEkle(et.id, {
+      tur: "etiket",
+      yazanId: yazanId,
+      yazanAd: yazanAd,
+      metin: metin.slice(0, 60),
+      link: `/gonderi?id=${g.id}`,
+    });
+  }
   const sonuc = await gonderilerYanit([g], req.session.discordId);
   res.json({ basarili: true, gonderi: sonuc[0] });
 });

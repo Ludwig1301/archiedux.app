@@ -23,6 +23,16 @@ async function navBarDoldur() {
 
   if (veri.girisYapti) {
     navSag.innerHTML = `
+      <div class="bildirim-kutu" id="bildirimKutu">
+        <button type="button" class="bildirim-can" id="bildirimCan" onclick="bildirimPanelAcKapat(event)" aria-label="Bildirimler">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="bildirim-rozet" id="bildirimRozet" style="display:none;">0</span>
+        </button>
+        <div class="bildirim-panel" id="bildirimPanel" style="display:none;">
+          <div class="bildirim-baslik">Bildirimler</div>
+          <div class="bildirim-listesi" id="bildirimListesi"></div>
+        </div>
+      </div>
       <div class="profil-menu" id="profilMenu">
         <button type="button" class="profil-menu-btn" onclick="profilMenuAcKapat(event)" aria-label="Hesap menüsü">
           <img src="${htmlEsc(veri.avatar)}" alt="" class="profil-menu-avatar" />
@@ -41,6 +51,7 @@ async function navBarDoldur() {
         </div>
       </div>
     `;
+    bildirimYukle();
   } else {
     navSag.innerHTML = `<a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a>`;
   }
@@ -97,15 +108,19 @@ function bildirimListesiCiz(liste, kendiId) {
   }
   kutu.innerHTML = liste
     .map((b) => {
-      const galeri = b.tur === "galeri";
-      const link = galeri ? `/galeri?id=${kendiId}` : `/profil?id=${kendiId}`;
-      const eylem = galeri ? "galerine yorum yaptı" : "profiline yorum yaptı";
+      const eylem =
+        b.tur === "galeri" ? "galerine yorum yaptı" :
+        b.tur === "gonderi-yorum" ? "gönderine yorum yaptı" :
+        b.tur === "etiket" ? "seni etiketledi" :
+        "profiline yorum yaptı";
+      const link = b.link || `/profil?id=${kendiId}`;
+      const snippet = b.metin || b.yorumMetni || "";
       return `
       <a class="bildirim-ogesi ${b.okundu ? "" : "yeni"}" href="${link}">
         <span class="bildirim-oge-nokta"></span>
         <span class="bildirim-oge-metin">
           <strong>${htmlEsc(b.yazanAd)}</strong> ${eylem}
-          ${b.yorumMetni ? `<span class="bildirim-oge-yorum">"${htmlEsc(b.yorumMetni)}"</span>` : ""}
+          ${snippet ? `<span class="bildirim-oge-yorum">"${htmlEsc(snippet)}"</span>` : ""}
         </span>
       </a>`;
     })
@@ -1144,6 +1159,7 @@ async function profilSayfasiBaslat() {
   if (BENIM_ID) {
     document.getElementById("yorumFormAlani").style.display = "flex";
   }
+  etiketOnermeKur("yorumMetni");
 
   YORUM_SAYFA = veri.profil.yorumSayfalama?.sayfa || 1;
   YORUM_SAYFALAMA = veri.profil.yorumSayfalama || YORUM_SAYFALAMA;
@@ -1583,7 +1599,7 @@ function yorumlariCiz(yorumlar, sayfalama = YORUM_SAYFALAMA) {
             </span>
             ${benimProfili && y.id ? `<button type="button" class="yorum-sil" title="Yorumu sil" onclick="yorumSil('${y.id}')">×</button>` : ""}
           </div>
-          <div class="yorum-metin">${htmlEsc(y.metin)}</div>
+          <div class="yorum-metin">${gonderiMetinGoster(y.metin, y.mentions)}</div>
         </div>
       </div>
     `
@@ -3992,6 +4008,7 @@ async function anasayfaAkisBaslat() {
     if (girisUyari) girisUyari.style.display = "";
   }
   gonderiSuruklemeKur();
+  etiketOnermeKur("gonderiMetni");
   akisSagYukle();
   await gonderiAkisYukle();
 }
@@ -4103,10 +4120,110 @@ function gonderiAkisCiz() {
   kutu.innerHTML = GONDERI_AKIS.map((g) => gonderiKartHTML(g)).join("");
 }
 
-// Gönderi metni: satır sonlarını koru ve linkleri tıklanabilir yap
-function gonderiMetinGoster(metin) {
+// Gönderi metni: satır sonlarını koru, linkleri tıklanabilir yap, @etiketleri profille bağla
+function gonderiMetinGoster(metin, mentions) {
   const guvenli = htmlEsc(metin).replace(/\r?\n/g, "<br>");
-  return guvenli.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  let sonuc = guvenli.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  if (Array.isArray(mentions) && mentions.length) {
+    mentions.forEach((m) => {
+      const aranan = "@" + htmlEsc(m.ad);
+      const baglanti = `<a href="/profil?id=${encodeURIComponent(m.id)}" class="etiket-link" title="${htmlEsc(m.ad)}">@${htmlEsc(m.ad)}</a>`;
+      sonuc = sonuc.split(aranan).join(baglanti);
+    });
+  }
+  return sonuc;
+}
+
+// ---------- @etiket öneri menüsü ----------
+let UYE_ONERI_ONBELLEK = null;
+let etiketMenusu = null;
+
+function etiketMenuHazirla() {
+  if (etiketMenusu) return etiketMenusu;
+  etiketMenusu = document.createElement("div");
+  etiketMenusu.className = "etiket-menusu";
+  etiketMenusu.id = "etiketMenusu";
+  etiketMenusu.style.display = "none";
+  document.body.appendChild(etiketMenusu);
+  return etiketMenusu;
+}
+
+async function uyeOneriListesi() {
+  if (UYE_ONERI_ONBELLEK) return UYE_ONERI_ONBELLEK;
+  try {
+    const res = await apiFetch("/api/members");
+    if (res.ok) UYE_ONERI_ONBELLEK = await res.json();
+    else UYE_ONERI_ONBELLEK = [];
+  } catch (e) {
+    UYE_ONERI_ONBELLEK = [];
+  }
+  return UYE_ONERI_ONBELLEK;
+}
+
+// Metin kutusuna @ yazınca öneri listesi göster
+function etiketOnermeKur(textareaId) {
+  const alan = document.getElementById(textareaId);
+  if (!alan || alan.dataset.etiketKurulu) return;
+  alan.dataset.etiketKurulu = "1";
+  const menu = etiketMenuHazirla();
+  let aktifKutu = null;
+
+  const kapat = () => {
+    menu.style.display = "none";
+    menu.innerHTML = "";
+    aktifKutu = null;
+  };
+
+  alan.addEventListener("input", async () => {
+    const poz = alan.selectionStart;
+    const once = alan.value.slice(0, poz);
+    const eslesme = once.match(/@([\p{L}\p{N}_]*)$/u);
+    if (!eslesme) { kapat(); return; }
+    const arama = eslesme[1].toLowerCase();
+    const uyeler = await uyeOneriListesi();
+    const secenekler = uyeler
+      .filter((m) => m.id !== BENIM_ID)
+      .filter((m) => (m.kullaniciAdi || "").toLowerCase().includes(arama))
+      .slice(0, 6);
+    if (!secenekler.length) { kapat(); return; }
+    const r = alan.getBoundingClientRect();
+    menu.style.display = "block";
+    menu.style.top = (window.scrollY + r.bottom + 4) + "px";
+    menu.style.left = (window.scrollX + r.left) + "px";
+    menu.style.width = Math.min(340, r.width) + "px";
+    aktifKutu = { textareaId, baslangic: eslesme.index, bitis: poz };
+    menu.innerHTML = secenekler.map((m, i) => `
+      <button type="button" class="etiket-oneri" data-i="${i}">
+        <img src="${htmlEsc(m.profilAvatar || m.avatar)}" alt="" />
+        <span>${htmlEsc(m.kullaniciAdi)}</span>
+      </button>`).join("");
+    menu.querySelectorAll(".etiket-oneri").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!aktifKutu) return;
+        const m = secenekler[parseInt(btn.dataset.i, 10)];
+        if (m) etiketSec(aktifKutu.textareaId, m.kullaniciAdi, aktifKutu.baslangic, aktifKutu.bitis);
+        kapat();
+      });
+    });
+  });
+
+  alan.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") kapat();
+  });
+  alan.addEventListener("blur", () => {
+    setTimeout(kapat, 200);
+  });
+}
+
+function etiketSec(textareaId, ad, baslangic, bitis) {
+  const alan = document.getElementById(textareaId);
+  if (!alan) return;
+  const yeni = alan.value.slice(0, baslangic) + "@" + ad + " " + alan.value.slice(bitis);
+  alan.value = yeni;
+  alan.focus();
+  const yeniPoz = baslangic + 1 + ad.length + 1;
+  alan.setSelectionRange(yeniPoz, yeniPoz);
+  alan.dispatchEvent(new Event("input"));
 }
 
 function gonderiTarihYaz(tarih) {
@@ -4143,7 +4260,7 @@ function gonderiKartHTML(g, detayMu) {
           <span class="gonderi-zaman">· ${gonderiTarihYaz(g.tarih)}</span>
           ${silinebilir ? `<button type="button" class="gonderi-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>` : ""}
         </div>
-        ${g.metin ? `<p class="gonderi-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
+        ${g.metin ? `<p class="gonderi-metin">${gonderiMetinGoster(g.metin, g.mentions)}</p>` : ""}
         ${medyaHTML}
         <div class="gonderi-alt">
           <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiYorumAc('${g.id}')">
@@ -4434,6 +4551,7 @@ async function gonderiDetayYukle(id) {
       if (giris) giris.style.display = "";
     }
     gonderiYorumlariCiz(GUNCEL_AKTIF_GONDERI.yorumlar || []);
+    etiketOnermeKur("gonderiYorumMetni");
     const yorumParam = new URLSearchParams(window.location.search).get("yorum");
     if (yorumParam === "1" && BENIM_ID) {
       setTimeout(() => {
@@ -4514,7 +4632,7 @@ function gonderiYorumlariCiz(yorumlar) {
             ${gonderiTarihYaz(y.tarih)}
             ${silinebilir ? `<button type="button" class="gonderi-yorum-sil" title="Yorumu sil" onclick="gonderiYorumSil('${y.id}')">×</button>` : ""}
           </div>
-          <p class="gonderi-yorum-metin">${gonderiMetinGoster(y.metin)}</p>
+          <p class="gonderi-yorum-metin">${gonderiMetinGoster(y.metin, y.mentions)}</p>
         </div>
       </div>`;
   }).join("");
@@ -4684,7 +4802,7 @@ function gonderiModaliCiz(g) {
             ? `<button type="button" class="gonderi-modal-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>`
             : ""}
         </div>
-        ${g.metin ? `<p class="gonderi-modal-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
+        ${g.metin ? `<p class="gonderi-modal-metin">${gonderiMetinGoster(g.metin, g.mentions)}</p>` : ""}
         <div class="gonderi-modal-aksiyonlar">
           <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiModalYorumOdak()">
             ${YORUM_IKON}<span>${g.yorumSayisi || ""}</span>
@@ -4710,6 +4828,7 @@ function gonderiModaliCiz(g) {
     </div>`;
   document.body.appendChild(modal);
   gonderiModalMedyaCiz();
+  etiketOnermeKur("gonderiModalYorumMetni");
 }
 
 function gonderiModalMedyaCiz() {
@@ -4763,7 +4882,7 @@ function gonderiModalYorumlariHTML(yorumlar) {
             ${gonderiTarihYaz(y.tarih)}
             ${silinebilir ? `<button type="button" class="gonderi-yorum-sil" title="Yorumu sil" onclick="gonderiModalYorumSil('${y.id}')">×</button>` : ""}
           </div>
-          <p class="gonderi-modal-yorum-metin">${gonderiMetinGoster(y.metin)}</p>
+          <p class="gonderi-modal-yorum-metin">${gonderiMetinGoster(y.metin, y.mentions)}</p>
         </div>
       </div>`;
   }).join("");

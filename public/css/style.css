@@ -6195,4 +6195,58 @@ a.gonderi-yazar:hover {
   pointer-events: none;
 }
 
+/* ---------- @etiket ---------- */
+.etiket-link {
+  color: var(--profil-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.etiket-link:hover {
+  text-decoration: underline;
+}
+
+.etiket-menusu {
+  position: absolute;
+  z-index: 1200;
+  background: var(--ink-card);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.etiket-oneri {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  color: var(--parchment);
+  font-family: var(--serif);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.etiket-oneri:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.etiket-oneri img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
+}
+
 
