@@ -1133,7 +1133,7 @@ async function profilSayfasiBaslat() {
   seviyeGoster();
   rozetlerGoster();
 
-  // Profil sekmeleri için verileri sakla (Gönderiler / Riley / Medya / Film / Kitap / Galeri)
+  // Profil sekmeleri için verileri sakla (Gönderiler / Repost / Medya / Film / Kitap / Galeri)
   GUNCEL_PROFIL_FILMLER = veri.profil.filmler || [];
   GUNCEL_PROFIL_FILM_SAYI = veri.profil.filmSayisi || GUNCEL_PROFIL_FILMLER.length;
   GUNCEL_PROFIL_FILM_ADET = typeof veri.profil.filmAdet === "number" ? veri.profil.filmAdet : GUNCEL_PROFIL_FILMLER.filter((f) => f.tur === "film").length;
@@ -3983,7 +3983,7 @@ function logListeCiz(loglar) {
 }
 
 // ---------- Topluluk Akışı (anasayfa) ----------
-// Twitter benzeri akış: üyeler gönderi paylaşır, beğenir ve "Riley" ile yeniden paylaşır.
+// Twitter benzeri akış: üyeler gönderi paylaşır, beğenir ve "Repost" ile yeniden paylaşır.
 const RIYEL_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
 const BEGEN_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
 const YORUM_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
@@ -4266,7 +4266,7 @@ function gonderiKartHTML(g, detayMu) {
           <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiYorumAc('${g.id}')">
             ${YORUM_IKON}<span>${g.yorumSayisi ? g.yorumSayisi : ""}</span>
           </button>
-          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Riley — yeniden paylaş" onclick="gonderiRiley('${g.id}', this)">
+          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Repost — yeniden paylaş" onclick="gonderiRiley('${g.id}', this)">
             ${RIYEL_IKON}<span>${g.rileySayisi ? g.rileySayisi : ""}</span>
           </button>
           <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
@@ -4439,7 +4439,7 @@ async function gonderiRiley(id, btn) {
   if (!BENIM_ID) { window.location.href = "/auth/login"; return; }
   try {
     const res = await apiFetch(`/api/gonderiler/${id}/riley`, { method: "POST" });
-    if (!res.ok) throw new Error("Riley yapılamadı.");
+    if (!res.ok) throw new Error("Repost yapılamadı.");
     const v = await res.json();
     if (btn) {
       btn.classList.toggle("aktif", v.rileyEdildi);
@@ -4454,7 +4454,7 @@ async function gonderiRiley(id, btn) {
   }
 }
 
-// Beğeni/Riley değişince profil listeleri ve açık modalı da güncelle
+// Beğeni/Repost değişince profil listeleri ve açık modalı da güncelle
 function gonderiDurumGuncelle(id, aktifAlan, aktifDeger, sayiAlan, sayiDeger) {
   if (Array.isArray(GUNCEL_PROFIL_GONDERILER)) {
     const g = GUNCEL_PROFIL_GONDERILER.find((x) => x.id === id);
@@ -4651,7 +4651,7 @@ async function gonderiYorumSil(yorumId) {
   }
 }
 
-// ---------- Profil sekmeleri (Twitter tarzı: Profil / Gönderiler / Riley / Film / Kitaplar / Galeri) ----------
+// ---------- Profil sekmeleri (Twitter tarzı: Profil / Gönderiler / Repost / Film / Kitaplar / Galeri) ----------
 function profilSekme(ad) {
   GUNCEL_PROFIL_SEKME = ad;
   document.querySelectorAll(".profil-sekme").forEach((b) => {
@@ -4695,19 +4695,19 @@ function profilSekmeGonderilerCiz() {
   kutu.innerHTML = GUNCEL_PROFIL_GONDERILER.map((g) => gonderiKartHTML(g)).join("");
 }
 
-// Riley sekmesi: kullanıcının yeniden paylaştıkları
+// Repost sekmesi: kullanıcının yeniden paylaştıkları
 async function profilRileyGoster(kisiId) {
   const kutu = document.getElementById("profilSekmeRiley");
   if (!kutu) return;
   kutu.innerHTML = '<span class="bos-hint">Yükleniyor...</span>';
   try {
     const res = await apiFetch(`/api/profile/${kisiId}/rileyler`);
-    if (!res.ok) throw new Error("Riley'ler yüklenemedi.");
+    if (!res.ok) throw new Error("Repostlar yüklenemedi.");
     const veri = await res.json();
     GUNCEL_PROFIL_RILEYLER = veri.gonderiler || [];
     profilSekmeRileyCiz();
   } catch (e) {
-    kutu.innerHTML = "<span class=\"bos-hint\">Riley'ler şu anda yüklenemedi.</span>";
+    kutu.innerHTML = "<span class=\"bos-hint\">Repostlar şu anda yüklenemedi.</span>";
   }
 }
 
@@ -4715,7 +4715,7 @@ function profilSekmeRileyCiz() {
   const kutu = document.getElementById("profilSekmeRiley");
   if (!kutu || !Array.isArray(GUNCEL_PROFIL_RILEYLER)) return;
   if (!GUNCEL_PROFIL_RILEYLER.length) {
-    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz Riley yapmamış.</div>';
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz repost yapmamış.</div>';
     return;
   }
   kutu.innerHTML = GUNCEL_PROFIL_RILEYLER.map((g) => gonderiKartHTML(g)).join("");
@@ -4807,7 +4807,7 @@ function gonderiModaliCiz(g) {
           <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiModalYorumOdak()">
             ${YORUM_IKON}<span>${g.yorumSayisi || ""}</span>
           </button>
-          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Riley" onclick="gonderiRiley('${g.id}', this)">
+          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Repost" onclick="gonderiRiley('${g.id}', this)">
             ${RIYEL_IKON}<span>${g.rileySayisi || ""}</span>
           </button>
           <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
