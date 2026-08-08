@@ -83,6 +83,7 @@ const EASTER_EGGS = {
   "archie-avcisi": { ad: "Arşiv Avcısı", aciklama: "Sitede 'archie' kelimesini yazdın.", ikon: "🔎", xp: 100 },
   "koleksiyoncu": { ad: "Koleksiyoncu", aciklama: "Günlüğüne 5 farklı film/dizi ekledin.", ikon: "📀", xp: 150 },
   "sinema-tutkunu": { ad: "Sinema Tutkunu", aciklama: "Günlüğüne 10 farklı film/dizi ekledin.", ikon: "🎞️", xp: 200 },
+  "okur": { ad: "Okur", aciklama: "Günlüğüne 10 farklı kitap ekledin.", ikon: "📚", xp: 200 },
   "besleyici": { ad: "Besleyici", aciklama: "Archie'yi 15 kez besledin.", ikon: "🐟", xp: 100 },
 };
 
@@ -210,6 +211,8 @@ function profilGetir(discordId) {
       galleryEntries: [],
       filmler: [],
       filmXpKazanilan: [],
+      kitaplar: [],
+      kitapXpKazanilan: [],
       vitrinTuru: "proje",
       vitrinler: [],
       favoriSarki: null,
@@ -527,8 +530,9 @@ app.get("/api/profile/:id", async (req, res) => {
   }
   if (!uyeBilgisi) {
     if (!db.profiles[req.params.id]) return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
-    const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, filmler: _fallbackFilmler, ...fallbackProfil } = profil;
+    const { yorumlar: _fallbackYorumlar, galleryEntries: _fallbackGallery, filmler: _fallbackFilmler, kitaplar: _fallbackKitaplar, ...fallbackProfil } = profil;
     const fallbackFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
+    const fallbackKitaplar = Array.isArray(profil.kitaplar) ? profil.kitaplar : [];
     const fallbackVitrinGaleri = (profil.galleryEntries || []).slice(0, 4).map((e) => e.imageUrl).filter(Boolean);
     return res.json({
       id: req.params.id,
@@ -543,13 +547,16 @@ app.get("/api/profile/:id", async (req, res) => {
         filmSayisi: fallbackFilmler.length,
         filmAdet: fallbackFilmler.filter((f) => f.tur === "film").length,
         diziAdet: fallbackFilmler.filter((f) => f.tur === "dizi").length,
+        kitaplar: fallbackKitaplar.slice(0, 12),
+        kitapSayisi: fallbackKitaplar.length,
+        favoriKitap: fallbackKitaplar.find((k) => k.favori) || null,
         vitrinGaleri: fallbackVitrinGaleri,
         favoriFilm: fallbackFilmler.find((f) => f.favori) || null,
         vitrinler: efektifVitrinler(profil),
       },
     });
   }
-  const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, filmler: _filmler, ...profilTemiz } = profil;
+  const { yorumlar: _yorumlar, galleryEntries: _galleryEntries, filmler: _filmler, kitaplar: _kitaplar, ...profilTemiz } = profil;
   const tumYorumlar = Array.isArray(profil.yorumlar) ? profil.yorumlar : [];
   const sayfa = Math.max(1, parseInt(req.query.yorumSayfa, 10) || 1);
   const limit = Math.min(20, Math.max(1, parseInt(req.query.yorumLimit, 10) || 10));
@@ -570,6 +577,8 @@ app.get("/api/profile/:id", async (req, res) => {
   );
   const tumFilmler = Array.isArray(profil.filmler) ? profil.filmler : [];
   const favoriFilm = tumFilmler.find((f) => f.favori) || null;
+  const tumKitaplar = Array.isArray(profil.kitaplar) ? profil.kitaplar : [];
+  const favoriKitap = tumKitaplar.find((k) => k.favori) || null;
   const vitrinGaleri = (profil.galleryEntries || []).slice(0, 4).map((e) => e.imageUrl).filter(Boolean);
   res.json({
     ...uyeBilgisi,
@@ -581,6 +590,9 @@ app.get("/api/profile/:id", async (req, res) => {
       filmSayisi: tumFilmler.length,
       filmAdet: tumFilmler.filter((f) => f.tur === "film").length,
       diziAdet: tumFilmler.filter((f) => f.tur === "dizi").length,
+      kitaplar: tumKitaplar.slice(0, 12),
+      kitapSayisi: tumKitaplar.length,
+      favoriKitap,
       vitrinGaleri,
       favoriFilm,
       vitrinler: efektifVitrinler(profil),
@@ -720,37 +732,125 @@ app.delete("/api/profile/:id/gallery/:entryId", girisGerekli, (req, res) => {
 // Arama TMDB üzerinden yapılır; sonuçlar (afiş, ad, yıl) profilde saklanır.
 // TMDB_API_KEY .env'de tanımlı değilse arama boş döner, site kırılmaz.
 
-async function tmdbAra(q) {
-  if (!TMDB_API_KEY || !q) return [];
+const TMDB_TURLER = {
+  film: {
+    28: "Aksiyon", 12: "Macera", 16: "Animasyon", 35: "Komedi", 80: "Suç",
+    99: "Belgesel", 18: "Dram", 10751: "Aile", 14: "Fantastik", 36: "Tarih",
+    27: "Korku", 10402: "Müzik", 9648: "Gizem", 10749: "Romantik", 878: "Bilim Kurgu",
+    10770: "TV filmi", 53: "Gerilim", 10752: "Savaş", 37: "Vahşi Batı",
+  },
+  dizi: {
+    10759: "Aksiyon ve Macera", 16: "Animasyon", 35: "Komedi", 80: "Suç",
+    99: "Belgesel", 18: "Dram", 10751: "Aile", 10762: "Çocuk", 9648: "Gizem",
+    10763: "Haber", 10764: "Reality", 10765: "Bilim Kurgu ve Fantastik", 10766: "Pembe Dizi",
+    10767: "Talk Show", 10768: "Savaş ve Politika", 37: "Vahşi Batı",
+  },
+};
+
+function tmdbOgeDonustur(oge, tur) {
+  const mediaType = tur || (oge.media_type === "tv" ? "dizi" : "film");
+  const tarih = oge.release_date || oge.first_air_date || "";
+  const genreMap = TMDB_TURLER[mediaType] || {};
+  return {
+    id: oge.id,
+    tur: mediaType,
+    ad: oge.title || oge.name || "Bilinmeyen",
+    yil: tarih.slice(0, 4),
+    tarih,
+    poster: oge.poster_path
+      ? `/api/filmler/poster?path=${encodeURIComponent(oge.poster_path)}`
+      : "",
+    backdrop: oge.backdrop_path
+      ? `/api/filmler/poster?path=${encodeURIComponent(oge.backdrop_path)}`
+      : "",
+    puan: typeof oge.vote_average === "number" ? Math.round(oge.vote_average * 10) / 10 : null,
+    oySayisi: oge.vote_count || 0,
+    turler: (oge.genre_ids || []).map((id) => genreMap[id]).filter(Boolean),
+    turIdleri: Array.isArray(oge.genre_ids) ? oge.genre_ids : [],
+    populerlik: typeof oge.popularity === "number" ? oge.popularity : 0,
+    ozet: oge.overview || "",
+  };
+}
+
+async function tmdbIstek(endpoint, params) {
+  if (!TMDB_API_KEY) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/search/multi?api_key=${encodeURIComponent(TMDB_API_KEY)}&language=tr-TR&query=${encodeURIComponent(q)}&include_adult=false`,
-      { signal: controller.signal }
-    );
-    if (!res.ok) return [];
-    const veri = await res.json();
-    const sonuc = [];
-    for (const oge of veri.results || []) {
-      if (oge.media_type !== "movie" && oge.media_type !== "tv") continue;
-      sonuc.push({
-        id: oge.id,
-        tur: oge.media_type === "movie" ? "film" : "dizi",
-        ad: oge.title || oge.name || "Bilinmeyen",
-        yil: (oge.release_date || oge.first_air_date || "").slice(0, 4),
-        poster: oge.poster_path
-          ? `/api/filmler/poster?path=${encodeURIComponent(oge.poster_path)}`
-          : "",
-      });
-    }
-    return sonuc;
+    const query = new URLSearchParams({
+      api_key: TMDB_API_KEY,
+      language: "tr-TR",
+      include_adult: "false",
+      ...params,
+    });
+    const res = await fetch(`https://api.themoviedb.org/3/${endpoint}?${query}`, { signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json();
   } catch (e) {
-    return [];
+    return null;
   } finally {
     clearTimeout(timeout);
   }
 }
+
+async function tmdbAra(q) {
+  if (!TMDB_API_KEY || !q) return [];
+  const veri = await tmdbIstek("search/multi", { query: q });
+  return (veri?.results || [])
+    .filter((oge) => oge.media_type === "movie" || oge.media_type === "tv")
+    .map((oge) => tmdbOgeDonustur(oge));
+}
+
+app.get("/api/filmler/kategoriler", (req, res) => {
+  const film = Object.entries(TMDB_TURLER.film).map(([id, ad]) => ({ id: Number(id), ad }));
+  const dizi = Object.entries(TMDB_TURLER.dizi).map(([id, ad]) => ({ id: Number(id), ad }));
+  res.json({ film, dizi });
+});
+
+app.get("/api/filmler/kesfet", async (req, res) => {
+  const tur = ["film", "dizi"].includes(req.query.tur) ? req.query.tur : "tum";
+  const kategori = String(req.query.kategori || "").trim();
+  const yil = String(req.query.yil || "").match(/^\d{4}$/) ? String(req.query.yil) : "";
+  const minPuan = Math.min(10, Math.max(0, parseFloat(req.query.minPuan) || 0));
+  const sayfa = Math.min(500, Math.max(1, parseInt(req.query.sayfa, 10) || 1));
+  const sirala = [
+    "popularity.desc",
+    "vote_average.desc",
+    "primary_release_date.desc",
+    "primary_release_date.asc",
+  ].includes(req.query.sirala) ? req.query.sirala : "popularity.desc";
+  const ortak = {
+    page: String(sayfa),
+    sort_by: sirala,
+    ...(kategori ? { with_genres: kategori } : {}),
+    ...(minPuan ? { "vote_average.gte": String(minPuan), "vote_count.gte": "50" } : {}),
+  };
+  const tipler = tur === "tum" ? ["film", "dizi"] : [tur];
+  const cevaplar = await Promise.all(tipler.map(async (tip) => {
+    const params = {
+      ...ortak,
+      sort_by: tip === "dizi" ? sirala.replace("primary_release_date", "first_air_date") : sirala,
+    };
+    if (tip === "film" && yil) params.primary_release_year = yil;
+    if (tip === "dizi" && yil) params.first_air_date_year = yil;
+    const veri = await tmdbIstek(`discover/${tip === "film" ? "movie" : "tv"}`, params);
+    return {
+      tip,
+      sonuc: (veri?.results || []).map((oge) => tmdbOgeDonustur(oge, tip)),
+      toplam: veri?.total_results || 0,
+      toplamSayfa: veri?.total_pages || 0,
+    };
+  }));
+  let sonuc = cevaplar.flatMap((v) => v.sonuc);
+  if (tur === "tum") {
+    if (sirala === "popularity.desc") sonuc.sort((a, b) => (b.populerlik || 0) - (a.populerlik || 0));
+    if (sirala === "vote_average.desc") sonuc.sort((a, b) => (b.puan || 0) - (a.puan || 0));
+    if (sirala === "primary_release_date.desc") sonuc.sort((a, b) => String(b.tarih).localeCompare(String(a.tarih)));
+    if (sirala === "primary_release_date.asc") sonuc.sort((a, b) => String(a.tarih).localeCompare(String(b.tarih)));
+  }
+  const toplam = cevaplar.reduce((sum, v) => sum + v.toplam, 0);
+  res.json({ sonuc: sonuc.slice(0, 24), sayfa, toplam, toplamSayfa: Math.max(...cevaplar.map((v) => v.toplamSayfa), 0) });
+});
 
 // Bazı internet sağlayıcıları image.tmdb.org alan adını engelleyebiliyor.
 // Afişi sunucudan çekip tarayıcıya aynı origin üzerinden gönderiyoruz.
@@ -871,7 +971,13 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
   if (!ad) return res.status(400).json({ hata: "Ad boş olamaz." });
 
   const yil = String(gelen.yil || "").slice(0, 4);
+  const tarih = String(gelen.tarih || "").slice(0, 10);
   const poster = String(gelen.poster || "").slice(0, 500);
+  const katalogPuan = Math.min(10, Math.max(0, parseFloat(gelen.katalogPuan) || 0)) || null;
+  const turler = Array.isArray(gelen.turler)
+    ? gelen.turler.map((turAd) => String(turAd || "").trim().slice(0, 60)).filter(Boolean).slice(0, 6)
+    : [];
+  const ozet = String(gelen.ozet || "").trim().slice(0, 1200);
   const durum = FILM_DURUMLARI.includes(gelen.durum) ? gelen.durum : "izledim";
   let puan = parseFloat(gelen.puan);
   if (isNaN(puan) || puan <= 0) {
@@ -899,7 +1005,11 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
   if (mevcut) {
     mevcut.ad = ad;
     mevcut.yil = yil;
+    mevcut.tarih = tarih;
     mevcut.poster = poster;
+    mevcut.katalogPuan = katalogPuan;
+    mevcut.turler = turler;
+    mevcut.ozet = ozet;
     mevcut.durum = durum;
     mevcut.puan = puan;
     mevcut.yorum = yorum;
@@ -915,7 +1025,11 @@ app.post("/api/filmler", girisGerekli, (req, res) => {
       tur,
       ad,
       yil,
+      tarih,
       poster,
+      katalogPuan,
+      turler,
+      ozet,
       durum,
       puan,
       yorum,
@@ -990,6 +1104,266 @@ app.post("/api/filmler/favori", girisGerekli, (req, res) => {
     );
   }
   res.json({ basarili: true, filmler });
+});
+
+// ---------- Kitap Günlüğü ----------
+// Arama Google Books üzerinden yapılır; kapaklar (kitap afişi) sunucu proxy'sinden geçer.
+
+// Google Books kapak URL'lerini doğrulayıp proxy'ye çevir
+function kitapKapakPath(url) {
+  const deger = String(url || "");
+  if (!deger) return "";
+  try {
+    const parsel = new URL(deger);
+    if (!/(books\.google(usercontent)?\.com|covers\.openlibrary\.org)$/i.test(parsel.hostname)) return "";
+    // Kapakları daha yüksek çözünürlükte getir
+    parsel.searchParams.set("zoom", "2");
+    return `/api/kitap/kapak?url=${encodeURIComponent(parsel.toString())}`;
+  } catch (e) {
+    return "";
+  }
+}
+
+async function openLibraryKitapAra(q) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const cevap = await fetch(
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=12&fields=key,title,author_name,first_publish_year,cover_i`,
+      { signal: controller.signal }
+    );
+    if (!cevap.ok) return [];
+    const veri = await cevap.json();
+    return (veri.docs || []).map((oge) => ({
+      id: `openlibrary:${String(oge.key || "")}`,
+      tur: "kitap",
+      ad: oge.title || "Bilinmeyen",
+      yazar: Array.isArray(oge.author_name) ? oge.author_name.slice(0, 3).join(", ") : "",
+      yil: oge.first_publish_year ? String(oge.first_publish_year) : "",
+      kapak: oge.cover_i
+        ? kitapKapakPath(`https://covers.openlibrary.org/b/id/${encodeURIComponent(oge.cover_i)}-M.jpg`)
+        : "",
+    })).filter((k) => k.id !== "openlibrary:");
+  } catch (e) {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Google Books arama proxy'si (isteğe bağlı GOOGLE_BOOKS_API_KEY ile kotalar artar)
+app.get("/api/kitap/arama", async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 100);
+  if (!q) return res.json([]);
+  const apiAnahtar = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${encodeURIComponent(process.env.GOOGLE_BOOKS_API_KEY)}` : "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const cevap = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=12&printType=books${apiAnahtar}`,
+      { signal: controller.signal }
+    );
+    if (!cevap.ok) return res.json(await openLibraryKitapAra(q));
+    const veri = await cevap.json();
+    const sonuc = (veri.items || []).map((oge) => {
+      const bilgi = oge.volumeInfo || {};
+      const kapak = (bilgi.imageLinks && (bilgi.imageLinks.thumbnail || bilgi.imageLinks.smallThumbnail)) || "";
+      return {
+        id: String(oge.id || ""),
+        tur: "kitap",
+        ad: bilgi.title || "Bilinmeyen",
+        yazar: Array.isArray(bilgi.authors) ? bilgi.authors.slice(0, 3).join(", ") : "",
+        yil: (bilgi.publishedDate || "").slice(0, 4),
+        kapak: kitapKapakPath(kapak),
+      };
+    }).filter((k) => k.id);
+    return res.json(sonuc.length ? sonuc : await openLibraryKitapAra(q));
+  } catch (e) {
+    return res.json(await openLibraryKitapAra(q));
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+// Google Books / Open Library kapak görseli proxy'si (kaynak host kısıtlamalı)
+app.get("/api/kitap/kapak", async (req, res) => {
+  const kapakUrl = String(req.query.url || "").trim().slice(0, 500);
+  let parsel;
+  try {
+    parsel = new URL(kapakUrl);
+  } catch (e) {
+    return res.status(400).send("Geçersiz kapak URL'si.");
+  }
+  if (parsel.protocol !== "https:" && parsel.protocol !== "http:") {
+    return res.status(400).send("Geçersiz kapak URL'si.");
+  }
+  if (!/(books\.google(usercontent)?\.com|covers\.openlibrary\.org)$/i.test(parsel.hostname)) {
+    return res.status(400).send("İzin verilmeyen kaynak.");
+  }
+  const kaynak = parsel.toString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const cevap = await fetch(kaynak, { signal: controller.signal });
+    if (!cevap.ok) return res.status(502).send("Kapak alınamadı.");
+    const veri = Buffer.from(await cevap.arrayBuffer());
+    res.set("Content-Type", cevap.headers.get("content-type") || "image/jpeg");
+    res.set("Cache-Control", "public, max-age=86400");
+    return res.send(veri);
+  } catch (e) {
+    return res.status(502).send("Kapak alınamadı.");
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+// Bir üyenin kitap günlüğü (herkese açık)
+app.get("/api/profile/:id/kitaplar", async (req, res) => {
+  const uyeBilgisi = await discordUyeBilgisiCek(req.params.id);
+  const profil = profilGetir(req.params.id);
+  const db = okuDB();
+  if (!uyeBilgisi && !db.profiles[req.params.id]) {
+    return res.status(404).json({ hata: "Bu üye sunucuda bulunamadı." });
+  }
+  res.json({
+    uye: uyeBilgisi || {
+      id: req.params.id,
+      kullaniciAdi: profil.sonIsim || "Üye",
+      avatar: profil.avatar || profil.sonAvatar || varsayilanAvatar(req.params.id),
+      roller: [],
+    },
+    kitaplar: Array.isArray(profil.kitaplar) ? profil.kitaplar : [],
+  });
+});
+
+const KITAP_DURUMLARI = ["okudum", "okuyorum", "okumak-istiyorum"];
+
+// Kitap ekle veya güncelle (sadece kendi günlüğünü)
+app.post("/api/kitaplar", girisGerekli, (req, res) => {
+  const gelen = req.body || {};
+  const id = String(gelen.id || "").trim().slice(0, 120);
+  if (!id) return res.status(400).json({ hata: "Kitap kimliği eksik." });
+  const ad = String(gelen.ad || "").trim().slice(0, 200);
+  if (!ad) return res.status(400).json({ hata: "Ad boş olamaz." });
+
+  const yazar = String(gelen.yazar || "").slice(0, 200);
+  const yil = String(gelen.yil || "").slice(0, 4);
+  const kapak = String(gelen.kapak || "").slice(0, 500);
+  const durum = KITAP_DURUMLARI.includes(gelen.durum) ? gelen.durum : "okudum";
+  let puan = parseFloat(gelen.puan);
+  if (isNaN(puan) || puan <= 0) {
+    puan = null;
+  } else {
+    puan = Math.min(5, Math.max(0.5, Math.round(puan * 2) / 2));
+  }
+  const yorum = String(gelen.yorum || "").trim().slice(0, 800);
+
+  profilGetir(req.session.discordId); // yoksa oluştur
+  const db = okuDB();
+  const kitaplar = Array.isArray(db.profiles[req.session.discordId].kitaplar)
+    ? db.profiles[req.session.discordId].kitaplar
+    : [];
+  const mevcut = kitaplar.find((k) => k.id === id);
+
+  const xpAnahtari = `kitap-${id}`;
+  const xpKazanilanlar = Array.isArray(db.profiles[req.session.discordId].kitapXpKazanilan)
+    ? db.profiles[req.session.discordId].kitapXpKazanilan
+    : [];
+  let kazanilanXp = 0;
+
+  if (mevcut) {
+    mevcut.ad = ad;
+    mevcut.yazar = yazar;
+    mevcut.yil = yil;
+    mevcut.kapak = kapak;
+    mevcut.durum = durum;
+    mevcut.puan = puan;
+    mevcut.yorum = yorum;
+    mevcut.guncelleme = new Date().toISOString();
+  } else {
+    if (!xpKazanilanlar.includes(xpAnahtari)) {
+      kazanilanXp = 25;
+      xpKazanilanlar.push(xpAnahtari);
+    }
+    kitaplar.unshift({
+      entryId: `kitap-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      id,
+      ad,
+      yazar,
+      yil,
+      kapak,
+      durum,
+      puan,
+      yorum,
+      favori: false,
+      tarih: new Date().toISOString(),
+    });
+  }
+
+  db.profiles[req.session.discordId].kitaplar = kitaplar;
+  db.profiles[req.session.discordId].kitapXpKazanilan = xpKazanilanlar;
+  kazanilanXp = xpArtir(db.profiles[req.session.discordId], kazanilanXp);
+  yazDB(db);
+
+  if (!mevcut) {
+    const adet = kitaplar.length;
+    if (adet >= 5) rozetKazandir(req.session.discordId, "koleksiyoncu");
+    if (adet >= 10) rozetKazandir(req.session.discordId, "okur");
+  }
+
+  logEkle(
+    req.session.discordId,
+    null,
+    mevcut ? "kitap-guncelle" : "kitap-ekle",
+    `${ad}${yazar ? ` (${yazar})` : ""}${yil ? ` ${yil}` : ""}`
+  );
+
+  res.json({
+    basarili: true,
+    kazanilanXp,
+    kitaplar: db.profiles[req.session.discordId].kitaplar,
+  });
+});
+
+// Günlükten bir kitabı sil (sadece sahibi)
+app.delete("/api/kitaplar/:entryId", girisGerekli, (req, res) => {
+  profilGetir(req.session.discordId);
+  const db = okuDB();
+  const kitaplar = Array.isArray(db.profiles[req.session.discordId].kitaplar)
+    ? db.profiles[req.session.discordId].kitaplar
+    : [];
+  db.profiles[req.session.discordId].kitaplar = kitaplar.filter(
+    (k) => k.entryId !== req.params.entryId
+  );
+  yazDB(db);
+  res.json({ basarili: true, kitaplar: db.profiles[req.session.discordId].kitaplar });
+});
+
+// Bir kitabı "favori kitap" yap (sadece sahibi; aynı anda tek favori olur)
+app.post("/api/kitaplar/favori", girisGerekli, (req, res) => {
+  const entryId = String((req.body || {}).entryId || "");
+  if (!entryId) return res.status(400).json({ hata: "Kayıt kimliği eksik." });
+  profilGetir(req.session.discordId);
+  const db = okuDB();
+  const kitaplar = Array.isArray(db.profiles[req.session.discordId].kitaplar)
+    ? db.profiles[req.session.discordId].kitaplar
+    : [];
+  const hedef = kitaplar.find((k) => k.entryId === entryId);
+  if (!hedef) return res.status(404).json({ hata: "Kayıt bulunamadı." });
+  const zatenFavori = hedef.favori === true;
+  for (const k of kitaplar) k.favori = false;
+  hedef.favori = !zatenFavori; // tekrar basınca favoriden çıkar
+  db.profiles[req.session.discordId].kitaplar = kitaplar;
+  yazDB(db);
+  if (hedef.favori) {
+    logEkle(
+      req.session.discordId,
+      null,
+      "kitap-favori",
+      `${hedef.ad}${hedef.yil ? ` ${hedef.yil}` : ""}`
+    );
+  }
+  res.json({ basarili: true, kitaplar });
 });
 
 // ---------- Görsel yükleme (kullanıcının kendi bilgisayarından) ----------

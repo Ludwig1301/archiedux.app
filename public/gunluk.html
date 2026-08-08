@@ -49,18 +49,41 @@
     </div>
 
     <div class="gunluk-icerik">
-      <div class="gunluk-bolum">
-        <div class="gunluk-baslik">Favori Filmin</div>
-        <div id="favoriFilmAlani" class="favori-film-alani"></div>
+      <div class="gunluk-sekmeler">
+        <button type="button" class="sekmeler-btn aktif" id="gunlukSekmeFilm" onclick="gunlukSekmesi('film')">Film &amp; Dizi</button>
+        <button type="button" class="sekmeler-btn" id="gunlukSekmeKitap" onclick="gunlukSekmesi('kitap')">Kitap</button>
       </div>
 
-      <div class="gunluk-bolum">
-        <div class="gunluk-baslik">Film &amp; Dizi Günlüğü</div>
-        <div class="gunluk-arama-kutu">
-          <input id="gunlukArama" type="text" maxlength="100" placeholder="İzlediğin film/dizi ara..." oninput="gunlukAramaDegisti()" />
-          <span class="film-ara-ipucu">Aradığında sadece "İzledim" dediğin kayıtlar listelenir.</span>
+      <div id="gunlukFilmIcerik">
+        <div class="gunluk-bolum">
+          <div class="gunluk-baslik">Favori Filmin</div>
+          <div id="favoriFilmAlani" class="favori-film-alani"></div>
         </div>
-        <div id="gunlukListe" class="gunluk-list"></div>
+
+        <div class="gunluk-bolum">
+          <div class="gunluk-baslik">Film &amp; Dizi Günlüğü</div>
+          <div class="gunluk-arama-kutu">
+            <input id="gunlukArama" type="text" maxlength="100" placeholder="İzlediğin film/dizi ara..." oninput="gunlukAramaDegisti()" />
+            <span class="film-ara-ipucu">Aradığında sadece "İzledim" dediğin kayıtlar listelenir.</span>
+          </div>
+          <div id="gunlukListe" class="gunluk-list"></div>
+        </div>
+      </div>
+
+      <div id="gunlukKitapIcerik" style="display:none;">
+        <div class="gunluk-bolum">
+          <div class="gunluk-baslik">Favori Kitabın</div>
+          <div id="favoriKitapAlani" class="favori-film-alani"></div>
+        </div>
+
+        <div class="gunluk-bolum">
+          <div class="gunluk-baslik">Kitap Günlüğü</div>
+          <div class="gunluk-arama-kutu">
+            <input id="kitapGunlukArama" type="text" maxlength="100" placeholder="Okuduğun kitap ara..." oninput="kitapGunlukAramaDegisti()" />
+            <span class="film-ara-ipucu">Aradığında sadece "Okudum" dediğin kayıtlar listelenir.</span>
+          </div>
+          <div id="kitapGunlukListe" class="gunluk-list"></div>
+        </div>
       </div>
     </div>
   </div>

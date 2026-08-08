@@ -30,19 +30,78 @@
   <div class="mainframe">
     <div class="filmler-page">
       <div class="filmler-hero">
-        <h1>Film &amp; Dizi Ara</h1>
-        <p id="filmFormHint">İzlediğin veya izlemek istediğin film ve dizileri ara, puanla, yorumla ve profiline ekle.</p>
+        <div class="film-hero-eyebrow">ARCH / SİNEMA ARŞİVİ</div>
+        <h1>Ne izlemek istersin?</h1>
+        <p id="filmFormHint">Film ve dizileri keşfet, puanlarını karşılaştır ve kendi izleme günlüğünü oluştur.</p>
         <a id="filmBack" class="gallery-back" href="#" style="display:none;">← Profilime Dön</a>
       </div>
 
       <div class="film-ara-kutu" id="filmAraKutu">
-        <div class="film-ara-satir">
-          <input id="filmAramaInput" type="text" maxlength="100" placeholder="Film veya dizi ara... (örn: Interstellar)"
-            onkeydown="filmAramaEnter(event)" />
-          <button type="button" onclick="filmAra()">Ara</button>
+        <div class="film-ara-sekmeler">
+          <button type="button" class="sekmeler-btn aktif" id="sekmeFilm" onclick="aramaSekmesi('film')">Film &amp; Dizi</button>
+          <button type="button" class="sekmeler-btn" id="sekmeKitap" onclick="aramaSekmesi('kitap')">Kitap</button>
         </div>
-        <span class="film-ara-ipucu">Arama TMDB veritabanı üzerinden yapılır.</span>
-        <div id="filmSonuclar" class="film-sonuclar"></div>
+        <div id="filmKatalogIcerik">
+          <div class="film-ara-satir film-katalog-arama">
+            <input id="filmAramaInput" type="text" maxlength="100" placeholder="Film veya dizi ara... (örn: Interstellar)"
+              onkeydown="filmAramaEnter(event)" />
+            <button type="button" onclick="filmAra()">Ara</button>
+          </div>
+          <div class="film-filtreler" aria-label="Film ve dizi filtreleri">
+            <label>Tür
+              <select id="filmTurFiltresi" onchange="filmTurDegisti()">
+                <option value="tum">Film + Dizi</option>
+                <option value="film">Sadece Filmler</option>
+                <option value="dizi">Sadece Diziler</option>
+              </select>
+            </label>
+            <label>Kategori
+              <select id="filmKategoriFiltresi" onchange="filmKesfet()">
+                <option value="">Tüm kategoriler</option>
+              </select>
+            </label>
+            <label>Yayın yılı
+              <select id="filmYilFiltresi" onchange="filmKesfet()">
+                <option value="">Tüm yıllar</option>
+              </select>
+            </label>
+            <label>Minimum puan
+              <select id="filmPuanFiltresi" onchange="filmKesfet()">
+                <option value="0">Tümü</option>
+                <option value="7">7 ve üzeri</option>
+                <option value="8">8 ve üzeri</option>
+                <option value="9">9 ve üzeri</option>
+              </select>
+            </label>
+            <label>Sırala
+              <select id="filmSiralama" onchange="filmKesfet()">
+                <option value="popularity.desc">En popüler</option>
+                <option value="vote_average.desc">En yüksek puanlı</option>
+                <option value="primary_release_date.desc">En yeni</option>
+                <option value="primary_release_date.asc">En eski</option>
+              </select>
+            </label>
+            <button type="button" class="film-filtre-sifirla" onclick="filmFiltreleriSifirla()">Sıfırla</button>
+          </div>
+          <div class="film-katalog-ust">
+            <div>
+              <div class="film-katalog-baslik" id="filmKesfetBaslik">Şimdi keşfet</div>
+              <span class="film-ara-ipucu" id="filmAraIpucu">TMDB verileriyle güncel film ve dizi kataloğu.</span>
+            </div>
+            <span class="film-katalog-sayac" id="filmKesfetBilgi"></span>
+          </div>
+          <div id="filmSonuclar" class="film-sonuclar"></div>
+          <div id="filmKesfetSayfalama" class="film-kesfet-sayfalama"></div>
+        </div>
+        <div id="kitapKatalogIcerik" style="display:none;">
+          <div class="film-ara-satir">
+            <input id="kitapAramaInput" type="text" maxlength="100" placeholder="Kitap ara... (örn: Küçük Prens)"
+              onkeydown="kitapAramaEnter(event)" />
+            <button type="button" onclick="kitapAra()">Ara</button>
+          </div>
+          <span class="film-ara-ipucu">Arama Google Books üzerinden yapılır.</span>
+          <div id="kitapSonuclar" class="film-sonuclar"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -61,7 +120,10 @@
           <div class="film-modal-meta">
             <span id="filmModalTur"></span>
             <span id="filmModalYil"></span>
+            <span id="filmModalTarih"></span>
+            <span id="filmModalPuan"></span>
           </div>
+          <p class="film-modal-ozet" id="filmModalOzet"></p>
           <select id="filmDurum">
             <option value="izledim">İzledim</option>
             <option value="izliyorum">İzliyorum</option>

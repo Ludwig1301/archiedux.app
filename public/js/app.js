@@ -635,6 +635,7 @@ function rozetIkonu(rozet) {
     "archie-avcisi": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="20" r="12"/><path d="M29 29l11 11M15 20h10m-5-5v10"/></svg>',
     "koleksiyoncu": '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="16" cy="26" r="10"/><circle cx="32" cy="26" r="10"/><path d="M16 16a10 10 0 0 1 16 0M24 16v10"/></svg>',
     "sinema-tutkunu": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 14l10 6v8l-10 6z"/><rect x="18" y="14" width="22" height="20" rx="3"/><path d="M22 20h8m-4-4v8"/></svg>',
+    "okur": '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 8a5 5 0 0 1 5-5h19v34H17a5 5 0 0 0-5 5z"/><path d="M12 8v34"/><path d="M20 14h13M20 21h13"/></svg>',
   };
   return ikonlar[rozet.kod] || '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5l15 6v10c0 10-6 17-15 22C15 38 9 31 9 21V11l15-6z"/><path d="M16 24l5 5 11-12"/></svg>';
 }
@@ -1073,6 +1074,9 @@ async function profilSayfasiBaslat() {
 
   // Film & Dizi günlüğü özeti (sağ panel)
   filmProfilGoster(veri.profil.filmler || [], veri.profil.filmSayisi || 0, veri.profil.filmAdet, veri.profil.diziAdet);
+
+  // Kitap günlüğü özeti (sağ panel)
+  kitapProfilGoster(veri.profil.kitaplar || [], veri.profil.kitapSayisi || 0);
 
   gorunumUygula(
     document.getElementById("profilAlani"),
@@ -2639,15 +2643,41 @@ const FILM_DURUM_ETIKET = {
   izliyorum: "İzliyorum",
   "izlemek-istiyorum": "İzlemek istiyorum",
 };
+const KITAP_DURUM_ETIKET = {
+  okudum: "Okudum",
+  okuyorum: "Okuyorum",
+  "okumak-istiyorum": "Okumak istiyorum",
+};
 const FILM_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M7 4v16M17 4v16M2.5 9h19M2.5 15h19"/></svg>';
+const KITAP_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 4.5V21M20 19H6.5"/></svg>';
 const YILDIZ_SVG = '<svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>';
 
 let FILM_JURNAL = [];
 let FILM_ARAMA_SONUCU = [];
 let FILM_SECILI = null;
 let FILM_PUAN = null;
+let KITAP_JURNAL = [];
+let KITAP_ARAMA_SONUCU = [];
 let GUNCEL_GUNLUK_SAYFA = 1;
+let FILM_KESFET_SAYFA = 1;
+let FILM_KESFET_ISTEK = 0;
 const GUNLUK_SAYFA_LIMIT = 10;
+
+// Google Books kapaklarını sunucu proxy'sinden geçir (TMDB afiş proxy'si gibi)
+function kitapKapakUrl(url) {
+  const deger = String(url || "");
+  if (!deger) return "";
+  if (deger.startsWith("/api/kitap/kapak?")) return deger;
+  try {
+    const parsed = new URL(deger, window.location.origin);
+    if (/books\.google(usercontent)?\.com$/i.test(parsed.hostname)) {
+      return `/api/kitap/kapak?url=${encodeURIComponent(parsed.toString())}`;
+    }
+  } catch (e) {
+    return deger;
+  }
+  return deger;
+}
 
 // Profil sağ panelindeki küçük özet (kayıt sayısı + en fazla 3 afiş)
 function filmProfilGoster(filmler, sayi, filmAdet, diziAdet) {
@@ -2675,6 +2705,32 @@ function filmProfilGoster(filmler, sayi, filmAdet, diziAdet) {
         f.poster
           ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
           : `<span class="film-profil-afis-yok">${FILM_IKON}</span>`
+      ).join("")}
+    </div>`;
+}
+
+// Profil sağ panelindeki kitap özeti (kayıt sayısı + en fazla 3 kapak)
+function kitapProfilGoster(kitaplar, sayi) {
+  const kutu = document.getElementById("pKitaplar");
+  if (!kutu) return;
+  const link = document.getElementById("kitaplarLink");
+  if (link) link.href = `/gunluk?id=${GORUNTULENEN_ID}&mod=kitap`;
+  if (!kitaplar || !kitaplar.length) {
+    kutu.innerHTML = '<span class="bos-hint">Henüz kitap eklenmemiş.</span>';
+    return;
+  }
+  const favori = kitaplar.find((k) => k.favori);
+  let gosterilecek = kitaplar.slice(0, 3);
+  if (favori && !gosterilecek.some((k) => k.id === favori.id)) {
+    gosterilecek = [favori, ...gosterilecek].slice(0, 3);
+  }
+  kutu.innerHTML = `
+    <div class="film-profil-ozet">${sayi} kayıt · ${sayi} kitap</div>
+    <div class="film-profil-afisler">
+      ${gosterilecek.map((k) =>
+        k.kapak
+          ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+          : `<span class="film-profil-afis-yok">${KITAP_IKON}</span>`
       ).join("")}
     </div>`;
 }
@@ -2819,7 +2875,7 @@ async function gunlukSayfasiBaslat() {
   const backEl = document.getElementById("gunlukBack");
   if (backEl) backEl.href = `/profil?id=${GORUNTULENEN_ID}`;
 
-  // Günlük verisi
+  // Günlük verileri (film/dizi + kitap)
   try {
     const filmRes = await apiFetch(`/api/profile/${GORUNTULENEN_ID}/filmler`);
     const filmVeri = filmRes.ok ? await filmRes.json() : { filmler: [] };
@@ -2827,7 +2883,20 @@ async function gunlukSayfasiBaslat() {
   } catch (e) {
     FILM_JURNAL = [];
   }
-  gunlukCiz();
+  try {
+    const kitapRes = await apiFetch(`/api/profile/${GORUNTULENEN_ID}/kitaplar`);
+    const kitapVeri = kitapRes.ok ? await kitapRes.json() : { kitaplar: [] };
+    KITAP_JURNAL = kitapVeri.kitaplar || [];
+  } catch (e) {
+    KITAP_JURNAL = [];
+  }
+  // ?mod=kitap ile açıldıysa Kitap sekmesiyle başla
+  const mod = new URLSearchParams(window.location.search).get("mod");
+  if (mod === "kitap") {
+    gunlukSekmesi("kitap");
+  } else {
+    gunlukCiz();
+  }
 }
 
 function gunlukCiz() {
@@ -2898,11 +2967,12 @@ function gunlukListeCiz() {
   liste.innerHTML = ustBilgi + kartlar + gunlukSayfalamaHTML(GUNCEL_GUNLUK_SAYFA, toplamSayfa);
 }
 
-function gunlukSayfalamaHTML(sayfa, toplamSayfa) {
+function gunlukSayfalamaHTML(sayfa, toplamSayfa, gitFn) {
   if (toplamSayfa <= 1) return "";
+  const git = gitFn || "gunlukSayfayaGit";
   let html = '<nav class="gunluk-sayfalama" aria-label="Günlük sayfaları">';
   for (let i = 1; i <= toplamSayfa; i++) {
-    html += `<button type="button" class="yorum-sayfa ${i === sayfa ? "aktif" : ""}" onclick="gunlukSayfayaGit(${i})">${i}</button>`;
+    html += `<button type="button" class="yorum-sayfa ${i === sayfa ? "aktif" : ""}" onclick="${git}(${i})">${i}</button>`;
   }
   return html + "</nav>";
 }
@@ -2948,31 +3018,211 @@ async function gunlukSil(entryId) {
   }
 }
 
+// ---------- Kitap Günlüğü (günlük sayfasındaki "Kitap" sekmesi) ----------
+function kitapGunlukCiz() {
+  kitapGunlukFavoriCiz();
+  kitapGunlukListeCiz();
+}
+
+function kitapGunlukFavoriCiz() {
+  const alan = document.getElementById("favoriKitapAlani");
+  if (!alan) return;
+  const favori = KITAP_JURNAL.find((k) => k.favori);
+  const kendi = BENIM_ID === GORUNTULENEN_ID;
+  if (!favori) {
+    alan.innerHTML = kendi
+      ? `<div class="favori-bos"><span>Henüz favori kitap seçmedin.</span><span class="favori-ipucu">Aşağıdaki listeden bir kayda "Favori Yap" diyerek seçebilirsin.</span></div>`
+      : `<div class="favori-bos"><span>Henüz favori kitap seçilmemiş.</span></div>`;
+    return;
+  }
+  alan.innerHTML = `
+    <div class="favori-film-kart">
+      ${favori.kapak
+        ? `<img src="${htmlEsc(kitapKapakUrl(favori.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        : `<div class="favori-poster-yok">${KITAP_IKON}</div>`}
+      <div class="favori-film-bilgi">
+        <div class="favori-film-etiket">Favori Kitap</div>
+        <h3>${htmlEsc(favori.ad)}</h3>
+        <div class="favori-film-meta">Kitap${favori.yazar ? ` · ${htmlEsc(favori.yazar)}` : ""}${favori.yil ? ` · ${htmlEsc(favori.yil)}` : ""}</div>
+        <div class="film-jurnal-alt">
+          ${puanYildizlariHTML(favori.puan)}
+          <span class="film-jurnal-durum">${KITAP_DURUM_ETIKET[favori.durum] || ""}</span>
+        </div>
+        ${favori.yorum ? `<p class="film-jurnal-yorum">${htmlEsc(favori.yorum)}</p>` : ""}
+      </div>
+    </div>`;
+}
+
+function kitapGunlukKartHTML(k, kendi) {
+  return `
+    <div class="film-jurnal-kart gunluk-kart">
+      ${k.kapak
+        ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        : `<span class="film-poster-yok film-poster-yok-buyuk">${KITAP_IKON}</span>`}
+      <div class="film-jurnal-ic">
+        <div class="film-jurnal-ad">
+          <strong>${htmlEsc(k.ad)}</strong>
+          <span class="film-jurnal-tur">Kitap${k.yazar ? ` · ${htmlEsc(k.yazar)}` : ""}${k.yil ? ` · ${htmlEsc(k.yil)}` : ""}</span>
+        </div>
+        <div class="film-jurnal-alt">
+          ${puanYildizlariHTML(k.puan)}
+          <span class="film-jurnal-durum">${KITAP_DURUM_ETIKET[k.durum] || ""}</span>
+        </div>
+        ${k.yorum ? `<p class="film-jurnal-yorum">${htmlEsc(k.yorum)}</p>` : ""}
+      </div>
+      ${kendi ? `
+        <div class="film-jurnal-butonlar">
+          ${k.favori
+            ? `<button type="button" class="favori-isaret" title="Favoriden çıkar" onclick="gunlukKitapFavoriYap('${htmlEsc(k.entryId)}')">★ Favori Kitap</button>`
+            : `<button type="button" class="film-jurnal-favori" title="Favori yap" onclick="gunlukKitapFavoriYap('${htmlEsc(k.entryId)}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2l2.9 6.26 6.6.8-4.9 4.6 1.3 6.54L12 17.3 6.1 20.2l1.3-6.54-4.9-4.6 6.6-.8z"/></svg>
+              </button>`}
+          <button type="button" class="film-jurnal-sil" title="Sil" onclick="gunlukKitapSil('${htmlEsc(k.entryId)}')">×</button>
+        </div>` : ""}
+    </div>`;
+}
+
+function kitapGunlukListeCiz() {
+  const liste = document.getElementById("kitapGunlukListe");
+  if (!liste) return;
+  const kendi = BENIM_ID === GORUNTULENEN_ID;
+  const input = document.getElementById("kitapGunlukArama");
+  const q = (input ? input.value : "").trim().toLowerCase();
+
+  let gosterilecekler = KITAP_JURNAL;
+  if (q) {
+    gosterilecekler = KITAP_JURNAL.filter(
+      (k) => k.durum === "okudum" && (k.ad || "").toLowerCase().includes(q)
+    );
+  }
+
+  if (!gosterilecekler.length) {
+    liste.innerHTML = q
+      ? '<span class="bos-hint">Okuduğu kayıtlarda sonuç bulunamadı.</span>'
+      : kendi
+        ? '<span class="bos-hint">Henüz hiçbir kitap eklememişsin. Üst menüdeki "FİLM & DİZİ" sayfasından arayıp ekleyebilirsin.</span>'
+        : '<span class="bos-hint">Bu üyenin henüz kitap kaydı yok.</span>';
+    return;
+  }
+
+  const toplamSayfa = Math.max(1, Math.ceil(gosterilecekler.length / GUNLUK_SAYFA_LIMIT));
+  if (GUNCEL_GUNLUK_SAYFA > toplamSayfa) GUNCEL_GUNLUK_SAYFA = toplamSayfa;
+  const baslangic = (GUNCEL_GUNLUK_SAYFA - 1) * GUNLUK_SAYFA_LIMIT;
+  const sayfaKayitlari = gosterilecekler.slice(baslangic, baslangic + GUNLUK_SAYFA_LIMIT);
+
+  const kartlar = sayfaKayitlari.map((k) => kitapGunlukKartHTML(k, kendi)).join("");
+  const ustBilgi = `<div class="gunluk-kayit-sayisi">${gosterilecekler.length} kayıt</div>`;
+  liste.innerHTML = ustBilgi + kartlar + gunlukSayfalamaHTML(GUNCEL_GUNLUK_SAYFA, toplamSayfa, "kitapGunlukSayfayaGit");
+}
+
+function kitapGunlukSayfayaGit(sayfa) {
+  GUNCEL_GUNLUK_SAYFA = Math.max(1, sayfa);
+  kitapGunlukListeCiz();
+  const liste = document.getElementById("kitapGunlukListe");
+  if (liste) liste.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function kitapGunlukAramaDegisti() {
+  GUNCEL_GUNLUK_SAYFA = 1;
+  kitapGunlukListeCiz();
+}
+
+async function gunlukKitapFavoriYap(entryId) {
+  try {
+    const res = await fetch("/api/kitaplar/favori", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entryId }),
+    });
+    const veri = await res.json();
+    if (!res.ok) throw new Error(veri.hata || "Favori ayarlanamadı.");
+    KITAP_JURNAL = veri.kitaplar || KITAP_JURNAL;
+    kitapGunlukCiz();
+  } catch (e) {
+    alert(e.message || "Favori ayarlanamadı.");
+  }
+}
+
+async function gunlukKitapSil(entryId) {
+  if (!confirm("Bu kaydı günlüğünden silmek istediğine emin misin?")) return;
+  try {
+    const res = await fetch(`/api/kitaplar/${encodeURIComponent(entryId)}`, { method: "DELETE" });
+    const veri = await res.json();
+    if (!res.ok) throw new Error(veri.hata || "Silinemedi.");
+    KITAP_JURNAL = veri.kitaplar || [];
+    kitapGunlukCiz();
+  } catch (e) {
+    alert(e.message || "Silinemedi.");
+  }
+}
+
+// Günlük sayfasındaki Film/Dizi - Kitap sekmesi
+function gunlukSekmesi(mod) {
+  const kitap = mod === "kitap";
+  GUNCEL_GUNLUK_SAYFA = 1;
+  const sekmeFilm = document.getElementById("gunlukSekmeFilm");
+  const sekmeKitap = document.getElementById("gunlukSekmeKitap");
+  const icerikFilm = document.getElementById("gunlukFilmIcerik");
+  const icerikKitap = document.getElementById("gunlukKitapIcerik");
+  if (sekmeFilm) sekmeFilm.classList.toggle("aktif", !kitap);
+  if (sekmeKitap) sekmeKitap.classList.toggle("aktif", kitap);
+  if (icerikFilm) icerikFilm.style.display = kitap ? "none" : "";
+  if (icerikKitap) icerikKitap.style.display = kitap ? "" : "none";
+  if (kitap) {
+    document.title = (document.getElementById("pIsim") ? document.getElementById("pIsim").innerText : "") + " · Kitap";
+    kitapGunlukCiz();
+  } else {
+    document.title = (document.getElementById("pIsim") ? document.getElementById("pIsim").innerText : "") + " · Film & Dizi";
+    gunlukCiz();
+  }
+}
+
 function filmModalAc(oge) {
   if (!BENIM_ID) {
     window.location.href = "/auth/login";
     return;
   }
+  const kitapModu = oge.tur === "kitap";
   FILM_SECILI = oge;
   document.getElementById("filmModalAd").innerText = oge.ad;
-  document.getElementById("filmModalTur").innerText = oge.tur === "film" ? "Film" : "Dizi";
-  document.getElementById("filmModalYil").innerText = oge.yil || "";
+  document.getElementById("filmModalTur").innerText = kitapModu ? "Kitap" : (oge.tur === "film" ? "Film" : "Dizi");
+  document.getElementById("filmModalYil").innerText = kitapModu
+    ? [oge.yazar, oge.yil].filter(Boolean).join(" · ")
+    : (oge.yil || "");
+  const tarihEl = document.getElementById("filmModalTarih");
+  const puanEl = document.getElementById("filmModalPuan");
+  const ozetEl = document.getElementById("filmModalOzet");
+  if (tarihEl) tarihEl.innerText = kitapModu ? "" : (oge.tarih ? `Yayın ${oge.tarih}` : "");
+  if (puanEl) puanEl.innerText = kitapModu ? "" : (oge.puan ? `IMDb/TMDB ${Number(oge.puan).toFixed(1)}/10` : "");
+  if (ozetEl) {
+    ozetEl.innerText = kitapModu ? "" : (oge.ozet || "");
+    ozetEl.style.display = kitapModu || !oge.ozet ? "none" : "block";
+  }
+  const gorsel = kitapModu ? oge.kapak : oge.poster;
   const posterEl = document.getElementById("filmModalPoster");
   const yokEl = document.getElementById("filmModalPosterYok");
-  if (oge.poster) {
-    posterEl.src = filmPosterUrl(oge.poster);
+  if (gorsel) {
+    posterEl.src = kitapModu ? kitapKapakUrl(gorsel) : filmPosterUrl(gorsel);
     posterEl.style.display = "block";
     if (yokEl) yokEl.style.display = "none";
   } else {
     posterEl.style.display = "none";
     if (yokEl) {
-      yokEl.innerHTML = FILM_IKON;
+      yokEl.innerHTML = kitapModu ? KITAP_IKON : FILM_IKON;
       yokEl.style.display = "flex";
     }
   }
-  const mevcut = FILM_JURNAL.find((f) => f.id === oge.id && f.tur === oge.tur);
-  document.getElementById("filmDurum").value = mevcut ? mevcut.durum : "izledim";
-  document.getElementById("filmYorum").value = mevcut ? mevcut.yorum : "";
+  const durumSel = document.getElementById("filmDurum");
+  durumSel.innerHTML = kitapModu
+    ? '<option value="okudum">Okudum</option><option value="okuyorum">Okuyorum</option><option value="okumak-istiyorum">Okumak istiyorum</option>'
+    : '<option value="izledim">İzledim</option><option value="izliyorum">İzliyorum</option><option value="izlemek-istiyorum">İzlemek istiyorum</option>';
+  const mevcut = kitapModu
+    ? KITAP_JURNAL.find((k) => k.id === oge.id)
+    : FILM_JURNAL.find((f) => f.id === oge.id && f.tur === oge.tur);
+  durumSel.value = mevcut ? mevcut.durum : (kitapModu ? "okudum" : "izledim");
+  const yorumEl = document.getElementById("filmYorum");
+  yorumEl.value = mevcut ? mevcut.yorum : "";
+  yorumEl.placeholder = kitapModu ? "Bu kitap hakkında ne düşünüyorsun?" : "Bu film/dizi hakkında ne düşünüyorsun?";
   FILM_PUAN = mevcut ? mevcut.puan : null;
   yildizGuncelle(null);
   document.getElementById("filmKaydetBtn").innerText = mevcut ? "Güncelle" : "Kaydet";
@@ -2997,36 +3247,55 @@ function filmSec(i) {
 
 async function filmKaydet() {
   if (!FILM_SECILI) return;
+  const kitapModu = FILM_SECILI.tur === "kitap";
   const btn = document.getElementById("filmKaydetBtn");
   const durumEl = document.getElementById("filmDurumMetni");
   if (btn) btn.disabled = true;
   if (durumEl) durumEl.innerText = "Kaydediliyor...";
-  const gelen = {
+  const gelen = kitapModu ? {
+    id: FILM_SECILI.id,
+    ad: FILM_SECILI.ad,
+    yazar: FILM_SECILI.yazar || "",
+    yil: FILM_SECILI.yil || "",
+    kapak: FILM_SECILI.kapak || "",
+    durum: document.getElementById("filmDurum").value,
+    puan: FILM_PUAN,
+    yorum: document.getElementById("filmYorum").value,
+  } : {
     id: FILM_SECILI.id,
     tur: FILM_SECILI.tur,
     ad: FILM_SECILI.ad,
     yil: FILM_SECILI.yil || "",
+    tarih: FILM_SECILI.tarih || "",
     poster: FILM_SECILI.poster || "",
+    katalogPuan: FILM_SECILI.puan || null,
+    turler: FILM_SECILI.turler || [],
+    ozet: FILM_SECILI.ozet || "",
     durum: document.getElementById("filmDurum").value,
     puan: FILM_PUAN,
     yorum: document.getElementById("filmYorum").value,
   };
   try {
-    const res = await fetch("/api/filmler", {
+    const res = await fetch(kitapModu ? "/api/kitaplar" : "/api/filmler", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(gelen),
     });
     const veri = await res.json();
     if (!res.ok) throw new Error(veri.hata || "Kaydedilemedi.");
-    FILM_JURNAL = veri.filmler || FILM_JURNAL;
-    if (document.getElementById("pFilmler")) {
-      filmProfilGoster(
-        FILM_JURNAL,
-        FILM_JURNAL.length,
-        FILM_JURNAL.filter((f) => f.tur === "film").length,
-        FILM_JURNAL.filter((f) => f.tur === "dizi").length
-      );
+    if (kitapModu) {
+      KITAP_JURNAL = veri.kitaplar || KITAP_JURNAL;
+      if (document.getElementById("pKitaplar")) kitapProfilGoster(KITAP_JURNAL, KITAP_JURNAL.length);
+    } else {
+      FILM_JURNAL = veri.filmler || FILM_JURNAL;
+      if (document.getElementById("pFilmler")) {
+        filmProfilGoster(
+          FILM_JURNAL,
+          FILM_JURNAL.length,
+          FILM_JURNAL.filter((f) => f.tur === "film").length,
+          FILM_JURNAL.filter((f) => f.tur === "dizi").length
+        );
+      }
     }
     if (durumEl) {
       durumEl.innerText = veri.kazanilanXp > 0 ? `Kaydedildi ✓ +${veri.kazanilanXp} XP` : "Kaydedildi ✓";
@@ -3048,11 +3317,129 @@ function filmAramaEnter(e) {
   }
 }
 
+function filmKatalogKartHTML(f, i) {
+  const kayitli = FILM_JURNAL.some((kayit) => kayit.id === f.id && kayit.tur === f.tur);
+  const turler = Array.isArray(f.turler) ? f.turler.slice(0, 2).join(" · ") : "";
+  const yayin = f.tarih || f.yil;
+  return `
+    <button type="button" class="film-kart film-katalog-kart" onclick="filmSec(${i})">
+      ${f.poster
+        ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="${htmlEsc(f.ad)}" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+        : `<span class="film-poster-yok">${FILM_IKON}</span>`}
+      <span class="film-kart-bilgi">
+        <strong>${htmlEsc(f.ad)}</strong>
+        <span class="film-kart-meta">${f.tur === "film" ? "Film" : "Dizi"}${yayin ? ` · ${htmlEsc(yayin)}` : ""}</span>
+        <span class="film-kart-puan">${f.puan ? `★ ${Number(f.puan).toFixed(1)}` : "Puan yok"}${turler ? ` <i>${htmlEsc(turler)}</i>` : ""}</span>
+        ${kayitli ? '<span class="film-kart-ekli">Günlüğünde · Düzenle</span>' : '<span class="film-kart-ekle">+ Günlüğüne ekle</span>'}
+      </span>
+    </button>`;
+}
+
+function filmKesfetSonuclariCiz(sonuc, bilgi) {
+  const kutu = document.getElementById("filmSonuclar");
+  const sayac = document.getElementById("filmKesfetBilgi");
+  if (!kutu) return;
+  FILM_ARAMA_SONUCU = Array.isArray(sonuc) ? sonuc : [];
+  if (sayac) sayac.innerText = bilgi || "";
+  if (!FILM_ARAMA_SONUCU.length) {
+    kutu.innerHTML = '<span class="bos-hint">Bu filtrelerle sonuç bulunamadı. Filtreleri biraz genişletmeyi dene.</span>';
+    return;
+  }
+  kutu.innerHTML = FILM_ARAMA_SONUCU.map((f, i) => filmKatalogKartHTML(f, i)).join("");
+}
+
+async function filmKategorileriYukle() {
+  const kategoriEl = document.getElementById("filmKategoriFiltresi");
+  if (!kategoriEl) return;
+  try {
+    const res = await apiFetch("/api/filmler/kategoriler");
+    if (!res.ok) return;
+    const veri = await res.json();
+    const tur = document.getElementById("filmTurFiltresi")?.value || "tum";
+    const liste = tur === "film" ? veri.film : tur === "dizi" ? veri.dizi : [...veri.film, ...veri.dizi]
+      .filter((item, index, arr) => arr.findIndex((x) => x.id === item.id) === index);
+    const secili = kategoriEl.value;
+    kategoriEl.innerHTML = '<option value="">Tüm kategoriler</option>' + liste
+      .map((item) => `<option value="${item.id}">${htmlEsc(item.ad)}</option>`).join("");
+    if (liste.some((item) => String(item.id) === secili)) kategoriEl.value = secili;
+  } catch (e) {
+    /* Kategori listesi gelmezse temel katalog yine kullanılabilir. */
+  }
+}
+
+async function filmTurDegisti() {
+  await filmKategorileriYukle();
+  filmKesfet();
+}
+
+function filmYilFiltresiDoldur() {
+  const el = document.getElementById("filmYilFiltresi");
+  if (!el || el.options.length > 1) return;
+  const mevcut = new Date().getFullYear();
+  for (let yil = mevcut; yil >= 1950; yil--) {
+    el.insertAdjacentHTML("beforeend", `<option value="${yil}">${yil}</option>`);
+  }
+}
+
+async function filmKesfet() {
+  const kutu = document.getElementById("filmSonuclar");
+  if (!kutu) return;
+  const istek = ++FILM_KESFET_ISTEK;
+  FILM_KESFET_SAYFA = arguments[0] === "sayfa" ? FILM_KESFET_SAYFA : 1;
+  const tur = document.getElementById("filmTurFiltresi")?.value || "tum";
+  const kategori = document.getElementById("filmKategoriFiltresi")?.value || "";
+  const yil = document.getElementById("filmYilFiltresi")?.value || "";
+  const minPuan = document.getElementById("filmPuanFiltresi")?.value || "0";
+  const sirala = document.getElementById("filmSiralama")?.value || "popularity.desc";
+  kutu.innerHTML = '<span class="bos-hint">Katalog hazırlanıyor...</span>';
+  try {
+    const query = new URLSearchParams({ tur, kategori, yil, minPuan, sirala, sayfa: FILM_KESFET_SAYFA });
+    const res = await apiFetch(`/api/filmler/kesfet?${query}`);
+    if (!res.ok) throw new Error("Katalog yüklenemedi.");
+    const veri = await res.json();
+    if (istek !== FILM_KESFET_ISTEK) return;
+    const baslik = document.getElementById("filmKesfetBaslik");
+    if (baslik) baslik.innerText = "Şimdi keşfet";
+    filmKesfetSonuclariCiz(veri.sonuc, veri.toplam ? `${veri.toplam.toLocaleString("tr-TR")} başlık` : "");
+    const sayfalama = document.getElementById("filmKesfetSayfalama");
+    const toplamSayfa = Math.min(20, veri.toplamSayfa || 1);
+    if (sayfalama && toplamSayfa > 1) {
+      sayfalama.innerHTML = Array.from({ length: toplamSayfa }, (_, index) => index + 1)
+        .map((sayfa) => `<button type="button" class="yorum-sayfa ${sayfa === FILM_KESFET_SAYFA ? "aktif" : ""}" onclick="filmKesfetSayfayaGit(${sayfa})">${sayfa}</button>`)
+        .join("");
+    } else if (sayfalama) {
+      sayfalama.innerHTML = "";
+    }
+  } catch (e) {
+    if (istek === FILM_KESFET_ISTEK) kutu.innerHTML = '<span class="bos-hint">Katalog şu anda yüklenemedi. Birkaç saniye sonra tekrar dene.</span>';
+  }
+}
+
+function filmKesfetSayfayaGit(sayfa) {
+  FILM_KESFET_SAYFA = Math.max(1, parseInt(sayfa, 10) || 1);
+  filmKesfet("sayfa");
+  document.getElementById("filmAraKutu")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function filmFiltreleriSifirla() {
+  const tur = document.getElementById("filmTurFiltresi");
+  const kategori = document.getElementById("filmKategoriFiltresi");
+  const yil = document.getElementById("filmYilFiltresi");
+  const puan = document.getElementById("filmPuanFiltresi");
+  const sirala = document.getElementById("filmSiralama");
+  if (tur) tur.value = "tum";
+  if (kategori) kategori.value = "";
+  if (yil) yil.value = "";
+  if (puan) puan.value = "0";
+  if (sirala) sirala.value = "popularity.desc";
+  filmKategorileriYukle().then(() => filmKesfet());
+}
+
 async function filmAra() {
   const q = document.getElementById("filmAramaInput").value.trim();
   const kutu = document.getElementById("filmSonuclar");
   if (!q) {
-    if (kutu) kutu.innerHTML = '<span class="bos-hint">Aramak için bir şeyler yaz.</span>';
+    filmKesfet();
     return;
   }
   if (kutu) kutu.innerHTML = '<span class="bos-hint">Aranıyor…</span>';
@@ -3061,6 +3448,12 @@ async function filmAra() {
     if (!res.ok) throw new Error("Arama yapılamadı.");
     const sonuc = await res.json();
     FILM_ARAMA_SONUCU = Array.isArray(sonuc) ? sonuc : [];
+    const sayfalama = document.getElementById("filmKesfetSayfalama");
+    if (sayfalama) sayfalama.innerHTML = "";
+    const baslik = document.getElementById("filmKesfetBaslik");
+    if (baslik) baslik.innerText = `“${q}” arama sonuçları`;
+    const sayac = document.getElementById("filmKesfetBilgi");
+    if (sayac) sayac.innerText = `${FILM_ARAMA_SONUCU.length} sonuç`;
     filmSonuclariCiz();
   } catch (e) {
     if (kutu) kutu.innerHTML = '<span class="bos-hint">Arama şu anda yapılamadı.</span>';
@@ -3074,19 +3467,77 @@ function filmSonuclariCiz() {
     kutu.innerHTML = '<span class="bos-hint">Sonuç bulunamadı. Farklı bir isim dene.</span>';
     return;
   }
+  kutu.innerHTML = FILM_ARAMA_SONUCU.map((f, i) => filmKatalogKartHTML(f, i)).join("");
+}
+
+// Film/Dizi - Kitap arama sekmesi (filmler sayfası)
+function aramaSekmesi(mod) {
+  const kitap = mod === "kitap";
+  const sekmeFilm = document.getElementById("sekmeFilm");
+  const sekmeKitap = document.getElementById("sekmeKitap");
+  if (sekmeFilm) sekmeFilm.classList.toggle("aktif", !kitap);
+  if (sekmeKitap) sekmeKitap.classList.toggle("aktif", kitap);
+  const filmIcerik = document.getElementById("filmKatalogIcerik");
+  const kitapIcerik = document.getElementById("kitapKatalogIcerik");
+  if (filmIcerik) filmIcerik.style.display = kitap ? "none" : "";
+  if (kitapIcerik) kitapIcerik.style.display = kitap ? "" : "none";
+  const kitapSonuclar = document.getElementById("kitapSonuclar");
+  if (kitapSonuclar) kitapSonuclar.innerHTML = "";
+  FILM_ARAMA_SONUCU = [];
+  KITAP_ARAMA_SONUCU = [];
+}
+
+function kitapAramaEnter(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    kitapAra();
+  }
+}
+
+async function kitapAra() {
+  const q = document.getElementById("kitapAramaInput").value.trim();
+  const kutu = document.getElementById("kitapSonuclar");
+  if (!q) {
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Aramak için bir şeyler yaz.</span>';
+    return;
+  }
+  if (kutu) kutu.innerHTML = '<span class="bos-hint">Aranıyor…</span>';
+  try {
+    const res = await apiFetch(`/api/kitap/arama?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error("Arama yapılamadı.");
+    const sonuc = await res.json();
+    KITAP_ARAMA_SONUCU = Array.isArray(sonuc) ? sonuc : [];
+    kitapSonuclariCiz();
+  } catch (e) {
+    if (kutu) kutu.innerHTML = '<span class="bos-hint">Arama şu anda yapılamadı.</span>';
+  }
+}
+
+function kitapSonuclariCiz() {
+  const kutu = document.getElementById("kitapSonuclar");
+  if (!kutu) return;
+  if (!KITAP_ARAMA_SONUCU.length) {
+    kutu.innerHTML = '<span class="bos-hint">Sonuç bulunamadı. Farklı bir isim dene.</span>';
+    return;
+  }
   kutu.innerHTML =
-    '<div class="film-ara-baslik">Arama sonuçları</div>' +
-    FILM_ARAMA_SONUCU.map((f, i) => `
-      <button type="button" class="film-kart" onclick="filmSec(${i})">
-        ${f.poster
-          ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
-          : `<span class="film-poster-yok">${FILM_IKON}</span>`}
+    '<div class="film-ara-baslik">Kitap sonuçları</div>' +
+    KITAP_ARAMA_SONUCU.map((k, i) => `
+      <button type="button" class="film-kart" onclick="kitapSec(${i})">
+        ${k.kapak
+          ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+          : `<span class="film-poster-yok">${KITAP_IKON}</span>`}
         <span class="film-kart-bilgi">
-          <strong>${htmlEsc(f.ad)}</strong>
-          <span>${f.tur === "film" ? "Film" : "Dizi"}${f.yil ? ` · ${htmlEsc(f.yil)}` : ""}</span>
+          <strong>${htmlEsc(k.ad)}</strong>
+          <span>${k.yazar ? htmlEsc(k.yazar) : "Kitap"}${k.yil ? ` · ${htmlEsc(k.yil)}` : ""}</span>
         </span>
       </button>
     `).join("");
+}
+
+function kitapSec(i) {
+  const oge = KITAP_ARAMA_SONUCU[i];
+  if (oge) filmModalAc(oge);
 }
 
 async function filmlerSayfasiBaslat() {
@@ -3103,12 +3554,13 @@ async function filmlerSayfasiBaslat() {
   }
   if (formHintEl) {
     formHintEl.innerText = BENIM_ID
-      ? "İzlediğin veya izlemek istediğin film ve dizileri ara, puanla, yorumla ve profiline ekle."
-      : "Film ve dizileri arayıp inceleyebilirsin. Kayıt eklemek için Discord ile giriş yapmalısın.";
+      ? "İzlediğin veya izlemek istediğin film ve dizileri, okuduğun veya okumak istediğin kitapları ara, puanla, yorumla ve profiline ekle."
+      : "Film, dizi ve kitapları arayıp inceleyebilirsin. Kayıt eklemek için Discord ile giriş yapmalısın.";
   }
 
-  // Güncelleme yapılabilmesi için giriş yapan üyenin mevcut günlüğünü bellekte tut
+  // Güncelleme yapılabilmesi için giriş yapan üyenin mevcut günlüklerini bellekte tut
   FILM_JURNAL = [];
+  KITAP_JURNAL = [];
   if (BENIM_ID) {
     try {
       const res = await apiFetch(`/api/profile/${BENIM_ID}/filmler`);
@@ -3119,7 +3571,19 @@ async function filmlerSayfasiBaslat() {
     } catch (e) {
       /* yoksay */
     }
+    try {
+      const res = await apiFetch(`/api/profile/${BENIM_ID}/kitaplar`);
+      if (res.ok) {
+        const veri = await res.json();
+        KITAP_JURNAL = veri.kitaplar || [];
+      }
+    } catch (e) {
+      /* yoksay */
+    }
   }
+  filmYilFiltresiDoldur();
+  await filmKategorileriYukle();
+  await filmKesfet();
 }
 
 // ---------- Etkinlik Günlüğü (admin) ----------
@@ -3127,6 +3591,9 @@ const LOG_TUR_ETIKET = {
   "film-ekle": "film/dizi ekledi",
   "film-guncelle": "film/dizi güncelledi",
   "favori": "favori film/dizi seçti",
+  "kitap-ekle": "kitap ekledi",
+  "kitap-guncelle": "kitap güncelledi",
+  "kitap-favori": "favori kitap seçti",
   "yorum": "profiline yorum yazdı",
   "galeri-ekle": "galeriye görsel ekledi",
   "galeri-yorum": "galeriye yorum yazdı",
@@ -3225,6 +3692,11 @@ let PET_TOP_X = 0;
 let PET_TOP_Y = 0;
 let PET_TOP_ZAMAN = 0;
 let PET_TOP_SURUKLENIYOR = false;
+let PET_TOP_UCUS = false;
+let PET_TOP_VX = 0;
+let PET_TOP_VY = 0;
+let PET_TOP_RAF = null;
+let PET_TOP_SON_ZAMAN = 0;
 let PET_TOP_YAKALANDI = false;
 let PET_AGAC_USTU = false;
 let PET_AGAC_SYNC_YAPILDI = false;
@@ -3265,7 +3737,7 @@ function petKareGoster() {
 function petFrameTik() {
   const simdi = performance.now();
   if (!PET_ANIM_SON_ZAMAN) PET_ANIM_SON_ZAMAN = simdi;
-  const hareketEdiyor = PET_TOP_SURUKLENIYOR || PET_MODE === "hareket";
+  const hareketEdiyor = PET_TOP_SURUKLENIYOR || PET_TOP_UCUS || PET_MODE === "hareket";
   const aralik = hareketEdiyor && PET_HEDEF && PET_HEDEF.mod === "kos" ? 90 : hareketEdiyor ? 150 : 240;
   const gecen = simdi - PET_ANIM_SON_ZAMAN;
   if (gecen < aralik) return;
@@ -3419,33 +3891,69 @@ function petYuruSet(set) {
   petAnimAyarla(set, !ayniAile);
 }
 
-function petDragTakip() {
+function petTopKovala() {
   const hedefX = Math.max(PET_ALAN.minX, PET_TOP_X - 55);
-  const dx = hedefX - PET_X;
-  const dy = PET_TOP_Y - PET_Y;
-  const mesafe = Math.hypot(dx, dy);
-  if (mesafe < 7) {
-    if (PET_MODE !== "top-oyna") {
-      PET_MODE = "top-oyna";
-      PET_HEDEF = null;
-      petAnimAyarla("sit-front", true);
+  PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
+  PET_MODE = "hareket";
+}
+
+// Fırlatılan topu sahnede konumlandırır
+function petTopKonumUygula() {
+  const top = document.getElementById("petTop");
+  if (!top) return;
+  top.style.left = `${PET_TOP_X}px`;
+  top.style.bottom = `${PET_TOP_Y}px`;
+}
+
+// Fırlatılan topun fizik döngüsü: hareket, sürtünme, duvar/köşe sekmeleri
+function petTopFizikBaslat() {
+  if (PET_TOP_RAF) return;
+  PET_TOP_SON_ZAMAN = performance.now();
+  const adim = (simdi) => {
+    const dt = Math.min(0.05, Math.max(0.001, (simdi - PET_TOP_SON_ZAMAN) / 1000));
+    PET_TOP_SON_ZAMAN = simdi;
+    if (PET_TOP_UCUS) {
+      PET_TOP_X += PET_TOP_VX * dt;
+      PET_TOP_Y += PET_TOP_VY * dt;
+      const surtunme = Math.max(0, 1 - 1.8 * dt);
+      PET_TOP_VX *= surtunme;
+      PET_TOP_VY *= surtunme;
+      const genislik = document.documentElement.clientWidth || window.innerWidth || 900;
+      const yukseklik = window.innerHeight || document.documentElement.clientHeight || 600;
+      const sinirX = genislik - 56;
+      const sinirY = yukseklik - 70;
+      const esneklik = 0.72;
+      if (PET_TOP_X < 8) {
+        PET_TOP_X = 8;
+        PET_TOP_VX = Math.abs(PET_TOP_VX) * esneklik;
+      } else if (PET_TOP_X > sinirX) {
+        PET_TOP_X = sinirX;
+        PET_TOP_VX = -Math.abs(PET_TOP_VX) * esneklik;
+      }
+      if (PET_TOP_Y < 8) {
+        PET_TOP_Y = 8;
+        PET_TOP_VY = Math.abs(PET_TOP_VY) * esneklik;
+      } else if (PET_TOP_Y > sinirY) {
+        PET_TOP_Y = sinirY;
+        PET_TOP_VY = -Math.abs(PET_TOP_VY) * esneklik;
+      }
+      if (Math.abs(PET_TOP_VX) < 28 && Math.abs(PET_TOP_VY) < 28) {
+        PET_TOP_VX = 0;
+        PET_TOP_VY = 0;
+        PET_TOP_UCUS = false;
+      }
+      petTopKonumUygula();
     }
-  } else {
-    PET_MODE = "hareket";
-    PET_HEDEF = { x: hedefX, y: PET_TOP_Y, mod: "kos", varis: "top" };
-    const hiz = 3.6;
-    PET_X += (dx / mesafe) * hiz;
-    PET_Y += (dy / mesafe) * hiz;
-    const yatay = Math.abs(dx) > Math.abs(dy);
-    const yon = yatay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "up" : "down");
-    petYuruSet("run-" + yon);
-  }
+    PET_TOP_RAF = requestAnimationFrame(adim);
+  };
+  PET_TOP_RAF = requestAnimationFrame(adim);
 }
 
 function petSurucuTik() {
-  if (PET_TOP_SURUKLENIYOR) {
-    petDragTakip();
-  } else if (PET_MODE === "hareket" && PET_HEDEF) {
+  if (PET_TOP_SURUKLENIYOR || PET_TOP_UCUS) {
+    petTopKovala();
+  }
+  if (PET_MODE === "hareket" && PET_HEDEF) {
     const dx = PET_HEDEF.x - PET_X;
     const dy = PET_HEDEF.y - PET_Y;
     const mesafe = Math.hypot(dx, dy);
@@ -3462,7 +3970,7 @@ function petSurucuTik() {
       petYuruSet((PET_HEDEF.mod === "kos" ? "run-" : "walk-") + yon);
     }
   } else if (PET_MODE === "dur") {
-    if (PET_TOP_AKTIF && PET_TOP_ZAMAN && Date.now() - PET_TOP_ZAMAN > 5000) {
+    if (PET_TOP_AKTIF && PET_TOP_ZAMAN && !PET_TOP_UCUS && Date.now() - PET_TOP_ZAMAN > 5000) {
       PET_TOP_AKTIF = false;
       PET_TOP_ZAMAN = 0;
       const top = document.getElementById("petTop");
@@ -3717,11 +4225,16 @@ async function petKapDoldur(tur) {
 function petTopSurukleme() {
   const top = document.getElementById("petTop");
   if (!top) return;
+  let izler = [];
   top.addEventListener("pointerdown", (e) => {
     e.preventDefault();
+    PET_TOP_UCUS = false;
+    PET_TOP_VX = 0;
+    PET_TOP_VY = 0;
     PET_TOP_SURUKLENIYOR = true;
     PET_TOP_AKTIF = true;
     PET_TOP_ZAMAN = 0;
+    izler = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
     try { top.setPointerCapture(e.pointerId); } catch (err) { /* yoksay */ }
   });
   top.addEventListener("pointermove", (e) => {
@@ -3734,13 +4247,38 @@ function petTopSurukleme() {
     y = Math.max(8, Math.min(y, yukseklik - 70));
     PET_TOP_X = x;
     PET_TOP_Y = y;
-    top.style.left = `${x}px`;
-    top.style.bottom = `${y}px`;
-    PET_HEDEF = { x: Math.max(PET_ALAN.minX, x - 55), y, mod: "kos", varis: "top" };
-    PET_MODE = "hareket";
+    petTopKonumUygula();
+    izler.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    if (izler.length > 8) izler.shift();
+    petTopKovala();
   });
   const topBirakildi = () => {
     PET_TOP_SURUKLENIYOR = false;
+    let vx = 0, vy = 0, hiz = 0;
+    if (izler.length >= 2) {
+      const ilk = izler[0];
+      const son = izler[izler.length - 1];
+      const dt = (son.t - ilk.t) / 1000;
+      if (dt > 0.02) {
+        vx = (son.x - ilk.x) / dt;
+        vy = (son.y - ilk.y) / dt;
+        hiz = Math.hypot(vx, vy);
+      }
+    }
+    izler = [];
+    if (hiz > 700) {
+      // Fırlatma: hızı oynanabilir sınıra ölçekle ve duvarlarda sektir
+      const olcek = Math.min(1, 3400 / Math.max(1, hiz));
+      PET_TOP_VX = vx * olcek * 0.85;
+      PET_TOP_VY = vy * olcek * 0.85;
+      PET_TOP_UCUS = true;
+      petTopFizikBaslat();
+      petKonusma("Top fırladı! 😆");
+    } else {
+      PET_TOP_UCUS = false;
+      PET_TOP_VX = 0;
+      PET_TOP_VY = 0;
+    }
     if (PET_MODE === "top-oyna") {
       PET_MODE = "dur";
       PET_TOP_ZAMAN = Date.now();
