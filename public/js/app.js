@@ -1,4 +1,4 @@
-async function apiFetch(url, options = {}, timeoutMs = 10000) {
+﻿async function apiFetch(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -23,21 +23,24 @@ async function navBarDoldur() {
 
   if (veri.girisYapti) {
     navSag.innerHTML = `
-      <div class="bildirim-kutu" id="bildirimKutu">
-        <button type="button" class="bildirim-can" id="bildirimCan" onclick="bildirimPanelAcKapat(event)" aria-label="Bildirimler">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-          <span class="bildirim-rozet" id="bildirimRozet" style="display:none;">0</span>
+      <div class="profil-menu" id="profilMenu">
+        <button type="button" class="profil-menu-btn" onclick="profilMenuAcKapat(event)" aria-label="Hesap menüsü">
+          <img src="${htmlEsc(veri.avatar)}" alt="" class="profil-menu-avatar" />
+          <span class="profil-menu-ad">${htmlEsc(veri.kullaniciAdi)}</span>
         </button>
-        <div class="bildirim-panel" id="bildirimPanel" style="display:none;">
-          <div class="bildirim-baslik">Bildirimler</div>
-          <div class="bildirim-listesi" id="bildirimListesi"></div>
+        <div class="profil-menu-panel" id="profilMenuPanel" style="display:none;">
+          <a href="/profil?id=${veri.id}">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profilim
+          </a>
+          ${veri.admin ? `<a href="/log"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg> GÜNLÜK</a>` : ""}
+          <a href="/auth/logout" class="cikis-link">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Çıkış yap
+          </a>
         </div>
       </div>
-      ${veri.admin ? `<a href="/log">GÜNLÜK</a>` : ""}
-      <a href="/profil?id=${veri.id}">${veri.kullaniciAdi}</a>
-      <a href="/auth/logout" class="cikis-link">Çıkış</a>
     `;
-    bildirimYukle();
   } else {
     navSag.innerHTML = `<a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a>`;
   }
@@ -49,6 +52,23 @@ async function navBarDoldur() {
   }
   return veri;
 }
+
+// Sağ üstteki avatar+isim menüsünü aç/kapat (profil, çıkış vb.)
+function profilMenuAcKapat(evt) {
+  if (evt) evt.stopPropagation();
+  const panel = document.getElementById("profilMenuPanel");
+  if (!panel) return;
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+// Menü dışına tıklanınca kapanır
+document.addEventListener("click", (e) => {
+  const menu = document.getElementById("profilMenu");
+  const panel = document.getElementById("profilMenuPanel");
+  if (panel && menu && !menu.contains(e.target)) {
+    panel.style.display = "none";
+  }
+});
 
 // ---------- Bildirim çanı (okunmamış yorum) ----------
 
@@ -570,6 +590,16 @@ let YORUM_SAYFALAMA = { sayfa: 1, toplam: 0, toplamSayfa: 1 };
 let GALLERY_ENTRIES = [];
 let AKTIF_GALERI_ENTRY = null;
 
+// Profil sekmeleri (Twitter tarzı)
+let GUNCEL_PROFIL_SEKME = "profil";
+let GUNCEL_PROFIL_GONDERILER = null;
+let GUNCEL_PROFIL_RILEYLER = null;
+let GUNCEL_PROFIL_FILM_SAYI = 0;
+let GUNCEL_PROFIL_FILM_ADET = 0;
+let GUNCEL_PROFIL_DIZI_ADET = 0;
+let GUNCEL_PROFIL_KITAPLAR = [];
+let GUNCEL_PROFIL_KITAP_SAYI = 0;
+
 // Admin ya da profil sahibi profili düzenleyebilir
 function buProfiliDuzenleyebilir() {
   return BENIM_ID === GORUNTULENEN_ID || BENIM_ADMIN;
@@ -1062,6 +1092,21 @@ async function profilSayfasiBaslat() {
   document.getElementById("pBio").innerText =
     veri.profil.bio || "Bu kişi henüz kendini tanıtmamış.";
 
+  // Evcil Dost (profil sekmesindeki hayvan fotoğrafı)
+  const hayvanResim = veri.profil.hayvanResmi || veri.profil.kediResmi || "";
+  const hayvanResimEl = document.getElementById("pHayvanResmi");
+  const hayvanBosHint = document.getElementById("hayvanBosHint");
+  if (hayvanResimEl) {
+    hayvanResimEl.src = hayvanResim;
+    hayvanResimEl.style.display = hayvanResim ? "block" : "none";
+  }
+  if (hayvanBosHint) hayvanBosHint.style.display = hayvanResim ? "none" : "block";
+  const hayvanBtn = document.getElementById("hayvanBtn");
+  if (hayvanBtn) {
+    hayvanBtn.style.display = buProfiliDuzenleyebilir() ? "flex" : "none";
+  }
+  hayvanSilBtnGuncelle();
+
   // Görüntülenme sayısı (kimin baktığı değil, sadece sayı)
   const goruntelenmeEl = document.getElementById("profilGoruntulenme");
   if (goruntelenmeEl) goruntelenmeEl.innerText = (veri.profil.profilGoruntulenme || 0) + " görüntülenme";
@@ -1073,11 +1118,13 @@ async function profilSayfasiBaslat() {
   seviyeGoster();
   rozetlerGoster();
 
-  // Film & Dizi günlüğü özeti (sağ panel)
-  filmProfilGoster(veri.profil.filmler || [], veri.profil.filmSayisi || 0, veri.profil.filmAdet, veri.profil.diziAdet);
-
-  // Kitap günlüğü özeti (sağ panel)
-  kitapProfilGoster(veri.profil.kitaplar || [], veri.profil.kitapSayisi || 0);
+  // Profil sekmeleri için verileri sakla (Gönderiler / Riley / Medya / Film / Kitap / Galeri)
+  GUNCEL_PROFIL_FILMLER = veri.profil.filmler || [];
+  GUNCEL_PROFIL_FILM_SAYI = veri.profil.filmSayisi || GUNCEL_PROFIL_FILMLER.length;
+  GUNCEL_PROFIL_FILM_ADET = typeof veri.profil.filmAdet === "number" ? veri.profil.filmAdet : GUNCEL_PROFIL_FILMLER.filter((f) => f.tur === "film").length;
+  GUNCEL_PROFIL_DIZI_ADET = typeof veri.profil.diziAdet === "number" ? veri.profil.diziAdet : GUNCEL_PROFIL_FILMLER.filter((f) => f.tur === "dizi").length;
+  GUNCEL_PROFIL_KITAPLAR = veri.profil.kitaplar || [];
+  GUNCEL_PROFIL_KITAP_SAYI = veri.profil.kitapSayisi || GUNCEL_PROFIL_KITAPLAR.length;
 
   gorunumUygula(
     document.getElementById("profilAlani"),
@@ -1087,22 +1134,7 @@ async function profilSayfasiBaslat() {
 
   // Vitrin verilerini sakla ve çiz
   GUNCEL_VITRIN_GALERI = veri.profil.vitrinGaleri || [];
-  GUNCEL_PROFIL_FILMLER = veri.profil.filmler || [];
   vitrinCiz(veri.profil);
-
-  const hayvanResim = veri.profil.hayvanResmi || veri.profil.kediResmi || "";
-  const hayvanResimEl = document.getElementById("pHayvanResmi");
-  const hayvanBosHint = document.getElementById("hayvanBosHint");
-  if (hayvanResimEl) {
-    hayvanResimEl.src = hayvanResim;
-    hayvanResimEl.style.display = hayvanResim ? "block" : "none";
-  }
-  if (hayvanBosHint) hayvanBosHint.style.display = hayvanResim ? "none" : "block";
-
-  const galeriLink = document.getElementById("galeriLink");
-  if (galeriLink) {
-    galeriLink.href = `/galeri?id=${GORUNTULENEN_ID}`;
-  }
 
   // sahibi veya admin ise düzenle butonu ve yorum formu görünsün
   if (buProfiliDuzenleyebilir()) {
@@ -1112,18 +1144,16 @@ async function profilSayfasiBaslat() {
   if (BENIM_ID) {
     document.getElementById("yorumFormAlani").style.display = "flex";
   }
-  // "Sevimli Dost" butonu yalnızca profil sahibine/admin'e gösterilir
-  const hayvanBtn = document.getElementById("hayvanBtn");
-  if (hayvanBtn) {
-    hayvanBtn.style.display = buProfiliDuzenleyebilir() ? "flex" : "none";
-  }
-  hayvanSilBtnGuncelle();
 
   YORUM_SAYFA = veri.profil.yorumSayfalama?.sayfa || 1;
   YORUM_SAYFALAMA = veri.profil.yorumSayfalama || YORUM_SAYFALAMA;
   yorumlariCiz(veri.profil.yorumlar || [], YORUM_SAYFALAMA);
   spotifyYukle(GORUNTULENEN_ID);
+
+  // Twitter tarzı profil sekmeleri: Profil varsayılan; gönderi/riley arka planda yüklenir
+  profilGonderilerYukle(GORUNTULENEN_ID);
   profilRileyGoster(GORUNTULENEN_ID);
+  profilSekme("profil");
 
   // düzenleme formunu mevcut verilerle önceden doldur
   document.getElementById("formUnvan").value = veri.profil.unvan || "";
@@ -3940,10 +3970,10 @@ function logListeCiz(loglar) {
 // Twitter benzeri akış: üyeler gönderi paylaşır, beğenir ve "Riley" ile yeniden paylaşır.
 const RIYEL_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
 const BEGEN_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+const YORUM_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
 let GONDERI_AKIS = [];
-let GONDERI_MEDYA = null;
-let GUNCEL_PROFIL_RILEYLER = [];
-let GUNCEL_PROFIL_RILEY_ACIK = false;
+let GONDERI_MEDYALAR = []; // en fazla 4 medya: { tur, url }
+let GONDERI_YUKLENEN = 0;
 
 // Anasayfa başlatıcı: navbar + kompozitör + akış
 async function anasayfaAkisBaslat() {
@@ -3996,8 +4026,8 @@ function gonderiSuruklemeKur() {
     e.stopPropagation();
     surukleSayac = 0;
     komp.classList.remove("surukleniyor");
-    const dosya = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (dosya) gonderiMedyaSec(dosya);
+    const dosyalar = e.dataTransfer && e.dataTransfer.files;
+    if (dosyalar && dosyalar.length) gonderiMedyaSecim(dosyalar);
   });
   metin.addEventListener("paste", (e) => {
     const items = e.clipboardData && e.clipboardData.items;
@@ -4016,6 +4046,8 @@ function gonderiSuruklemeKur() {
 }
 
 // Sağ panel: önerilen üyeler (twitter'daki "kimler takip edilmeli" gibi)
+const ONERILMEYEN_UYELER = ["mistik", "nefes al"];
+
 async function akisSagYukle() {
   const kutu = document.getElementById("akisOneriler");
   if (!kutu) return;
@@ -4024,6 +4056,7 @@ async function akisSagYukle() {
     if (!res.ok) throw new Error("Üyeler yüklenemedi.");
     const liste = (await res.json())
       .filter((m) => m.id !== BENIM_ID)
+      .filter((m) => !ONERILMEYEN_UYELER.includes((m.kullaniciAdi || "").trim().toLowerCase()))
       .slice(0, 3);
     if (!liste.length) {
       kutu.innerHTML = '<span class="akis-yukleniyor">Henüz üye yok.</span>';
@@ -4075,16 +4108,27 @@ function gonderiTarihYaz(tarih) {
   return yorumTarihYaz(tarih);
 }
 
-function gonderiKartHTML(g) {
+function gonderiKartHTML(g, detayMu) {
   const yazan = g.yazan || {};
   const silinebilir = BENIM_ID && (g.yazanId === BENIM_ID || BENIM_ADMIN);
-  const medya = g.medya
-    ? g.medya.tur === "video"
-      ? `<video src="${htmlEsc(g.medya.url)}" controls preload="metadata" class="gonderi-video"></video>`
-      : `<img src="${htmlEsc(g.medya.url)}" alt="" loading="lazy" class="gonderi-resim" onerror="gorselHataYerineIcon(this)" />`
-    : "";
+  const medyaList = Array.isArray(g.medya) ? g.medya : (g.medya ? [g.medya] : []);
+  let medyaHTML = "";
+  if (medyaList.length === 1) {
+    const m = medyaList[0];
+    medyaHTML = m.tur === "video"
+      ? `<div class="gonderi-medya"><video src="${htmlEsc(m.url)}" controls preload="metadata" class="gonderi-video"></video></div>`
+      : `<div class="gonderi-medya"><div class="gonderi-medya-oge gonderi-medya-tek" onclick="profilMedyaLightbox('${g.id}', 0)"><img src="${htmlEsc(m.url)}" alt="" loading="lazy" class="gonderi-resim" onerror="gorselHataYerineIcon(this)" /></div></div>`;
+  } else if (medyaList.length > 1) {
+    medyaHTML = `<div class="gonderi-medya gonderi-medya-coklu gonderi-medya-${medyaList.length}">${medyaList.map((m, i) => `
+      <div class="gonderi-medya-oge" onclick="profilMedyaLightbox('${g.id}', ${i})">
+        ${m.tur === "video"
+          ? `<video src="${htmlEsc(m.url)}" preload="metadata" muted></video><span class="gonderi-medya-oynat">▶</span>`
+          : `<img src="${htmlEsc(m.url)}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`}
+      </div>`).join("")}
+    </div>`;
+  }
   return `
-    <article class="gonderi-kart" id="gonderi-${g.id}">
+    <article class="gonderi-kart ${detayMu ? "" : "gonderi-kart-tiklanabilir"}" id="gonderi-${g.id}" ${detayMu ? "" : `onclick="gonderiKartAc(event, '${g.id}')"`}>
       <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-avatar-link">
         <img src="${htmlEsc(yazan.avatar)}" alt="${htmlEsc(yazan.kullaniciAdi)}" loading="lazy" class="gonderi-avatar" />
       </a>
@@ -4095,24 +4139,50 @@ function gonderiKartHTML(g) {
           ${silinebilir ? `<button type="button" class="gonderi-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>` : ""}
         </div>
         ${g.metin ? `<p class="gonderi-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
-        ${g.medya ? `<div class="gonderi-medya">${medya}</div>` : ""}
+        ${medyaHTML}
         <div class="gonderi-alt">
-          <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
-            ${BEGEN_IKON}<span>${g.begeniSayisi ? g.begeniSayisi : ""}</span>
+          <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiYorumAc('${g.id}')">
+            ${YORUM_IKON}<span>${g.yorumSayisi ? g.yorumSayisi : ""}</span>
           </button>
           <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Riley — yeniden paylaş" onclick="gonderiRiley('${g.id}', this)">
             ${RIYEL_IKON}<span>${g.rileySayisi ? g.rileySayisi : ""}</span>
+          </button>
+          <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
+            ${BEGEN_IKON}<span>${g.begeniSayisi ? g.begeniSayisi : ""}</span>
           </button>
         </div>
       </div>
     </article>`;
 }
 
+// Çoklu dosya seçimi (input multiple / sürükle-bırak): en fazla 4 medya
+function gonderiMedyaSecim(dosyalar) {
+  const durum = document.getElementById("kompDurum");
+  const liste = Array.from(dosyalar || []);
+  for (const dosya of liste) {
+    if (GONDERI_MEDYALAR.length >= 4) {
+      if (durum) durum.innerText = "En fazla 4 medya ekleyebilirsin.";
+      break;
+    }
+    gonderiMedyaYukle(dosya);
+  }
+}
+
+// Tek dosya (yapıştırma vb.)
 function gonderiMedyaSec(dosya) {
+  const durum = document.getElementById("kompDurum");
+  if (GONDERI_MEDYALAR.length >= 4) {
+    if (durum) durum.innerText = "En fazla 4 medya ekleyebilirsin.";
+    return;
+  }
+  gonderiMedyaYukle(dosya);
+}
+
+// Dosyayı stream (akış) olarak sunucuya yükle — base64'e çevrilmez, hafızada birikmez
+async function gonderiMedyaYukle(dosya) {
   const durum = document.getElementById("kompDurum");
   if (!dosya) return;
   let tur = dosya.type || "";
-  // Sürükle-bırak dosyalarında bazen MIME boş gelir; uzantıdan anla
   if (!tur) {
     const uzanti = (dosya.name || "").split(".").pop().toLowerCase();
     if (["png", "jpg", "jpeg", "gif", "webp"].includes(uzanti)) {
@@ -4127,66 +4197,61 @@ function gonderiMedyaSec(dosya) {
     if (durum) durum.innerText = "Sadece görsel (PNG/JPG/GIF/WEBP) veya video (MP4/WEBM/MOV) yüklenebilir.";
     return;
   }
-  const maks = videoMu ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
+  const maks = videoMu ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
   if (dosya.size > maks) {
-    if (durum) durum.innerText = videoMu ? "Video maksimum 100MB olmalı." : "Görsel maksimum 5MB olmalı.";
+    if (durum) durum.innerText = videoMu ? "Video maksimum 50MB olmalı." : "Görsel maksimum 5MB olmalı.";
     return;
   }
-  // MIME boş gelmişse uzantıdan tespit edilen türle yeniden etiketle (dataURL MIME'i doğru olsun)
   if (!dosya.type && tur) {
     try {
       dosya = new File([dosya], dosya.name, { type: tur });
     } catch (e) { /* yoksay */ }
   }
-  const oku = new FileReader();
-  oku.onload = async () => {
-    if (durum) durum.innerText = "Yükleniyor...";
-    try {
-      const res = await apiFetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl: oku.result }),
-      }, 120000);
-      if (!res.ok) {
-        const v = await res.json().catch(() => ({}));
-        if (durum) durum.innerText = v.hata || "Yükleme başarısız.";
-        return;
-      }
-      const v = await res.json();
-      GONDERI_MEDYA = { tur: videoMu ? "video" : "image", url: v.url };
-      gonderiMedyaOnizle();
-      if (durum) durum.innerText = "";
-    } catch (e) {
-      if (durum) durum.innerText = "Yükleme başarısız, tekrar dene.";
+  GONDERI_YUKLENEN++;
+  if (durum) durum.innerText = `Yükleniyor (${GONDERI_YUKLENEN})...`;
+  let hataOldu = false;
+  try {
+    const res = await apiFetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": tur },
+      body: dosya,
+    }, 180000);
+    if (!res.ok) {
+      const v = await res.json().catch(() => ({}));
+      throw new Error(v.hata || "Yükleme başarısız.");
     }
-  };
-  oku.onerror = () => { if (durum) durum.innerText = "Dosya okunamadı."; };
-  oku.readAsDataURL(dosya);
+    const v = await res.json();
+    GONDERI_MEDYALAR.push({ tur: videoMu ? "video" : "image", url: v.url });
+    gonderiMedyaOnizle();
+  } catch (e) {
+    hataOldu = true;
+    if (durum) durum.innerText = e.message || "Yükleme başarısız, tekrar dene.";
+  } finally {
+    GONDERI_YUKLENEN--;
+    if (durum && GONDERI_YUKLENEN === 0 && !hataOldu) durum.innerText = "";
+  }
 }
 
 function gonderiMedyaOnizle() {
   const kutu = document.getElementById("kompMedyaOnizleme");
-  const resim = document.getElementById("kompMedyaResim");
-  const video = document.getElementById("kompMedyaVideo");
   if (!kutu) return;
-  if (!GONDERI_MEDYA) {
+  if (!GONDERI_MEDYALAR.length) {
     kutu.style.display = "none";
+    kutu.innerHTML = "";
     return;
   }
   kutu.style.display = "";
-  if (GONDERI_MEDYA.tur === "video") {
-    video.src = GONDERI_MEDYA.url;
-    video.style.display = "";
-    resim.style.display = "none";
-  } else {
-    resim.src = GONDERI_MEDYA.url;
-    resim.style.display = "";
-    video.style.display = "none";
-  }
+  kutu.innerHTML = GONDERI_MEDYALAR.map((m, i) => `
+    <div class="komp-medya-oge">
+      ${m.tur === "video"
+        ? `<video src="${htmlEsc(m.url)}" muted preload="metadata"></video><span class="komp-medya-oynat">▶</span>`
+        : `<img src="${htmlEsc(m.url)}" alt="" />`}
+      <button type="button" class="komp-medya-sil" title="Kaldır" onclick="gonderiMedyaKaldir(${i})">×</button>
+    </div>`).join("");
 }
 
-function gonderiMedyaKaldir() {
-  GONDERI_MEDYA = null;
+function gonderiMedyaKaldir(i) {
+  GONDERI_MEDYALAR.splice(i, 1);
   gonderiMedyaOnizle();
 }
 
@@ -4195,8 +4260,12 @@ async function gonderiPaylas() {
   const metinEl = document.getElementById("gonderiMetni");
   const durum = document.getElementById("kompDurum");
   const metin = (metinEl.value || "").trim();
-  if (!metin && !GONDERI_MEDYA) {
+  if (!metin && !GONDERI_MEDYALAR.length) {
     if (durum) durum.innerText = "Bir şeyler yaz veya medya ekle.";
+    return;
+  }
+  if (GONDERI_YUKLENEN > 0) {
+    if (durum) durum.innerText = "Medyalar yükleniyor, biraz bekle.";
     return;
   }
   const btn = document.getElementById("kompPaylasBtn");
@@ -4206,7 +4275,7 @@ async function gonderiPaylas() {
     const res = await apiFetch("/api/gonderiler", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metin, medya: GONDERI_MEDYA }),
+      body: JSON.stringify({ metin, medya: GONDERI_MEDYALAR }),
     });
     if (!res.ok) {
       const v = await res.json().catch(() => ({}));
@@ -4214,7 +4283,7 @@ async function gonderiPaylas() {
     }
     await res.json();
     metinEl.value = "";
-    GONDERI_MEDYA = null;
+    GONDERI_MEDYALAR = [];
     gonderiMedyaOnizle();
     if (durum) durum.innerText = "";
     await gonderiAkisYukle(true);
@@ -4238,6 +4307,7 @@ async function gonderiBegen(id, btn) {
     }
     const g = GONDERI_AKIS.find((x) => x.id === id);
     if (g) { g.begenildi = v.begenildi; g.begeniSayisi = v.begeniSayisi; }
+    gonderiDurumGuncelle(id, "begenildi", v.begenildi, "begeniSayisi", v.begeniSayisi);
   } catch (e) {
     /* yoksay */
   }
@@ -4256,8 +4326,25 @@ async function gonderiRiley(id, btn) {
     }
     const g = GONDERI_AKIS.find((x) => x.id === id);
     if (g) { g.rileyEdildi = v.rileyEdildi; g.rileySayisi = v.rileySayisi; }
+    gonderiDurumGuncelle(id, "rileyEdildi", v.rileyEdildi, "rileySayisi", v.rileySayisi);
   } catch (e) {
     /* yoksay */
+  }
+}
+
+// Beğeni/Riley değişince profil listeleri ve açık modalı da güncelle
+function gonderiDurumGuncelle(id, aktifAlan, aktifDeger, sayiAlan, sayiDeger) {
+  if (Array.isArray(GUNCEL_PROFIL_GONDERILER)) {
+    const g = GUNCEL_PROFIL_GONDERILER.find((x) => x.id === id);
+    if (g) { g[aktifAlan] = aktifDeger; g[sayiAlan] = sayiDeger; }
+  }
+  if (Array.isArray(GUNCEL_PROFIL_RILEYLER)) {
+    const g = GUNCEL_PROFIL_RILEYLER.find((x) => x.id === id);
+    if (g) { g[aktifAlan] = aktifDeger; g[sayiAlan] = sayiDeger; }
+  }
+  if (GUNCEL_MODAL_GONDERI && GUNCEL_MODAL_GONDERI.id === id) {
+    GUNCEL_MODAL_GONDERI[aktifAlan] = aktifDeger;
+    GUNCEL_MODAL_GONDERI[sayiAlan] = sayiDeger;
   }
 }
 
@@ -4267,80 +4354,515 @@ async function gonderiSil(id) {
   try {
     const res = await apiFetch(`/api/gonderiler/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Silinemedi.");
+    if (window.location.pathname.startsWith("/gonderi")) {
+      window.location.href = "/";
+      return;
+    }
+    if (GUNCEL_MODAL_GONDERI && GUNCEL_MODAL_GONDERI.id === id) gonderiModaliKapat();
     const kart = document.getElementById(`gonderi-${id}`);
     if (kart) kart.remove();
     GONDERI_AKIS = GONDERI_AKIS.filter((x) => x.id !== id);
-    if (GUNCEL_PROFIL_RILEYLER.length) profilRileyCiz(GORUNTULENEN_ID || null);
+    if (Array.isArray(GUNCEL_PROFIL_GONDERILER)) GUNCEL_PROFIL_GONDERILER = GUNCEL_PROFIL_GONDERILER.filter((x) => x.id !== id);
+    if (Array.isArray(GUNCEL_PROFIL_RILEYLER)) GUNCEL_PROFIL_RILEYLER = GUNCEL_PROFIL_RILEYLER.filter((x) => x.id !== id);
+    if (GORUNTULENEN_ID) profilSekme(GUNCEL_PROFIL_SEKME);
   } catch (e) {
     alert(e.message || "Gönderi silinemedi.");
   }
 }
 
-// ---------- Profil: Riley (retweet) bölümü ----------
-async function profilRileyGoster(kisiId) {
-  const kutu = document.getElementById("pRileyler");
-  if (!kutu) return;
-  if (kutu.dataset.yuklendi === kisiId) {
-    profilRileyCiz(kisiId);
+// Gönderiye tıklayınca detay sayfasına git (buton/link/video/medya tıklamaları hariç)
+function gonderiKartAc(evt, id) {
+  if (evt) {
+    const etkilesimli = evt.target.closest("a, button, video, input, textarea, .gonderi-medya-oge");
+    if (etkilesimli) return;
+  }
+  window.location.href = `/gonderi?id=${id}`;
+}
+
+// Yorum tuşu: gönderi detayına gidip doğrudan yorum kutusunu açar
+function gonderiYorumAc(id) {
+  if (window.location.pathname.startsWith("/gonderi") && GUNCEL_AKTIF_GONDERI && GUNCEL_AKTIF_GONDERI.id === id) {
+    const m = document.getElementById("gonderiYorumMetni");
+    if (m) {
+      m.focus();
+      m.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     return;
   }
+  window.location.href = `/gonderi?id=${id}&yorum=1`;
+}
+
+// ---------- Gönderi detay sayfası (yorumlar) ----------
+let GUNCEL_AKTIF_GONDERI = null;
+
+async function gonderiSayfasiBaslat() {
+  const ben = await navBarDoldur();
+  BENIM_ID = ben && ben.girisYapti ? ben.id : null;
+  BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
+  const id = new URLSearchParams(window.location.search).get("id");
+  if (!id) {
+    const k = document.getElementById("gonderiDetayKart");
+    if (k) k.innerHTML = '<div class="profil-sekme-bos">Gönderi bulunamadı.</div>';
+    return;
+  }
+  await gonderiDetayYukle(id);
+}
+
+async function gonderiDetayYukle(id) {
+  const kart = document.getElementById("gonderiDetayKart");
+  if (!kart) return;
+  try {
+    const res = await apiFetch(`/api/gonderiler/${id}`);
+    if (!res.ok) throw new Error("Gönderi bulunamadı.");
+    const veri = await res.json();
+    GUNCEL_AKTIF_GONDERI = veri.gonderi;
+    if (!GUNCEL_AKTIF_GONDERI) throw new Error("Gönderi bulunamadı.");
+    document.title = `${GUNCEL_AKTIF_GONDERI.yazan.kullaniciAdi} · Gönderi`;
+    kart.innerHTML = gonderiKartHTML(GUNCEL_AKTIF_GONDERI, true);
+    const form = document.getElementById("gonderiYorumForm");
+    const giris = document.getElementById("gonderiYorumGiris");
+    if (BENIM_ID) {
+      if (form) form.style.display = "";
+      if (giris) giris.style.display = "none";
+    } else {
+      if (form) form.style.display = "none";
+      if (giris) giris.style.display = "";
+    }
+    gonderiYorumlariCiz(GUNCEL_AKTIF_GONDERI.yorumlar || []);
+    const yorumParam = new URLSearchParams(window.location.search).get("yorum");
+    if (yorumParam === "1" && BENIM_ID) {
+      setTimeout(() => {
+        const m = document.getElementById("gonderiYorumMetni");
+        if (m) {
+          m.focus();
+          m.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+    }
+  } catch (e) {
+    kart.innerHTML = '<div class="profil-sekme-bos">Gönderi bulunamadı veya kaldırılmış.</div>';
+    const liste = document.getElementById("gonderiYorumListe");
+    if (liste) liste.innerHTML = "";
+  }
+}
+
+function gonderiYorumKeydown(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    gonderiYorumGonder();
+  }
+}
+
+async function gonderiYorumGonder() {
+  if (!BENIM_ID) { window.location.href = "/auth/login"; return; }
+  const id = GUNCEL_AKTIF_GONDERI
+    ? GUNCEL_AKTIF_GONDERI.id
+    : new URLSearchParams(window.location.search).get("id");
+  const metinEl = document.getElementById("gonderiYorumMetni");
+  const durum = document.getElementById("gonderiYorumDurum");
+  const metin = (metinEl.value || "").trim();
+  if (!metin) { if (durum) durum.innerText = "Bir şeyler yaz."; return; }
+  if (durum) durum.innerText = "Gönderiliyor...";
+  try {
+    const res = await apiFetch(`/api/gonderiler/${id}/yorum`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metin }),
+    });
+    if (!res.ok) {
+      const v = await res.json().catch(() => ({}));
+      throw new Error(v.hata || "Yorum gönderilemedi.");
+    }
+    const veri = await res.json();
+    GUNCEL_AKTIF_GONDERI = veri.gonderi;
+    metinEl.value = "";
+    if (durum) durum.innerText = "";
+    gonderiYorumlariCiz(GUNCEL_AKTIF_GONDERI.yorumlar || []);
+  } catch (e) {
+    if (durum) durum.innerText = e.message || "Yorum gönderilemedi.";
+  }
+}
+
+function gonderiYorumlariCiz(yorumlar) {
+  const sayi = document.getElementById("gonderiYorumSayisi");
+  if (sayi) sayi.innerText = yorumlar.length ? `(${yorumlar.length})` : "";
+  const liste = document.getElementById("gonderiYorumListe");
+  if (!liste) return;
+  if (!yorumlar.length) {
+    liste.innerHTML = '<span class="bos-hint">Henüz yorum yok. İlk yorumu sen yaz!</span>';
+    return;
+  }
+  liste.innerHTML = yorumlar.map((y) => {
+    const silinebilir = BENIM_ID && (
+      y.yazanId === BENIM_ID ||
+      BENIM_ADMIN ||
+      (GUNCEL_AKTIF_GONDERI && GUNCEL_AKTIF_GONDERI.yazanId === BENIM_ID)
+    );
+    return `
+      <div class="gonderi-yorum">
+        <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="gonderi-yorum-avatar-link">
+          <img src="${htmlEsc(y.yazanAvatar)}" alt="${htmlEsc(y.yazanAd)}" loading="lazy" class="gonderi-yorum-avatar" />
+        </a>
+        <div class="gonderi-yorum-ic">
+          <div class="gonderi-yorum-ust">
+            <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="gonderi-yorum-ad">${htmlEsc(y.yazanAd)}</a>
+            ${gonderiTarihYaz(y.tarih)}
+            ${silinebilir ? `<button type="button" class="gonderi-yorum-sil" title="Yorumu sil" onclick="gonderiYorumSil('${y.id}')">×</button>` : ""}
+          </div>
+          <p class="gonderi-yorum-metin">${gonderiMetinGoster(y.metin)}</p>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function gonderiYorumSil(yorumId) {
+  if (!BENIM_ID || !GUNCEL_AKTIF_GONDERI) return;
+  if (!confirm("Bu yorumu silmek istiyor musun?")) return;
+  try {
+    const res = await apiFetch(`/api/gonderiler/${GUNCEL_AKTIF_GONDERI.id}/yorum/${encodeURIComponent(yorumId)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Yorum silinemedi.");
+    GUNCEL_AKTIF_GONDERI.yorumlar = (GUNCEL_AKTIF_GONDERI.yorumlar || []).filter((y) => y.id !== yorumId);
+    gonderiYorumlariCiz(GUNCEL_AKTIF_GONDERI.yorumlar);
+  } catch (e) {
+    alert(e.message || "Yorum silinemedi.");
+  }
+}
+
+// ---------- Profil sekmeleri (Twitter tarzı: Profil / Gönderiler / Riley / Film / Kitaplar / Galeri) ----------
+function profilSekme(ad) {
+  GUNCEL_PROFIL_SEKME = ad;
+  document.querySelectorAll(".profil-sekme").forEach((b) => {
+    b.classList.toggle("aktif", b.dataset.sekme === ad);
+  });
+  const paneller = ["profil", "gonderiler", "riley", "filmler", "kitaplar", "galeri"];
+  paneller.forEach((p) => {
+    const el = document.getElementById("profilSekme" + p[0].toUpperCase() + p.slice(1));
+    if (el) el.style.display = p === ad ? "" : "none";
+  });
+  if (ad === "gonderiler") profilSekmeGonderilerCiz();
+  else if (ad === "riley") profilSekmeRileyCiz();
+  else if (ad === "filmler") profilSekmeFilmlerCiz();
+  else if (ad === "kitaplar") profilSekmeKitaplarCiz();
+  else if (ad === "galeri") profilSekmeGaleriCiz();
+}
+
+// Gönderiler sekmesi: kullanıcının ana akışta paylaştıkları
+async function profilGonderilerYukle(kisiId) {
+  const kutu = document.getElementById("profilSekmeGonderiler");
+  if (!kutu) return;
+  kutu.innerHTML = '<span class="bos-hint">Yükleniyor...</span>';
+  try {
+    const res = await apiFetch(`/api/profile/${kisiId}/gonderiler`);
+    if (!res.ok) throw new Error("Gönderiler yüklenemedi.");
+    const veri = await res.json();
+    GUNCEL_PROFIL_GONDERILER = veri.gonderiler || [];
+    profilSekmeGonderilerCiz();
+  } catch (e) {
+    kutu.innerHTML = '<span class="bos-hint">Gönderiler şu anda yüklenemedi.</span>';
+  }
+}
+
+function profilSekmeGonderilerCiz() {
+  const kutu = document.getElementById("profilSekmeGonderiler");
+  if (!kutu || !Array.isArray(GUNCEL_PROFIL_GONDERILER)) return;
+  if (!GUNCEL_PROFIL_GONDERILER.length) {
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz gönderi paylaşmamış.</div>';
+    return;
+  }
+  kutu.innerHTML = GUNCEL_PROFIL_GONDERILER.map((g) => gonderiKartHTML(g)).join("");
+}
+
+// Riley sekmesi: kullanıcının yeniden paylaştıkları
+async function profilRileyGoster(kisiId) {
+  const kutu = document.getElementById("profilSekmeRiley");
+  if (!kutu) return;
+  kutu.innerHTML = '<span class="bos-hint">Yükleniyor...</span>';
   try {
     const res = await apiFetch(`/api/profile/${kisiId}/rileyler`);
     if (!res.ok) throw new Error("Riley'ler yüklenemedi.");
     const veri = await res.json();
     GUNCEL_PROFIL_RILEYLER = veri.gonderiler || [];
-    kutu.dataset.yuklendi = kisiId;
-    profilRileyCiz(kisiId);
+    profilSekmeRileyCiz();
   } catch (e) {
     kutu.innerHTML = "<span class=\"bos-hint\">Riley'ler şu anda yüklenemedi.</span>";
   }
 }
 
-function profilRileyCiz(kisiId) {
-  const kutu = document.getElementById("pRileyler");
-  if (!kutu) return;
-  const sayac = document.getElementById("pRileySayac");
-  if (sayac) sayac.innerText = GUNCEL_PROFIL_RILEYLER.length
-    ? `${GUNCEL_PROFIL_RILEYLER.length} gönderi`
-    : "Henüz Riley yapmamış.";
+function profilSekmeRileyCiz() {
+  const kutu = document.getElementById("profilSekmeRiley");
+  if (!kutu || !Array.isArray(GUNCEL_PROFIL_RILEYLER)) return;
   if (!GUNCEL_PROFIL_RILEYLER.length) {
-    kutu.innerHTML = '<span class="bos-hint">Henüz Riley yapılmış gönderi yok.</span>';
-    const daha = document.getElementById("pRileyDaha");
-    if (daha) daha.style.display = "none";
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz Riley yapmamış.</div>';
     return;
   }
-  const gosterilecek = GUNCEL_PROFIL_RILEY_ACIK ? GUNCEL_PROFIL_RILEYLER : GUNCEL_PROFIL_RILEYLER.slice(0, 3);
-  kutu.innerHTML = gosterilecek.map((g) => profilRileyKartHTML(g)).join("");
-  const daha = document.getElementById("pRileyDaha");
-  if (daha) {
-    const cokVar = GUNCEL_PROFIL_RILEYLER.length > 3;
-    daha.style.display = cokVar ? "" : "none";
-    daha.innerText = GUNCEL_PROFIL_RILEY_ACIK ? "Daha az göster" : `Tümünü göster (${GUNCEL_PROFIL_RILEYLER.length})`;
+  kutu.innerHTML = GUNCEL_PROFIL_RILEYLER.map((g) => gonderiKartHTML(g)).join("");
+}
+
+// Medya sekmesi: medyalı (görsel/video) gönderiler
+// Galeri sekmesi: kullanıcının gönderilerindeki tüm görsel/videolar
+function profilSekmeGaleriCiz() {
+  const kutu = document.getElementById("profilSekmeGaleri");
+  if (!kutu) return;
+  if (!Array.isArray(GUNCEL_PROFIL_GONDERILER)) {
+    kutu.innerHTML = '<span class="bos-hint">Yükleniyor...</span>';
+    return;
+  }
+  const parcalar = [];
+  GUNCEL_PROFIL_GONDERILER.forEach((g) => {
+    const liste = Array.isArray(g.medya) ? g.medya : (g.medya ? [g.medya] : []);
+    liste.forEach((m, i) => parcalar.push({ g, m, i }));
+  });
+  if (!parcalar.length) {
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz paylaşılmış görsel/video yok.</div>';
+    return;
+  }
+  kutu.innerHTML = `
+    <div class="profil-sekme-baslik-satir">
+      <span>${parcalar.length} görsel / video</span>
+    </div>
+    <div class="profil-galeri-grid">
+      ${parcalar.map(({ g, m, i }) => `
+        <button type="button" class="profil-galeri-oge" title="Aç" onclick="profilMedyaLightbox('${g.id}', ${i})">
+          ${m.tur === "video"
+            ? `<video src="${htmlEsc(m.url)}" preload="metadata" muted></video><span class="profil-galeri-oynat">▶</span>`
+            : `<img src="${htmlEsc(m.url)}" alt="" loading="lazy" onerror="this.style.display='none'" />`}
+        </button>`).join("")}
+    </div>`;
+}
+
+// Twitter tarzı medya detay modalı: solda medya, sağda yazar + beğeni/riley/yorum + yorumlar
+let GUNCEL_MODAL_GONDERI = null;
+let GUNCEL_MODAL_INDEX = 0;
+
+async function profilMedyaLightbox(gonderiId, medyaIndex) {
+  try {
+    const res = await apiFetch(`/api/gonderiler/${gonderiId}`);
+    if (!res.ok) throw new Error("Gönderi bulunamadı.");
+    const veri = await res.json();
+    GUNCEL_MODAL_GONDERI = veri.gonderi;
+    GUNCEL_MODAL_INDEX = typeof medyaIndex === "number" ? medyaIndex : 0;
+    gonderiModaliCiz(GUNCEL_MODAL_GONDERI);
+  } catch (e) {
+    /* yoksay */
   }
 }
 
-function profilRileyAcKapat() {
-  GUNCEL_PROFIL_RILEY_ACIK = !GUNCEL_PROFIL_RILEY_ACIK;
-  profilRileyCiz(GORUNTULENEN_ID || null);
+function gonderiModaliCiz(g) {
+  const mevcut = document.getElementById("gonderiModali");
+  if (mevcut) mevcut.remove();
+  const yazan = g.yazan || {};
+  const medyaList = Array.isArray(g.medya) ? g.medya : [];
+  if (GUNCEL_MODAL_INDEX >= medyaList.length) GUNCEL_MODAL_INDEX = 0;
+  const coklu = medyaList.length > 1;
+  const modal = document.createElement("div");
+  modal.className = "film-modal-overlay";
+  modal.id = "gonderiModali";
+  modal.onclick = () => gonderiModaliKapat();
+  modal.innerHTML = `
+    <div class="gonderi-modal" onclick="event.stopPropagation()">
+      <button type="button" class="film-modal-kapat" aria-label="Kapat" onclick="gonderiModaliKapat()">×</button>
+      <div class="gonderi-modal-medya">
+        ${coklu ? `<button type="button" class="gonderi-modal-ok gonderi-modal-ok-once" aria-label="Önceki" onclick="gonderiModalGec(-1)">‹</button><button type="button" class="gonderi-modal-ok gonderi-modal-ok-sonra" aria-label="Sonraki" onclick="gonderiModalGec(1)">›</button>` : ""}
+        <div class="gonderi-modal-medya-ic" id="gonderiModalMedyaIc"></div>
+        ${coklu ? `<div class="gonderi-modal-sayac" id="gonderiModalSayac"></div>` : ""}
+      </div>
+      <div class="gonderi-modal-panel">
+        <div class="gonderi-modal-yazar">
+          <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-modal-avatar-link">
+            <img src="${htmlEsc(yazan.avatar)}" alt="${htmlEsc(yazan.kullaniciAdi)}" loading="lazy" class="gonderi-modal-avatar" />
+          </a>
+          <div class="gonderi-modal-yazar-bilgi">
+            <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-modal-isim">${htmlEsc(yazan.kullaniciAdi)}</a>
+            ${gonderiTarihYaz(g.tarih)}
+          </div>
+          ${BENIM_ID && (g.yazanId === BENIM_ID || BENIM_ADMIN)
+            ? `<button type="button" class="gonderi-modal-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>`
+            : ""}
+        </div>
+        ${g.metin ? `<p class="gonderi-modal-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
+        <div class="gonderi-modal-aksiyonlar">
+          <button type="button" class="gonderi-aksiyon" title="Yorum" onclick="gonderiModalYorumOdak()">
+            ${YORUM_IKON}<span>${g.yorumSayisi || ""}</span>
+          </button>
+          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Riley" onclick="gonderiRiley('${g.id}', this)">
+            ${RIYEL_IKON}<span>${g.rileySayisi || ""}</span>
+          </button>
+          <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
+            ${BEGEN_IKON}<span>${g.begeniSayisi || ""}</span>
+          </button>
+        </div>
+        <div class="gonderi-modal-yorum-baslik">Yorumlar <span id="gonderiModalYorumSayi">(${g.yorumlar.length})</span></div>
+        ${BENIM_ID
+          ? `<div class="gonderi-modal-yorum-form">
+              <textarea id="gonderiModalYorumMetni" rows="2" maxlength="300" placeholder="Yorum yaz..."></textarea>
+              <div class="gonderi-modal-yorum-form-alt">
+                <button type="button" class="komp-paylas-btn" onclick="gonderiModalYorumGonder()">Gönder</button>
+              </div>
+            </div>`
+          : `<div class="gonderi-modal-yorum-giris"><p>Yorum yapmak için giriş yapmalısın.</p><a href="/auth/login" class="discord-giris-btn">Discord ile Giriş Yap</a></div>`}
+        <div class="gonderi-modal-yorumlar" id="gonderiModalYorumlar">${gonderiModalYorumlariHTML(g.yorumlar || [])}</div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  gonderiModalMedyaCiz();
 }
 
-function profilRileyKartHTML(g) {
-  const yazan = g.yazan || {};
-  return `
-    <div class="profil-riley-kart">
-      <div class="profil-riley-kart-ust">
-        <img src="${htmlEsc(yazan.avatar)}" alt="${htmlEsc(yazan.kullaniciAdi)}" loading="lazy" />
-        <span class="profil-riley-kart-ad">
-          <a href="/profil?id=${encodeURIComponent(g.yazanId)}">${htmlEsc(yazan.kullaniciAdi)}</a>
-          ${gonderiTarihYaz(g.tarih)}
-        </span>
-      </div>
-      ${g.metin ? `<p class="profil-riley-kart-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
-      ${g.medya
-        ? g.medya.tur === "video"
-          ? `<video src="${htmlEsc(g.medya.url)}" controls preload="metadata" class="profil-riley-video"></video>`
-          : `<img src="${htmlEsc(g.medya.url)}" alt="" loading="lazy" class="profil-riley-resim" onerror="this.style.display='none'" />`
-        : ""}
+function gonderiModalMedyaCiz() {
+  const kutu = document.getElementById("gonderiModalMedyaIc");
+  if (!kutu || !GUNCEL_MODAL_GONDERI) return;
+  const medyaList = Array.isArray(GUNCEL_MODAL_GONDERI.medya) ? GUNCEL_MODAL_GONDERI.medya : [];
+  const m = medyaList[GUNCEL_MODAL_INDEX];
+  if (!m) return;
+  kutu.innerHTML = m.tur === "video"
+    ? `<video src="${htmlEsc(m.url)}" controls autoplay class="gonderi-modal-video"></video>`
+    : `<img src="${htmlEsc(m.url)}" alt="" class="gonderi-modal-resim" />`;
+  const sayac = document.getElementById("gonderiModalSayac");
+  if (sayac) sayac.innerText = `${GUNCEL_MODAL_INDEX + 1} / ${medyaList.length}`;
+}
+
+function gonderiModalGec(delta) {
+  if (!GUNCEL_MODAL_GONDERI) return;
+  const n = (Array.isArray(GUNCEL_MODAL_GONDERI.medya) ? GUNCEL_MODAL_GONDERI.medya : []).length;
+  if (n < 2) return;
+  GUNCEL_MODAL_INDEX = (GUNCEL_MODAL_INDEX + delta + n) % n;
+  gonderiModalMedyaCiz();
+}
+
+function gonderiModaliKapat() {
+  GUNCEL_MODAL_GONDERI = null;
+  const m = document.getElementById("gonderiModali");
+  if (m) m.remove();
+}
+
+function gonderiModalYorumOdak() {
+  const m = document.getElementById("gonderiModalYorumMetni");
+  if (m) m.focus();
+}
+
+function gonderiModalYorumlariHTML(yorumlar) {
+  if (!yorumlar.length) return '<span class="bos-hint">Henüz yorum yok. İlk yorumu sen yaz!</span>';
+  return yorumlar.map((y) => {
+    const silinebilir = BENIM_ID && (
+      y.yazanId === BENIM_ID ||
+      BENIM_ADMIN ||
+      (GUNCEL_MODAL_GONDERI && GUNCEL_MODAL_GONDERI.yazanId === BENIM_ID)
+    );
+    return `
+      <div class="gonderi-modal-yorum">
+        <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="gonderi-modal-yorum-avatar-link">
+          <img src="${htmlEsc(y.yazanAvatar)}" alt="${htmlEsc(y.yazanAd)}" loading="lazy" class="gonderi-modal-yorum-avatar" />
+        </a>
+        <div class="gonderi-modal-yorum-ic">
+          <div class="gonderi-modal-yorum-ust">
+            <a href="/profil?id=${encodeURIComponent(y.yazanId)}" class="gonderi-modal-yorum-ad">${htmlEsc(y.yazanAd)}</a>
+            ${gonderiTarihYaz(y.tarih)}
+            ${silinebilir ? `<button type="button" class="gonderi-yorum-sil" title="Yorumu sil" onclick="gonderiModalYorumSil('${y.id}')">×</button>` : ""}
+          </div>
+          <p class="gonderi-modal-yorum-metin">${gonderiMetinGoster(y.metin)}</p>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function gonderiModalYorumGonder() {
+  if (!GUNCEL_MODAL_GONDERI) return;
+  const metinEl = document.getElementById("gonderiModalYorumMetni");
+  if (!metinEl) return;
+  const metin = (metinEl.value || "").trim();
+  if (!metin) return;
+  try {
+    const res = await apiFetch(`/api/gonderiler/${GUNCEL_MODAL_GONDERI.id}/yorum`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metin }),
+    });
+    if (!res.ok) throw new Error("Yorum gönderilemedi.");
+    const veri = await res.json();
+    GUNCEL_MODAL_GONDERI = veri.gonderi;
+    metinEl.value = "";
+    gonderiModaliYorumGuncelle();
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+function gonderiModaliYorumGuncelle() {
+  const sayi = document.getElementById("gonderiModalYorumSayi");
+  if (sayi) sayi.innerText = `(${GUNCEL_MODAL_GONDERI.yorumlar.length})`;
+  const kutu = document.getElementById("gonderiModalYorumlar");
+  if (kutu) kutu.innerHTML = gonderiModalYorumlariHTML(GUNCEL_MODAL_GONDERI.yorumlar || []);
+}
+
+async function gonderiModalYorumSil(yorumId) {
+  if (!GUNCEL_MODAL_GONDERI) return;
+  if (!confirm("Bu yorumu silmek istiyor musun?")) return;
+  try {
+    const res = await apiFetch(`/api/gonderiler/${GUNCEL_MODAL_GONDERI.id}/yorum/${encodeURIComponent(yorumId)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Yorum silinemedi.");
+    GUNCEL_MODAL_GONDERI.yorumlar = (GUNCEL_MODAL_GONDERI.yorumlar || []).filter((y) => y.id !== yorumId);
+    gonderiModaliYorumGuncelle();
+  } catch (e) {
+    alert(e.message || "Yorum silinemedi.");
+  }
+}
+
+// Film & Dizi sekmesi
+function profilSekmeFilmlerCiz() {
+  const kutu = document.getElementById("profilSekmeFilmler");
+  if (!kutu) return;
+  const filmler = GUNCEL_PROFIL_FILMLER || [];
+  if (!filmler.length) {
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz film/dizi eklenmemiş.</div>';
+    return;
+  }
+  const favori = filmler.find((f) => f.favori);
+  let gosterilecek = filmler.slice(0, 12);
+  if (favori && !gosterilecek.some((f) => f.id === favori.id && f.tur === favori.tur)) {
+    gosterilecek = [favori, ...gosterilecek].slice(0, 12);
+  }
+  kutu.innerHTML = `
+    <div class="profil-sekme-baslik-satir">
+      <span>${GUNCEL_PROFIL_FILM_SAYI} kayıt · ${GUNCEL_PROFIL_FILM_ADET} film · ${GUNCEL_PROFIL_DIZI_ADET} dizi</span>
+      <a href="/gunluk?id=${GORUNTULENEN_ID}" class="profil-sekme-link">Günlüğü aç →</a>
+    </div>
+    <div class="profil-medya-grid">
+      ${gosterilecek.map((f) => `
+        <div class="profil-medya-oge" title="${htmlEsc(f.ad)}">
+          ${f.poster
+            ? `<img src="${htmlEsc(filmPosterUrl(f.poster))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+            : `<span class="film-poster-yok">${FILM_IKON}</span>`}
+          ${f.favori ? '<span class="profil-medya-favori">★</span>' : ""}
+        </div>`).join("")}
+    </div>`;
+}
+
+// Kitaplar sekmesi
+function profilSekmeKitaplarCiz() {
+  const kutu = document.getElementById("profilSekmeKitaplar");
+  if (!kutu) return;
+  const kitaplar = GUNCEL_PROFIL_KITAPLAR || [];
+  if (!kitaplar.length) {
+    kutu.innerHTML = '<div class="profil-sekme-bos">Henüz kitap eklenmemiş.</div>';
+    return;
+  }
+  const favori = kitaplar.find((k) => k.favori);
+  let gosterilecek = kitaplar.slice(0, 12);
+  if (favori && !gosterilecek.some((k) => k.id === favori.id)) {
+    gosterilecek = [favori, ...gosterilecek].slice(0, 12);
+  }
+  kutu.innerHTML = `
+    <div class="profil-sekme-baslik-satir">
+      <span>${GUNCEL_PROFIL_KITAP_SAYI} kitap</span>
+      <a href="/gunluk?id=${GORUNTULENEN_ID}&mod=kitap" class="profil-sekme-link">Günlüğü aç →</a>
+    </div>
+    <div class="profil-medya-grid">
+      ${gosterilecek.map((k) => `
+        <div class="profil-medya-oge" title="${htmlEsc(k.ad)}">
+          ${k.kapak
+            ? `<img src="${htmlEsc(kitapKapakUrl(k.kapak))}" alt="" loading="lazy" onerror="gorselHataYerineIcon(this)" />`
+            : `<span class="film-poster-yok">${KITAP_IKON}</span>`}
+          ${k.favori ? '<span class="profil-medya-favori">★</span>' : ""}
+        </div>`).join("")}
     </div>`;
 }
 

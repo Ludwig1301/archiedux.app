@@ -19,11 +19,10 @@
             <circle cx="24" cy="24" r="17" stroke="#c9a227" stroke-width="1" opacity="0.6"/>
             <path d="M24 12 L27 20 L35 20 L28.5 25 L31 33 L24 28 L17 33 L19.5 25 L13 20 L21 20 Z" fill="#c9a227"/>
           </svg>
-          <div class="wordmark">CONGRESS</div>
-        </a>
-        <a href="/uyeler">ÜYELER</a>
-        <a href="/filmler">FİLM &amp; DİZİ</a>
-        <a href="https://congress.archiedux.com" target="_blank" style="color: var(--brass-bright);">CONGRESS WİKİ</a>
+          <div class="wordmark">CONGRESS</div></a><span class="nav-ayrac"></span>
+        <a href="/uyeler" class="nav-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>ÜYELER</span></a>
+        <a href="/filmler" class="nav-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M7 4v16M17 4v16M2.5 9h19M2.5 15h19"/></svg><span>FİLM &amp; DİZİ</span></a>
+        <a href="https://congress.archiedux.com" target="_blank" class="nav-link" style="color: var(--brass-bright);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>CONGRESS WİKİ</span></a>
       </div>
       <div class="nav-sag" id="navSag"></div>
     </div>
@@ -244,25 +243,41 @@
     <div class="govde">
       <div class="sol">
 
-        <div class="bio-kutu" id="pBio">Bu kişi henüz kendini tanıtmamış.</div>
-
-        <div id="pVitrinler"></div>
-
-        <div class="yorumlar-alani">
-          <div class="yorumlar-baslik">Yorumlar</div>
-          <div class="yorum-form" id="yorumFormAlani" style="display:none;">
-            <div class="yorum-yazi-alani">
-              <textarea id="yorumMetni" placeholder="Bir şeyler yaz... (Enter ile gönder)" oninput="yorumMetniBoyutlandir()" onkeydown="yorumMetniKeydown(event)"></textarea>
-              <button type="button" class="yorum-emoji-btn" onclick="yorumEmojiPanelAcKapat(event)" title="Emoji ekle" aria-label="Emoji ekle">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><path d="M8.5 14.5a4 4 0 0 0 7 0M8.5 9.5h.01M15.5 9.5h.01"/></svg>
-              </button>
-              <div class="yorum-emoji-panel" id="yorumEmojiPanel" style="display:none;"></div>
-            </div>
-            <button class="gonder-btn" onclick="yorumGonder()">Gönder</button>
-          </div>
-          <div class="yorum-listesi" id="yorumListesi"></div>
+        <div class="profil-sekmeler" id="profilSekmeler">
+          <button type="button" class="profil-sekme aktif" data-sekme="profil" onclick="profilSekme('profil')">Profil</button>
+          <button type="button" class="profil-sekme" data-sekme="gonderiler" onclick="profilSekme('gonderiler')">Gönderiler</button>
+          <button type="button" class="profil-sekme" data-sekme="riley" onclick="profilSekme('riley')">Riley</button>
+          <button type="button" class="profil-sekme" data-sekme="filmler" onclick="profilSekme('filmler')">Film &amp; Dizi</button>
+          <button type="button" class="profil-sekme" data-sekme="kitaplar" onclick="profilSekme('kitaplar')">Kitaplar</button>
+          <button type="button" class="profil-sekme" data-sekme="galeri" onclick="profilSekme('galeri')">Galeri</button>
         </div>
 
+        <div class="profil-sekme-icerik">
+          <div id="profilSekmeProfil" class="profil-sekme-panel profil-sekme-panel-dolgu">
+            <div class="bio-kutu" id="pBio">Bu kişi henüz kendini tanıtmamış.</div>
+
+            <div id="pVitrinler"></div>
+            <div class="yorumlar-alani">
+              <div class="yorumlar-baslik">Yorumlar</div>
+              <div class="yorum-form" id="yorumFormAlani" style="display:none;">
+                <div class="yorum-yazi-alani">
+                  <textarea id="yorumMetni" placeholder="Bir şeyler yaz... (Enter ile gönder)" oninput="yorumMetniBoyutlandir()" onkeydown="yorumMetniKeydown(event)"></textarea>
+                  <button type="button" class="yorum-emoji-btn" onclick="yorumEmojiPanelAcKapat(event)" title="Emoji ekle" aria-label="Emoji ekle">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><path d="M8.5 14.5a4 4 0 0 0 7 0M8.5 9.5h.01M15.5 9.5h.01"/></svg>
+                  </button>
+                  <div class="yorum-emoji-panel" id="yorumEmojiPanel" style="display:none;"></div>
+                </div>
+                <button class="gonder-btn" onclick="yorumGonder()">Gönder</button>
+              </div>
+              <div class="yorum-listesi" id="yorumListesi"></div>
+            </div>
+          </div>
+          <div id="profilSekmeGonderiler" class="profil-sekme-panel" style="display:none;"></div>
+          <div id="profilSekmeRiley" class="profil-sekme-panel" style="display:none;"></div>
+          <div id="profilSekmeFilmler" class="profil-sekme-panel" style="display:none;"></div>
+          <div id="profilSekmeKitaplar" class="profil-sekme-panel" style="display:none;"></div>
+          <div id="profilSekmeGaleri" class="profil-sekme-panel" style="display:none;"></div>
+        </div>
       </div>
 
       <div class="sag">
@@ -306,31 +321,6 @@
         <div class="rozetler-alani">
           <div class="hayvan-baslik">Rozetler</div>
           <div class="rozetler-icerik" id="pRozetler"></div>
-        </div>
-
-        <div class="film-alani" id="rileyAlani">
-          <a class="hayvan-baslik vitrin-link" href="#" onclick="profilRileyAcKapat(); return false;" title="Riley'lediği gönderiler">
-            Riley
-          </a>
-          <div class="profil-riley-ozet" id="pRileySayac"></div>
-          <div class="profil-riley-icerik" id="pRileyler">
-            <span class="bos-hint">Yükleniyor...</span>
-          </div>
-          <button type="button" class="profil-riley-daha" id="pRileyDaha" style="display:none;" onclick="profilRileyAcKapat()"></button>
-        </div>
-
-        <div class="film-alani">
-          <a class="hayvan-baslik vitrin-link" id="filmlerLink" href="/gunluk">Film &amp; Dizi</a>
-          <div class="film-profil-onizleme" id="pFilmler"></div>
-        </div>
-
-        <div class="film-alani">
-          <a class="hayvan-baslik vitrin-link" id="kitaplarLink" href="/gunluk">Kitap</a>
-          <div class="film-profil-onizleme" id="pKitaplar"></div>
-        </div>
-
-        <div class="linkler">
-          <a class="hayvan-baslik vitrin-link" id="galeriLink" href="#">Galeri</a>
         </div>
       </div>
     </div>

@@ -360,7 +360,7 @@ async function discordUyeleriTopluCek() {
 
 // ---------- Express kurulumu ----------
 const app = express();
-app.use(express.json({ limit: "150mb" })); // base64 görsel/video yüklemeleri için büyütüldü
+app.use(express.json({ limit: "80mb" })); // base64 görsel/video yüklemeleri için (50MB video ≈ 67MB base64)
 
 // Eski .html adresleri temiz adreslere yönlendirilsin (URL'de .html görünmesin).
 app.get("/profile.html", (req, res) => res.redirect("/profil"));
@@ -390,6 +390,8 @@ app.get("/gunluk", temizSayfa("gunluk.html"));
 app.get("/gunluk.html", (req, res) => res.redirect("/gunluk"));
 app.get("/log", temizSayfa("log.html"));
 app.get("/log.html", (req, res) => res.redirect("/log"));
+app.get("/gonderi", temizSayfa("gonderi.html"));
+app.get("/gonderi.html", (req, res) => res.redirect("/gonderi"));
 
 const UPLOADS_DIR = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -1564,10 +1566,69 @@ const IZINLI_MIME = {
   "video/quicktime": "mov",
 };
 const MAKS_GORSEL_BOYUTU = 5 * 1024 * 1024; // 5MB
-const MAKS_VIDEO_BOYUTU = 100 * 1024 * 1024; // 100MB
+const MAKS_VIDEO_BOYUTU = 50 * 1024 * 1024; // 50MB
 
 app.post("/api/upload", girisGerekli, (req, res) => {
-  const { dataUrl } = req.body;
+  const contentType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+  const videoMu = contentType.startsWith("video/");
+  const resimMu = contentType.startsWith("image/");
+
+  // STREAM yolu: tarayıcı dosyayı base64'e çevirmeden doğrudan akıtır.
+  // Dosya parça parça diske yazılır; bellekte birikmez (çoklu/video yükleme güvenli).
+  if ((videoMu || resimMu) && IZINLI_MIME[contentType]) {
+    const maksBoyut = videoMu ? MAKS_VIDEO_BOYUTU : MAKS_GORSEL_BOYUTU;
+    const uzanti = IZINLI_MIME[contentType];
+    const dosyaAdi = `${req.session.discordId}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${uzanti}`;
+    const hedefYol = path.join(UPLOADS_DIR, dosyaAdi);
+    let yazilan = 0;
+    let kesildi = false;
+
+    const ws = fs.createWriteStream(hedefYol);
+    ws.on("error", (e) => {
+      // Limit aşımında akışı bilinçli kestik; bu hata değil
+      if (kesildi) return;
+      console.error("Yükleme hatası:", e);
+      fs.unlink(hedefYol, () => {});
+      if (!res.headersSent) res.status(500).json({ hata: "Dosya kaydedilemedi." });
+    });
+
+    req.on("data", (chunk) => {
+      if (kesildi) return;
+      yazilan += chunk.length;
+      if (yazilan > maksBoyut) {
+        kesildi = true;
+        ws.destroy();
+        fs.unlink(hedefYol, () => {});
+        if (!res.headersSent) {
+          res.status(413).json({ hata: videoMu ? "Video çok büyük (maksimum 50MB)." : "Görsel çok büyük (maksimum 5MB)." });
+        }
+        // Cevap gönderildikten sonra bağlantıyı kapat (istek israf olmasın)
+        setImmediate(() => req.destroy());
+        return;
+      }
+      ws.write(chunk);
+    });
+
+    req.on("error", () => {
+      if (!kesildi) {
+        kesildi = true;
+        ws.destroy();
+        fs.unlink(hedefYol, () => {});
+      }
+      if (!res.headersSent) res.status(400).json({ hata: "Yükleme kesildi." });
+    });
+
+    req.on("end", () => {
+      if (kesildi) return;
+      ws.end(() => {
+        res.json({ basarili: true, url: `/uploads/${dosyaAdi}` });
+      });
+    });
+    return;
+  }
+
+  // Eski base64 yolu (geriye dönük uyumluluk; yeni istemci stream kullanır)
+  const { dataUrl } = req.body || {};
   if (typeof dataUrl !== "string") {
     return res.status(400).json({ hata: "Geçersiz dosya verisi." });
   }
@@ -1582,11 +1643,10 @@ app.post("/api/upload", girisGerekli, (req, res) => {
   const base64Veri = eslesme[2];
   const arabellek = Buffer.from(base64Veri, "base64");
 
-  const videoMu = mime.startsWith("video/");
-  const maksBoyut = videoMu ? MAKS_VIDEO_BOYUTU : MAKS_GORSEL_BOYUTU;
+  const maksBoyut = mime.startsWith("video/") ? MAKS_VIDEO_BOYUTU : MAKS_GORSEL_BOYUTU;
   if (arabellek.length > maksBoyut) {
     return res.status(400).json({
-      hata: videoMu ? "Video çok büyük (maksimum 25MB)." : "Görsel çok büyük (maksimum 5MB).",
+      hata: mime.startsWith("video/") ? "Video çok büyük (maksimum 50MB)." : "Görsel çok büyük (maksimum 5MB).",
     });
   }
 
@@ -1935,8 +1995,18 @@ async function gonderilerYanit(gonderiler, benimId) {
     const profil = db.profiles[g.yazanId] || {};
     const begenenler = Array.isArray(g.begenenler) ? g.begenenler : [];
     const rileyler = Array.isArray(g.rileyler) ? g.rileyler : [];
+    const yorumlar = (Array.isArray(g.yorumlar) ? g.yorumlar : []).map((y) => {
+      const yUye = uyeHaritasi.get(String(y.yazanId));
+      const yProfil = db.profiles[y.yazanId] || {};
+      return {
+        ...y,
+        yazanAd: yUye ? yUye.kullaniciAdi : (y.yazanAd || "Üye"),
+        yazanAvatar: yProfil.avatar || (yUye ? yUye.avatar : (y.yazanAvatar || "")),
+      };
+    });
     return {
       ...g,
+      medya: Array.isArray(g.medya) ? g.medya.slice(0, 4) : (g.medya ? [g.medya] : []),
       yazan: {
         id: g.yazanId,
         kullaniciAdi: uye ? uye.kullaniciAdi : (g.yazanAd || "Üye"),
@@ -1944,18 +2014,29 @@ async function gonderilerYanit(gonderiler, benimId) {
       },
       begeniSayisi: begenenler.length,
       rileySayisi: rileyler.length,
+      yorumSayisi: yorumlar.length,
       begenildi: benimId ? begenenler.includes(String(benimId)) : false,
       rileyEdildi: benimId ? rileyler.includes(String(benimId)) : false,
+      yorumlar,
     };
   });
 }
 
-function gonderiMedyaTemizle(medya) {
+// Medya listesini temizle: tekli nesne ya da dizi gelir; en fazla 4 öğe, geçerli upload yolları
+function gonderiMedyaTekilTemizle(medya) {
   if (!medya || typeof medya !== "object") return null;
   const tur = medya.tur === "video" ? "video" : "image";
   const url = String(medya.url || "");
   if (!/^\/uploads\/[\w\-.]+$/.test(url)) return null;
   return { tur, url };
+}
+
+function gonderiMedyaTemizle(medya) {
+  if (Array.isArray(medya)) {
+    return medya.map(gonderiMedyaTekilTemizle).filter(Boolean).slice(0, 4);
+  }
+  const tek = gonderiMedyaTekilTemizle(medya);
+  return tek ? [tek] : [];
 }
 
 // Ana akış: en yeni gönderiler
@@ -1973,7 +2054,7 @@ app.get("/api/gonderiler", async (req, res) => {
 app.post("/api/gonderiler", girisGerekli, async (req, res) => {
   const metin = (req.body.metin || "").trim().slice(0, 500);
   const medya = gonderiMedyaTemizle(req.body.medya);
-  if (!metin && !medya) {
+  if (!metin && !medya.length) {
     return res.status(400).json({ hata: "Boş gönderi paylaşılamaz. Bir şeyler yaz veya medya ekle." });
   }
   const db = okuDB();
@@ -1985,6 +2066,7 @@ app.post("/api/gonderiler", girisGerekli, async (req, res) => {
     medya,
     begenenler: [],
     rileyler: [],
+    yorumlar: [],
     tarih: new Date().toISOString(),
   };
   db.gonderiler.unshift(gonderi);
@@ -1995,7 +2077,7 @@ app.post("/api/gonderiler", girisGerekli, async (req, res) => {
     req.session.discordId,
     uye ? uye.kullaniciAdi : "Üye",
     "gonderi-ekle",
-    metin ? metin.slice(0, 90) : (medya ? `${medya.tur === "video" ? "Video" : "Görsel"} paylaştı` : "")
+    metin ? metin.slice(0, 90) : `${medya.length} medya paylaştı`
   );
   const sonuc = await gonderilerYanit([gonderi], req.session.discordId);
   res.json({ basarili: true, gonderi: sonuc[0] });
@@ -2041,6 +2123,61 @@ app.delete("/api/gonderiler/:id", girisGerekli, (req, res) => {
   res.json({ basarili: true });
 });
 
+// Tek gönderi detayı (yorumlarıyla birlikte) — gönderi sayfası için
+app.get("/api/gonderiler/:id", async (req, res) => {
+  const db = okuDB();
+  const g = gonderileriOku(db).find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  const sonuc = await gonderilerYanit([g], req.session.discordId);
+  res.json({ gonderi: sonuc[0] });
+});
+
+// Gönderiye yorum ekle
+app.post("/api/gonderiler/:id/yorum", girisGerekli, async (req, res) => {
+  const metin = (req.body.metin || "").trim().slice(0, 300);
+  if (!metin) return res.status(400).json({ hata: "Boş yorum gönderilemez." });
+  const db = okuDB();
+  const g = gonderileriOku(db).find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  const yazan = await discordUyeBilgisiCek(req.session.discordId);
+  const yazanId = yazan ? yazan.id : req.session.discordId;
+  const yazanAd = yazan ? yazan.kullaniciAdi : "Üye";
+  const yazanAvatar = yazan ? yazan.avatar : "";
+  g.yorumlar = Array.isArray(g.yorumlar) ? g.yorumlar : [];
+  g.yorumlar.unshift({
+    id: `gonderi-yorum-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    yazanId,
+    yazanAd,
+    yazanAvatar,
+    metin,
+    tarih: new Date().toISOString(),
+  });
+  g.yorumlar = g.yorumlar.slice(0, 200);
+  yazDB(db);
+  const sonuc = await gonderilerYanit([g], req.session.discordId);
+  res.json({ basarili: true, gonderi: sonuc[0] });
+});
+
+// Gönderi yorumu sil (yorum sahibi, gönderi sahibi veya yönetici)
+app.delete("/api/gonderiler/:id/yorum/:yorumId", girisGerekli, (req, res) => {
+  const db = okuDB();
+  const g = gonderileriOku(db).find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  g.yorumlar = Array.isArray(g.yorumlar) ? g.yorumlar : [];
+  const yorum = g.yorumlar.find((y) => y.id === req.params.yorumId);
+  if (!yorum) return res.status(404).json({ hata: "Yorum bulunamadı." });
+  if (
+    yorum.yazanId !== req.session.discordId &&
+    g.yazanId !== req.session.discordId &&
+    !adminMi(req.session.discordId)
+  ) {
+    return res.status(403).json({ hata: "Bu yorumu silme yetkin yok." });
+  }
+  g.yorumlar = g.yorumlar.filter((y) => y.id !== req.params.yorumId);
+  yazDB(db);
+  res.json({ basarili: true, yorumlar: g.yorumlar });
+});
+
 // Bir üyenin kendi gönderileri
 app.get("/api/profile/:id/gonderiler", async (req, res) => {
   const db = okuDB();
@@ -2072,7 +2209,7 @@ app.listen(PORT || 3000, () => {
 app.use((err, req, res, next) => {
   // Gövde limitini aşan (base64 video vb.) istekler için net mesaj dön
   if (err && (err.type === "entity.too.large" || err.status === 413)) {
-    return res.status(413).json({ hata: "Dosya çok büyük (video en fazla 100MB olabilir)." });
+    return res.status(413).json({ hata: "Dosya çok büyük (video en fazla 50MB olabilir)." });
   }
   console.error("Sunucu hatası:", err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
