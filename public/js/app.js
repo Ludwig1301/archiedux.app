@@ -4056,7 +4056,12 @@ async function akisSagYukle() {
     if (!res.ok) throw new Error("Üyeler yüklenemedi.");
     const liste = (await res.json())
       .filter((m) => m.id !== BENIM_ID)
-      .filter((m) => !ONERILMEYEN_UYELER.includes((m.kullaniciAdi || "").trim().toLowerCase()))
+      .filter((m) => {
+        const ad = (m.kullaniciAdi || "").trim().toLowerCase();
+        // "mistik" ve "nefes al" kullanıcıları hiçbir zaman önerilmez
+        // (isim "nefes al." gibi eklerle de gelebilir; başlangıç eşleşmesi kullanılır)
+        return !ONERILMEYEN_UYELER.some((y) => ad === y || ad.startsWith(y));
+      })
       .slice(0, 3);
     if (!liste.length) {
       kutu.innerHTML = '<span class="akis-yukleniyor">Henüz üye yok.</span>';
