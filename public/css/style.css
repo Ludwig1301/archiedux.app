@@ -4661,16 +4661,27 @@ body.duzenleme-acik .duzenleme-paneli {
 
 .komp-ust textarea {
   flex: 1;
-  min-height: 72px;
-  background: transparent;
-  border: none;
-  outline: none;
+  min-height: 88px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--ink-line);
+  border-radius: 12px;
   color: var(--parchment);
   font-family: var(--sans);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.45;
-  padding: 6px 0;
+  padding: 12px 14px;
   resize: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.komp-ust textarea:hover {
+  border-color: #3a3a44;
+}
+
+.komp-ust textarea:focus {
+  border-color: var(--profil-accent);
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
 }
 
 .komp-ust textarea::placeholder {

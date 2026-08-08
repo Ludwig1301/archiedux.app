@@ -360,7 +360,7 @@ async function discordUyeleriTopluCek() {
 
 // ---------- Express kurulumu ----------
 const app = express();
-app.use(express.json({ limit: "40mb" })); // base64 görsel/video yüklemeleri için büyütüldü
+app.use(express.json({ limit: "150mb" })); // base64 görsel/video yüklemeleri için büyütüldü
 
 // Eski .html adresleri temiz adreslere yönlendirilsin (URL'de .html görünmesin).
 app.get("/profile.html", (req, res) => res.redirect("/profil"));
@@ -1564,7 +1564,7 @@ const IZINLI_MIME = {
   "video/quicktime": "mov",
 };
 const MAKS_GORSEL_BOYUTU = 5 * 1024 * 1024; // 5MB
-const MAKS_VIDEO_BOYUTU = 25 * 1024 * 1024; // 25MB
+const MAKS_VIDEO_BOYUTU = 100 * 1024 * 1024; // 100MB
 
 app.post("/api/upload", girisGerekli, (req, res) => {
   const { dataUrl } = req.body;
@@ -2070,6 +2070,10 @@ app.listen(PORT || 3000, () => {
 
 // Beklenmedik hatalar isteği asılı bırakmasın; JSON hata dönsün
 app.use((err, req, res, next) => {
+  // Gövde limitini aşan (base64 video vb.) istekler için net mesaj dön
+  if (err && (err.type === "entity.too.large" || err.status === 413)) {
+    return res.status(413).json({ hata: "Dosya çok büyük (video en fazla 100MB olabilir)." });
+  }
   console.error("Sunucu hatası:", err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
   res.status(500).json({ hata: "Beklenmeyen bir hata oluştu." });

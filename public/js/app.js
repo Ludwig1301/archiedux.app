@@ -4111,17 +4111,32 @@ function gonderiKartHTML(g) {
 function gonderiMedyaSec(dosya) {
   const durum = document.getElementById("kompDurum");
   if (!dosya) return;
-  const tur = dosya.type || "";
+  let tur = dosya.type || "";
+  // Sürükle-bırak dosyalarında bazen MIME boş gelir; uzantıdan anla
+  if (!tur) {
+    const uzanti = (dosya.name || "").split(".").pop().toLowerCase();
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(uzanti)) {
+      tur = "image/" + (uzanti === "jpg" ? "jpeg" : uzanti);
+    } else if (["mp4", "webm", "mov", "m4v"].includes(uzanti)) {
+      tur = "video/" + (uzanti === "mov" ? "quicktime" : uzanti === "m4v" ? "mp4" : uzanti);
+    }
+  }
   const videoMu = tur.startsWith("video/");
   const resimMu = tur.startsWith("image/");
   if (!videoMu && !resimMu) {
-    if (durum) durum.innerText = "Sadece görsel veya video yüklenebilir.";
+    if (durum) durum.innerText = "Sadece görsel (PNG/JPG/GIF/WEBP) veya video (MP4/WEBM/MOV) yüklenebilir.";
     return;
   }
-  const maks = videoMu ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+  const maks = videoMu ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
   if (dosya.size > maks) {
-    if (durum) durum.innerText = videoMu ? "Video maksimum 25MB olmalı." : "Görsel maksimum 5MB olmalı.";
+    if (durum) durum.innerText = videoMu ? "Video maksimum 100MB olmalı." : "Görsel maksimum 5MB olmalı.";
     return;
+  }
+  // MIME boş gelmişse uzantıdan tespit edilen türle yeniden etiketle (dataURL MIME'i doğru olsun)
+  if (!dosya.type && tur) {
+    try {
+      dosya = new File([dosya], dosya.name, { type: tur });
+    } catch (e) { /* yoksay */ }
   }
   const oku = new FileReader();
   oku.onload = async () => {
@@ -4131,7 +4146,7 @@ function gonderiMedyaSec(dosya) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl: oku.result }),
-      }, 60000);
+      }, 120000);
       if (!res.ok) {
         const v = await res.json().catch(() => ({}));
         if (durum) durum.innerText = v.hata || "Yükleme başarısız.";
