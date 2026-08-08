@@ -3340,16 +3340,29 @@ function zarYuzGuncelle() {
   if (yuz) yuz.innerHTML = zarYuzNoktalar(ZAR_YUZ);
 }
 
-// Zar sürekli 1-2-3-4-5-6 diye döner (random olduğunu belli eder)
+// Zar normalde 1 gösterir; üzerine gelince 1-2-3-4-5-6 diye dönmeye başlar
 (function zarDinle() {
   const zar = document.getElementById("rastgeleZar");
   if (!zar) return;
-  zar.classList.add("zar-beklemede");
-  zarYuzGuncelle();
-  ZAR_SAYACI = setInterval(() => {
-    ZAR_YUZ = (ZAR_YUZ % 6) + 1;
-    zarYuzGuncelle();
-  }, 120);
+  const yuz = document.getElementById("zarYuz");
+  const durdur = () => {
+    clearInterval(ZAR_SAYACI);
+    ZAR_SAYACI = null;
+    zar.classList.remove("zar-beklemede");
+    ZAR_YUZ = 1;
+    if (yuz) yuz.innerHTML = zarYuzNoktalar(ZAR_YUZ);
+  };
+  durdur();
+  zar.addEventListener("pointerenter", () => {
+    if (ZAR_SAYACI) return;
+    zar.classList.add("zar-beklemede");
+    ZAR_YUZ = 0;
+    ZAR_SAYACI = setInterval(() => {
+      ZAR_YUZ = (ZAR_YUZ % 6) + 1;
+      if (yuz) yuz.innerHTML = zarYuzNoktalar(ZAR_YUZ);
+    }, 120);
+  });
+  zar.addEventListener("pointerleave", durdur);
 })();
 
 async function rastgeleFilmAc() {
