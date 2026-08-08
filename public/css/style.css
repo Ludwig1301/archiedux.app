@@ -6249,4 +6249,285 @@ a.gonderi-yazar:hover {
   border: 1px solid color-mix(in srgb, var(--profil-accent) 40%, transparent);
 }
 
+/* ================= Mobil optimizasyon (≤640px) =================
+   Yalnızca telefon görünümü; ana (masaüstü) düzen hiç etkilenmez. */
+@media (max-width: 640px) {
+
+  /* Ana kart tam genişlik */
+  .mainframe,
+  .akis-mainframe,
+  .gonderi-detay-mainframe {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* ---------- Navbar ---------- */
+  .navbar {
+    height: auto;
+    min-height: 54px;
+    position: sticky;
+  }
+  .nav-icerik {
+    width: 100%;
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .nav-sol {
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .nav-sol::-webkit-scrollbar {
+    display: none;
+  }
+  .navbar-mark {
+    gap: 6px;
+    margin-right: 0;
+  }
+  .navbar-mark .seal {
+    width: 24px;
+    height: 24px;
+  }
+  .navbar-mark .wordmark {
+    font-size: 15px;
+    letter-spacing: 0.08em;
+  }
+  .navbar a {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  .nav-ayrac {
+    height: 20px;
+  }
+  .nav-link {
+    gap: 4px;
+  }
+  .nav-link svg {
+    width: 13px;
+    height: 13px;
+  }
+  .nav-sag {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .profil-menu-btn {
+    padding: 3px 8px 3px 3px;
+    gap: 6px;
+  }
+  .profil-menu-avatar {
+    width: 27px;
+    height: 27px;
+  }
+  .profil-menu-ad {
+    max-width: 74px;
+    font-size: 12px;
+  }
+  .profil-menu-panel {
+    min-width: 170px;
+    right: 0;
+  }
+  .bildirim-can {
+    padding: 4px;
+  }
+
+  /* ---------- Profil sayfası ---------- */
+  .kapak {
+    height: 120px;
+  }
+  .header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px 14px;
+    margin-top: -52px;
+  }
+  .avatar {
+    width: 88px;
+    height: 88px;
+    border-width: 2px;
+  }
+  .name {
+    margin-left: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .name h1 {
+    font-size: 22px;
+  }
+  .name p {
+    margin-top: 6px;
+    font-size: 10.5px;
+  }
+  .header-sag-panel {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .govde {
+    flex-direction: column;
+    padding: 12px;
+    gap: 14px;
+  }
+  .sag {
+    width: 100%;
+    position: static;
+  }
+  .sol {
+    width: 100%;
+  }
+
+  /* Profil sekmeleri: kaydırılabilir */
+  .profil-sekmeler {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .profil-sekmeler::-webkit-scrollbar {
+    display: none;
+  }
+  .profil-sekme {
+    flex: none;
+    min-width: 104px;
+    padding: 10px 8px;
+    font-size: 12.5px;
+  }
+  .profil-sekme-icerik {
+    border-radius: 0;
+  }
+
+  /* ---------- Akış (anasayfa) ---------- */
+  .akis-sayfa {
+    padding: 0;
+  }
+  .akis-cubuk {
+    padding: 10px 12px;
+  }
+  .akis-cubuk-baslik {
+    font-size: 16px;
+  }
+  .akis-govde {
+    flex-direction: column;
+  }
+  .akis-ana {
+    max-width: none;
+    border-right: none;
+  }
+  .akis-sag {
+    width: 100%;
+    padding: 12px;
+    order: 2;
+  }
+  .gonderi-kompozitor {
+    padding: 12px;
+  }
+  .komp-ust {
+    gap: 10px;
+  }
+  .komp-avatar,
+  .gonderi-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  .komp-ust textarea {
+    font-size: 16px;
+    min-height: 60px;
+  }
+  .komp-alt {
+    padding-left: 0;
+  }
+  .komp-medya-onizleme {
+    margin-left: 0;
+  }
+  .gonderi-kart {
+    padding: 12px;
+    gap: 10px;
+  }
+  .gonderi-yazar {
+    font-size: 14px;
+  }
+  .gonderi-metin {
+    font-size: 14.5px;
+  }
+  .gonderi-aksiyon {
+    padding: 5px 10px;
+  }
+  .gonderi-aksiyon svg {
+    width: 17px;
+    height: 17px;
+  }
+  .akis-kutu {
+    border-radius: 12px;
+  }
+
+  /* ---------- Gönderi detay ---------- */
+  .gonderi-detay-ust {
+    padding: 10px 12px;
+  }
+  .gonderi-yorum-baslik {
+    padding: 12px;
+  }
+  .gonderi-yorum-form,
+  .gonderi-yorum-listesi {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* ---------- Film & Dizi / Günlük ---------- */
+  .filmler-page {
+    padding: 12px 0;
+  }
+  .film-hero-icerik h1 {
+    font-size: 24px;
+  }
+  .film-hero-icerik {
+    padding: 18px 14px;
+  }
+  .film-katalog-ust {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .film-ara-sekmeler .sekmeler-btn {
+    flex: 1;
+    font-size: 13px;
+    padding: 10px 8px;
+  }
+  .gunluk-icerik {
+    padding: 14px;
+  }
+
+  /* ---------- Genel ---------- */
+  .gonderi-giris-uyari {
+    padding: 20px 14px;
+  }
+  .bio-kutu,
+  .vitrin,
+  .yorumlar-alani {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .film-sonuclar {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+  .film-filtre-panel {
+    padding: 12px;
+  }
+  .profil-galeri-grid,
+  .profil-medya-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  }
+}
+
+
 
