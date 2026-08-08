@@ -360,7 +360,7 @@ async function discordUyeleriTopluCek() {
 
 // ---------- Express kurulumu ----------
 const app = express();
-app.use(express.json({ limit: "9mb" })); // base64 görsel yüklemeleri için büyütüldü
+app.use(express.json({ limit: "40mb" })); // base64 görsel/video yüklemeleri için büyütüldü
 
 // Eski .html adresleri temiz adreslere yönlendirilsin (URL'de .html görünmesin).
 app.get("/profile.html", (req, res) => res.redirect("/profil"));
@@ -1552,34 +1552,42 @@ app.post("/api/kitaplar/favori", girisGerekli, (req, res) => {
   res.json({ basarili: true, kitaplar });
 });
 
-// ---------- Görsel yükleme (kullanıcının kendi bilgisayarından) ----------
+// ---------- Görsel / video yükleme (kullanıcının kendi bilgisayarından) ----------
 // Dosya multipart yerine base64 dataURL olarak gelir (bağımlılık gerektirmez).
 const IZINLI_MIME = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/gif": "gif",
   "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
 };
-const MAKS_DOSYA_BOYUTU = 5 * 1024 * 1024; // 5MB
+const MAKS_GORSEL_BOYUTU = 5 * 1024 * 1024; // 5MB
+const MAKS_VIDEO_BOYUTU = 25 * 1024 * 1024; // 25MB
 
 app.post("/api/upload", girisGerekli, (req, res) => {
   const { dataUrl } = req.body;
   if (typeof dataUrl !== "string") {
-    return res.status(400).json({ hata: "Geçersiz görsel verisi." });
+    return res.status(400).json({ hata: "Geçersiz dosya verisi." });
   }
 
-  const eslesme = dataUrl.match(/^data:(image\/(png|jpeg|gif|webp));base64,(.+)$/);
+  const eslesme = dataUrl.match(/^data:(image\/(?:png|jpeg|gif|webp)|video\/(?:mp4|webm|quicktime));base64,(.+)$/);
   if (!eslesme) {
-    return res.status(400).json({ hata: "Sadece PNG, JPEG, GIF veya WEBP görseller yüklenebilir." });
+    return res.status(400).json({ hata: "Sadece PNG, JPEG, GIF, WEBP görseller veya MP4/WEBM/MOV videolar yüklenebilir." });
   }
 
   const mime = eslesme[1];
   const uzanti = IZINLI_MIME[mime];
-  const base64Veri = eslesme[3];
+  const base64Veri = eslesme[2];
   const arabellek = Buffer.from(base64Veri, "base64");
 
-  if (arabellek.length > MAKS_DOSYA_BOYUTU) {
-    return res.status(400).json({ hata: "Görsel çok büyük (maksimum 5MB)." });
+  const videoMu = mime.startsWith("video/");
+  const maksBoyut = videoMu ? MAKS_VIDEO_BOYUTU : MAKS_GORSEL_BOYUTU;
+  if (arabellek.length > maksBoyut) {
+    return res.status(400).json({
+      hata: videoMu ? "Video çok büyük (maksimum 25MB)." : "Görsel çok büyük (maksimum 5MB).",
+    });
   }
 
   const dosyaAdi = `${req.session.discordId}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${uzanti}`;
@@ -1588,7 +1596,7 @@ app.post("/api/upload", girisGerekli, (req, res) => {
   fs.writeFile(hedefYol, arabellek, (err) => {
     if (err) {
       console.error("Yükleme hatası:", err);
-      return res.status(500).json({ hata: "Görsel kaydedilemedi." });
+      return res.status(500).json({ hata: "Dosya kaydedilemedi." });
     }
     res.json({ basarili: true, url: `/uploads/${dosyaAdi}` });
   });
@@ -1907,6 +1915,152 @@ app.get("/api/members", async (req, res) => {
   if (degisti) yazDB(db);
   UYE_LISTESI_ONBELLEK = { zaman: Date.now(), veri: liste };
   res.json(liste);
+});
+
+// ---------- Topluluk Akışı (gönderiler) ----------
+// Twitter benzeri akış: üyeler metin + görsel/video paylaşır; herkes beğenir,
+// "Riley" ile yeniden paylaşır. Gönderiler db.json içinde en üst seviyede saklanır.
+
+function gonderileriOku(db) {
+  return Array.isArray(db.gonderiler) ? db.gonderiler : [];
+}
+
+// Gönderi listesini yazar bilgisi + oturum sahibinin beğeni/riley durumuyla zenginleştir.
+// Discord'a tek istek atılır (üye haritası); her gönderi için ayrı istek atılmaz.
+async function gonderilerYanit(gonderiler, benimId) {
+  const uyeHaritasi = await discordUyeleriTopluCek();
+  const db = okuDB();
+  return gonderiler.map((g) => {
+    const uye = uyeHaritasi.get(String(g.yazanId));
+    const profil = db.profiles[g.yazanId] || {};
+    const begenenler = Array.isArray(g.begenenler) ? g.begenenler : [];
+    const rileyler = Array.isArray(g.rileyler) ? g.rileyler : [];
+    return {
+      ...g,
+      yazan: {
+        id: g.yazanId,
+        kullaniciAdi: uye ? uye.kullaniciAdi : (g.yazanAd || "Üye"),
+        avatar: profil.avatar || (uye ? uye.avatar : varsayilanAvatar(g.yazanId)),
+      },
+      begeniSayisi: begenenler.length,
+      rileySayisi: rileyler.length,
+      begenildi: benimId ? begenenler.includes(String(benimId)) : false,
+      rileyEdildi: benimId ? rileyler.includes(String(benimId)) : false,
+    };
+  });
+}
+
+function gonderiMedyaTemizle(medya) {
+  if (!medya || typeof medya !== "object") return null;
+  const tur = medya.tur === "video" ? "video" : "image";
+  const url = String(medya.url || "");
+  if (!/^\/uploads\/[\w\-.]+$/.test(url)) return null;
+  return { tur, url };
+}
+
+// Ana akış: en yeni gönderiler
+app.get("/api/gonderiler", async (req, res) => {
+  const db = okuDB();
+  const liste = gonderileriOku(db)
+    .slice()
+    .sort((a, b) => new Date(b.tarih) - new Date(a.tarih))
+    .slice(0, 100);
+  const sonuc = await gonderilerYanit(liste, req.session.discordId);
+  res.json({ gonderiler: sonuc });
+});
+
+// Gönderi paylaş (metin ve/veya medya)
+app.post("/api/gonderiler", girisGerekli, async (req, res) => {
+  const metin = (req.body.metin || "").trim().slice(0, 500);
+  const medya = gonderiMedyaTemizle(req.body.medya);
+  if (!metin && !medya) {
+    return res.status(400).json({ hata: "Boş gönderi paylaşılamaz. Bir şeyler yaz veya medya ekle." });
+  }
+  const db = okuDB();
+  db.gonderiler = gonderileriOku(db);
+  const gonderi = {
+    id: `gonderi-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    yazanId: req.session.discordId,
+    metin,
+    medya,
+    begenenler: [],
+    rileyler: [],
+    tarih: new Date().toISOString(),
+  };
+  db.gonderiler.unshift(gonderi);
+  db.gonderiler = db.gonderiler.slice(0, 1000);
+  yazDB(db);
+  const uye = await discordUyeBilgisiCek(req.session.discordId);
+  logEkle(
+    req.session.discordId,
+    uye ? uye.kullaniciAdi : "Üye",
+    "gonderi-ekle",
+    metin ? metin.slice(0, 90) : (medya ? `${medya.tur === "video" ? "Video" : "Görsel"} paylaştı` : "")
+  );
+  const sonuc = await gonderilerYanit([gonderi], req.session.discordId);
+  res.json({ basarili: true, gonderi: sonuc[0] });
+});
+
+// Gönderi beğen / beğenmekten vazgeç
+app.post("/api/gonderiler/:id/begen", girisGerekli, (req, res) => {
+  const db = okuDB();
+  const g = gonderileriOku(db).find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  g.begenenler = Array.isArray(g.begenenler) ? g.begenenler : [];
+  const idx = g.begenenler.indexOf(req.session.discordId);
+  if (idx >= 0) g.begenenler.splice(idx, 1);
+  else g.begenenler.push(req.session.discordId);
+  yazDB(db);
+  res.json({ basarili: true, begenildi: idx < 0, begeniSayisi: g.begenenler.length });
+});
+
+// Riley (yeniden paylaşım) aç / kapat
+app.post("/api/gonderiler/:id/riley", girisGerekli, (req, res) => {
+  const db = okuDB();
+  const g = gonderileriOku(db).find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  g.rileyler = Array.isArray(g.rileyler) ? g.rileyler : [];
+  const idx = g.rileyler.indexOf(req.session.discordId);
+  if (idx >= 0) g.rileyler.splice(idx, 1);
+  else g.rileyler.push(req.session.discordId);
+  yazDB(db);
+  res.json({ basarili: true, rileyEdildi: idx < 0, rileySayisi: g.rileyler.length });
+});
+
+// Gönderi sil (sadece sahibi veya yönetici)
+app.delete("/api/gonderiler/:id", girisGerekli, (req, res) => {
+  const db = okuDB();
+  const liste = gonderileriOku(db);
+  const g = liste.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ hata: "Gönderi bulunamadı." });
+  if (g.yazanId !== req.session.discordId && !adminMi(req.session.discordId)) {
+    return res.status(403).json({ hata: "Bu gönderiyi silme yetkin yok." });
+  }
+  db.gonderiler = liste.filter((x) => x.id !== req.params.id);
+  yazDB(db);
+  res.json({ basarili: true });
+});
+
+// Bir üyenin kendi gönderileri
+app.get("/api/profile/:id/gonderiler", async (req, res) => {
+  const db = okuDB();
+  const liste = gonderileriOku(db)
+    .filter((g) => g.yazanId === req.params.id)
+    .sort((a, b) => new Date(b.tarih) - new Date(a.tarih))
+    .slice(0, 50);
+  const sonuc = await gonderilerYanit(liste, req.session.discordId);
+  res.json({ gonderiler: sonuc });
+});
+
+// Bir üyenin Riley'lediği (yeniden paylaştığı) gönderiler
+app.get("/api/profile/:id/rileyler", async (req, res) => {
+  const db = okuDB();
+  const liste = gonderileriOku(db)
+    .filter((g) => Array.isArray(g.rileyler) && g.rileyler.includes(String(req.params.id)))
+    .sort((a, b) => new Date(b.tarih) - new Date(a.tarih))
+    .slice(0, 50);
+  const sonuc = await gonderilerYanit(liste, req.session.discordId);
+  res.json({ gonderiler: sonuc });
 });
 
 // ---------- Sunucu Başlatma ----------

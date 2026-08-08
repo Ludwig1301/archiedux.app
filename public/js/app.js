@@ -1123,6 +1123,7 @@ async function profilSayfasiBaslat() {
   YORUM_SAYFALAMA = veri.profil.yorumSayfalama || YORUM_SAYFALAMA;
   yorumlariCiz(veri.profil.yorumlar || [], YORUM_SAYFALAMA);
   spotifyYukle(GORUNTULENEN_ID);
+  profilRileyGoster(GORUNTULENEN_ID);
 
   // düzenleme formunu mevcut verilerle önceden doldur
   document.getElementById("formUnvan").value = veri.profil.unvan || "";
@@ -3882,6 +3883,8 @@ const LOG_TUR_ETIKET = {
   "yorum": "profiline yorum yazdı",
   "galeri-ekle": "galeriye görsel ekledi",
   "galeri-yorum": "galeriye yorum yazdı",
+  "gonderi-ekle": "gönderi paylaştı",
+  "gonderi-sil": "gönderi sildi",
 };
 
 async function logSayfasiBaslat() {
@@ -3931,6 +3934,325 @@ function logListeCiz(loglar) {
       </div>
     </div>
   `).join("");
+}
+
+// ---------- Topluluk Akışı (anasayfa) ----------
+// Twitter benzeri akış: üyeler gönderi paylaşır, beğenir ve "Riley" ile yeniden paylaşır.
+const RIYEL_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
+const BEGEN_IKON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+let GONDERI_AKIS = [];
+let GONDERI_MEDYA = null;
+let GUNCEL_PROFIL_RILEYLER = [];
+let GUNCEL_PROFIL_RILEY_ACIK = false;
+
+// Anasayfa başlatıcı: navbar + kompozitör + akış
+async function anasayfaAkisBaslat() {
+  const ben = await navBarDoldur();
+  BENIM_ID = ben && ben.girisYapti ? ben.id : null;
+  BENIM_ADMIN = ben && ben.girisYapti && ben.admin === true;
+  const kompozitor = document.getElementById("gonderiKompozitor");
+  const girisUyari = document.getElementById("gonderiGirisUyari");
+  if (ben && ben.girisYapti) {
+    if (kompozitor) kompozitor.style.display = "";
+    if (girisUyari) girisUyari.style.display = "none";
+    const avatarEl = document.getElementById("kompAvatar");
+    if (avatarEl) avatarEl.src = ben.avatar || "";
+  } else {
+    if (kompozitor) kompozitor.style.display = "none";
+    if (girisUyari) girisUyari.style.display = "";
+  }
+  await gonderiAkisYukle();
+}
+
+async function gonderiAkisYukle(yenile) {
+  const kutu = document.getElementById("gonderiAkis");
+  if (!kutu) return;
+  if (yenile) kutu.innerHTML = '<span class="bos-hint">Yenileniyor...</span>';
+  try {
+    const res = await apiFetch("/api/gonderiler");
+    if (!res.ok) throw new Error("Akış yüklenemedi.");
+    const veri = await res.json();
+    GONDERI_AKIS = veri.gonderiler || [];
+    gonderiAkisCiz();
+  } catch (e) {
+    if (!yenile) kutu.innerHTML = '<span class="bos-hint">Akış şu anda yüklenemedi. Birkaç saniye sonra yenile.</span>';
+  }
+}
+
+function gonderiAkisCiz() {
+  const kutu = document.getElementById("gonderiAkis");
+  if (!kutu) return;
+  if (!GONDERI_AKIS.length) {
+    kutu.innerHTML = '<div class="gonderi-bos">Henüz gönderi yok. İlk gönderiyi sen paylaş!</div>';
+    return;
+  }
+  kutu.innerHTML = GONDERI_AKIS.map((g) => gonderiKartHTML(g)).join("");
+}
+
+// Gönderi metni: satır sonlarını koru ve linkleri tıklanabilir yap
+function gonderiMetinGoster(metin) {
+  const guvenli = htmlEsc(metin).replace(/\r?\n/g, "<br>");
+  return guvenli.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+function gonderiTarihYaz(tarih) {
+  return yorumTarihYaz(tarih);
+}
+
+function gonderiKartHTML(g) {
+  const yazan = g.yazan || {};
+  const silinebilir = BENIM_ID && (g.yazanId === BENIM_ID || BENIM_ADMIN);
+  const medya = g.medya
+    ? g.medya.tur === "video"
+      ? `<video src="${htmlEsc(g.medya.url)}" controls preload="metadata" class="gonderi-video"></video>`
+      : `<img src="${htmlEsc(g.medya.url)}" alt="" loading="lazy" class="gonderi-resim" onerror="gorselHataYerineIcon(this)" />`
+    : "";
+  return `
+    <article class="gonderi-kart" id="gonderi-${g.id}">
+      <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-avatar-link">
+        <img src="${htmlEsc(yazan.avatar)}" alt="${htmlEsc(yazan.kullaniciAdi)}" loading="lazy" class="gonderi-avatar" />
+      </a>
+      <div class="gonderi-ic">
+        <div class="gonderi-ust">
+          <span class="gonderi-sol">
+            <a href="/profil?id=${encodeURIComponent(g.yazanId)}" class="gonderi-yazar">${htmlEsc(yazan.kullaniciAdi)}</a>
+            ${gonderiTarihYaz(g.tarih)}
+          </span>
+          ${silinebilir ? `<button type="button" class="gonderi-sil" title="Gönderiyi sil" onclick="gonderiSil('${g.id}')">×</button>` : ""}
+        </div>
+        ${g.metin ? `<p class="gonderi-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
+        ${g.medya ? `<div class="gonderi-medya">${medya}</div>` : ""}
+        <div class="gonderi-alt">
+          <button type="button" class="gonderi-aksiyon ${g.begenildi ? "aktif" : ""}" title="Beğen" onclick="gonderiBegen('${g.id}', this)">
+            ${BEGEN_IKON}<span>${g.begeniSayisi ? g.begeniSayisi : ""}</span>
+          </button>
+          <button type="button" class="gonderi-aksiyon ${g.rileyEdildi ? "aktif" : ""}" title="Riley — yeniden paylaş" onclick="gonderiRiley('${g.id}', this)">
+            ${RIYEL_IKON}<span>${g.rileySayisi ? g.rileySayisi : ""}</span>
+          </button>
+        </div>
+      </div>
+    </article>`;
+}
+
+function gonderiMedyaSec(dosya) {
+  const durum = document.getElementById("kompDurum");
+  if (!dosya) return;
+  const tur = dosya.type || "";
+  const videoMu = tur.startsWith("video/");
+  const resimMu = tur.startsWith("image/");
+  if (!videoMu && !resimMu) {
+    if (durum) durum.innerText = "Sadece görsel veya video yüklenebilir.";
+    return;
+  }
+  const maks = videoMu ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+  if (dosya.size > maks) {
+    if (durum) durum.innerText = videoMu ? "Video maksimum 25MB olmalı." : "Görsel maksimum 5MB olmalı.";
+    return;
+  }
+  const oku = new FileReader();
+  oku.onload = async () => {
+    if (durum) durum.innerText = "Yükleniyor...";
+    try {
+      const res = await apiFetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: oku.result }),
+      }, 60000);
+      if (!res.ok) {
+        const v = await res.json().catch(() => ({}));
+        if (durum) durum.innerText = v.hata || "Yükleme başarısız.";
+        return;
+      }
+      const v = await res.json();
+      GONDERI_MEDYA = { tur: videoMu ? "video" : "image", url: v.url };
+      gonderiMedyaOnizle();
+      if (durum) durum.innerText = "";
+    } catch (e) {
+      if (durum) durum.innerText = "Yükleme başarısız, tekrar dene.";
+    }
+  };
+  oku.onerror = () => { if (durum) durum.innerText = "Dosya okunamadı."; };
+  oku.readAsDataURL(dosya);
+}
+
+function gonderiMedyaOnizle() {
+  const kutu = document.getElementById("kompMedyaOnizleme");
+  const resim = document.getElementById("kompMedyaResim");
+  const video = document.getElementById("kompMedyaVideo");
+  if (!kutu) return;
+  if (!GONDERI_MEDYA) {
+    kutu.style.display = "none";
+    return;
+  }
+  kutu.style.display = "";
+  if (GONDERI_MEDYA.tur === "video") {
+    video.src = GONDERI_MEDYA.url;
+    video.style.display = "";
+    resim.style.display = "none";
+  } else {
+    resim.src = GONDERI_MEDYA.url;
+    resim.style.display = "";
+    video.style.display = "none";
+  }
+}
+
+function gonderiMedyaKaldir() {
+  GONDERI_MEDYA = null;
+  gonderiMedyaOnizle();
+}
+
+async function gonderiPaylas() {
+  if (!BENIM_ID) { window.location.href = "/auth/login"; return; }
+  const metinEl = document.getElementById("gonderiMetni");
+  const durum = document.getElementById("kompDurum");
+  const metin = (metinEl.value || "").trim();
+  if (!metin && !GONDERI_MEDYA) {
+    if (durum) durum.innerText = "Bir şeyler yaz veya medya ekle.";
+    return;
+  }
+  const btn = document.getElementById("kompPaylasBtn");
+  if (btn) btn.disabled = true;
+  if (durum) durum.innerText = "Paylaşılıyor...";
+  try {
+    const res = await apiFetch("/api/gonderiler", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metin, medya: GONDERI_MEDYA }),
+    });
+    if (!res.ok) {
+      const v = await res.json().catch(() => ({}));
+      throw new Error(v.hata || "Paylaşılamadı.");
+    }
+    await res.json();
+    metinEl.value = "";
+    GONDERI_MEDYA = null;
+    gonderiMedyaOnizle();
+    if (durum) durum.innerText = "";
+    await gonderiAkisYukle(true);
+  } catch (e) {
+    if (durum) durum.innerText = e.message || "Paylaşılamadı, tekrar dene.";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function gonderiBegen(id, btn) {
+  if (!BENIM_ID) { window.location.href = "/auth/login"; return; }
+  try {
+    const res = await apiFetch(`/api/gonderiler/${id}/begen`, { method: "POST" });
+    if (!res.ok) throw new Error("Beğeni yapılamadı.");
+    const v = await res.json();
+    if (btn) {
+      btn.classList.toggle("aktif", v.begenildi);
+      const s = btn.querySelector("span");
+      if (s) s.innerText = v.begeniSayisi ? v.begeniSayisi : "";
+    }
+    const g = GONDERI_AKIS.find((x) => x.id === id);
+    if (g) { g.begenildi = v.begenildi; g.begeniSayisi = v.begeniSayisi; }
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+async function gonderiRiley(id, btn) {
+  if (!BENIM_ID) { window.location.href = "/auth/login"; return; }
+  try {
+    const res = await apiFetch(`/api/gonderiler/${id}/riley`, { method: "POST" });
+    if (!res.ok) throw new Error("Riley yapılamadı.");
+    const v = await res.json();
+    if (btn) {
+      btn.classList.toggle("aktif", v.rileyEdildi);
+      const s = btn.querySelector("span");
+      if (s) s.innerText = v.rileySayisi ? v.rileySayisi : "";
+    }
+    const g = GONDERI_AKIS.find((x) => x.id === id);
+    if (g) { g.rileyEdildi = v.rileyEdildi; g.rileySayisi = v.rileySayisi; }
+  } catch (e) {
+    /* yoksay */
+  }
+}
+
+async function gonderiSil(id) {
+  if (!BENIM_ID) return;
+  if (!confirm("Bu gönderiyi silmek istiyor musun?")) return;
+  try {
+    const res = await apiFetch(`/api/gonderiler/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Silinemedi.");
+    const kart = document.getElementById(`gonderi-${id}`);
+    if (kart) kart.remove();
+    GONDERI_AKIS = GONDERI_AKIS.filter((x) => x.id !== id);
+    if (GUNCEL_PROFIL_RILEYLER.length) profilRileyCiz(GORUNTULENEN_ID || null);
+  } catch (e) {
+    alert(e.message || "Gönderi silinemedi.");
+  }
+}
+
+// ---------- Profil: Riley (retweet) bölümü ----------
+async function profilRileyGoster(kisiId) {
+  const kutu = document.getElementById("pRileyler");
+  if (!kutu) return;
+  if (kutu.dataset.yuklendi === kisiId) {
+    profilRileyCiz(kisiId);
+    return;
+  }
+  try {
+    const res = await apiFetch(`/api/profile/${kisiId}/rileyler`);
+    if (!res.ok) throw new Error("Riley'ler yüklenemedi.");
+    const veri = await res.json();
+    GUNCEL_PROFIL_RILEYLER = veri.gonderiler || [];
+    kutu.dataset.yuklendi = kisiId;
+    profilRileyCiz(kisiId);
+  } catch (e) {
+    kutu.innerHTML = "<span class=\"bos-hint\">Riley'ler şu anda yüklenemedi.</span>";
+  }
+}
+
+function profilRileyCiz(kisiId) {
+  const kutu = document.getElementById("pRileyler");
+  if (!kutu) return;
+  const sayac = document.getElementById("pRileySayac");
+  if (sayac) sayac.innerText = GUNCEL_PROFIL_RILEYLER.length
+    ? `${GUNCEL_PROFIL_RILEYLER.length} gönderi`
+    : "Henüz Riley yapmamış.";
+  if (!GUNCEL_PROFIL_RILEYLER.length) {
+    kutu.innerHTML = '<span class="bos-hint">Henüz Riley yapılmış gönderi yok.</span>';
+    const daha = document.getElementById("pRileyDaha");
+    if (daha) daha.style.display = "none";
+    return;
+  }
+  const gosterilecek = GUNCEL_PROFIL_RILEY_ACIK ? GUNCEL_PROFIL_RILEYLER : GUNCEL_PROFIL_RILEYLER.slice(0, 3);
+  kutu.innerHTML = gosterilecek.map((g) => profilRileyKartHTML(g)).join("");
+  const daha = document.getElementById("pRileyDaha");
+  if (daha) {
+    const cokVar = GUNCEL_PROFIL_RILEYLER.length > 3;
+    daha.style.display = cokVar ? "" : "none";
+    daha.innerText = GUNCEL_PROFIL_RILEY_ACIK ? "Daha az göster" : `Tümünü göster (${GUNCEL_PROFIL_RILEYLER.length})`;
+  }
+}
+
+function profilRileyAcKapat() {
+  GUNCEL_PROFIL_RILEY_ACIK = !GUNCEL_PROFIL_RILEY_ACIK;
+  profilRileyCiz(GORUNTULENEN_ID || null);
+}
+
+function profilRileyKartHTML(g) {
+  const yazan = g.yazan || {};
+  return `
+    <div class="profil-riley-kart">
+      <div class="profil-riley-kart-ust">
+        <img src="${htmlEsc(yazan.avatar)}" alt="${htmlEsc(yazan.kullaniciAdi)}" loading="lazy" />
+        <span class="profil-riley-kart-ad">
+          <a href="/profil?id=${encodeURIComponent(g.yazanId)}">${htmlEsc(yazan.kullaniciAdi)}</a>
+          ${gonderiTarihYaz(g.tarih)}
+        </span>
+      </div>
+      ${g.metin ? `<p class="profil-riley-kart-metin">${gonderiMetinGoster(g.metin)}</p>` : ""}
+      ${g.medya
+        ? g.medya.tur === "video"
+          ? `<video src="${htmlEsc(g.medya.url)}" controls preload="metadata" class="profil-riley-video"></video>`
+          : `<img src="${htmlEsc(g.medya.url)}" alt="" loading="lazy" class="profil-riley-resim" onerror="this.style.display='none'" />`
+        : ""}
+    </div>`;
 }
 
 // ---------- Oynatıcıyı başlat (dosya sonunda; tüm tanımlar hazır olduktan sonra) ----------
