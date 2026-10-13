@@ -1,4 +1,5 @@
 node_modules/
+dublaj/.next/
 .env
 _srv_out.txt
 _srv_err.txt

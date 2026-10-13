@@ -13,6 +13,16 @@ async function navBarDoldur() {
   const navSag = document.getElementById("navSag");
   if (!navSag) return;
 
+  const navSol = document.querySelector(".nav-sol");
+  const filmLink = navSol?.querySelector('a[href="/filmler"]');
+  if (navSol && filmLink && !navSol.querySelector('a[href="/dublaj/"]')) {
+    const dublajLink = document.createElement("a");
+    dublajLink.href = "/dublaj/";
+    dublajLink.className = "nav-link";
+    dublajLink.textContent = "DUBLAJ";
+    filmLink.insertAdjacentElement("afterend", dublajLink);
+  }
+
   let veri = { girisYapti: false };
   try {
     const res = await apiFetch("/api/me");
@@ -4999,4 +5009,3 @@ try {
 setInterval(() => {
   if (GUNCEL_PLAYER && GUNCEL_PLAYER_OYNUYOR) muzikKaydet();
 }, 5000);
-

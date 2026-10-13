@@ -124,3 +124,49 @@ Hangisini seçersen seç, canlıya aldığında:
 - **veritabanı basit bir JSON dosyası** — küçük bir topluluk için sorun
   değil, ama çok büyürse (binlerce üye, çok yoğun trafik) gerçek bir
   veritabanına (SQLite/Postgres) geçmek gerekebilir.
+
+## 6) Replik Kulübü (MVP)
+
+Lisansı açık sahnelerle oda kodu üzerinden birlikte seslendirme deneyimi
+`dublaj/` altında ayrı bir Next.js + Socket.IO servisi olarak geliştirilir.
+Ana uygulama ve veritabanından ayrıdır; Express sunucusunu değiştirmez.
+
+Yerelde çalıştırmak için:
+
+```bash
+cd dublaj
+npm install
+npm run dev
+```
+
+Ardından `http://localhost:3100/dublaj` adresini aç. Mikrofon kaydı için
+tarayıcı izni gerekir. Oda kayıtları geçici olarak bellekte tutulur; servis
+kapanınca silinir ve kalıcı kayıt oluşturulmaz.
+
+Canlıya almak için `npm run build` sonrasında `server.mjs` ayrı bir PM2
+process'i olarak `127.0.0.1:3100` portunda çalıştırılmalı; Nginx,
+`/dublaj` adresini `/dublaj/` adresine yönlendirmeli ve `/dublaj/`
+isteklerini (Socket.IO dahil) `http://127.0.0.1:3100` adresine WebSocket
+upgrade başlıklarıyla iletmelidir. Nginx `location /` kuralından önce:
+
+```nginx
+location = /dublaj { return 308 /dublaj/; }
+location /dublaj/ {
+    proxy_pass http://127.0.0.1:3100;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Bu Nginx route'u eklenmeden ana uygulamada yayına çıkmaz. Canlıya almadan
+önce Nginx yapılandırması ve mevcut kullanıcı verileri yedeklenmelidir.
+
+Sahne kataloğunda yalnızca lisans/kaynak bilgisi doğrulanmış medya yer
+almalıdır. Örnek sahne “Tears of Steel” için Blender Foundation'ın resmi
+YouTube gömme oynatıcısını ve CC BY 3.0 atfını kullanır; Türkçe altyazılar
+lisanslı İngilizce altyazıdan uyarlanmıştır. Kullanıcı videoları veya
+altyazıları sunucuya indirilmez ya da yeniden barındırılmaz.
