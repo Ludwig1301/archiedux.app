@@ -145,20 +145,34 @@ kapanınca silinir ve kalıcı kayıt oluşturulmaz.
 
 Canlıya almak için `npm run build` sonrasında `server.mjs` ayrı bir PM2
 process'i olarak `127.0.0.1:3100` portunda çalıştırılmalı; Nginx,
-`/dublaj` adresini `/dublaj/` adresine yönlendirmeli ve `/dublaj/`
-isteklerini (Socket.IO dahil) `http://127.0.0.1:3100` adresine WebSocket
-upgrade başlıklarıyla iletmelidir. Nginx `location /` kuralından önce:
+`/dublaj` ve altındaki yolları (Socket.IO dahil)
+`http://127.0.0.1:3100` adresine WebSocket upgrade başlıklarıyla
+iletmelidir. Next.js uygulaması `/dublaj` adresini kanonik kullanır;
+`/dublaj/` bu adrese yönlendirilir. Bu kuralları Nginx `location /`
+kuralından önce ekleyin:
 
 ```nginx
-location = /dublaj { return 308 /dublaj/; }
+location = /dublaj {
+    proxy_pass http://127.0.0.1:3100;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+}
 location /dublaj/ {
     proxy_pass http://127.0.0.1:3100;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
 }
 ```
 
