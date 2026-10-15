@@ -39,9 +39,6 @@ export default function SiteHeader() {
           <Link href="/tr/oda-kur" className="button-primary min-h-10 px-4 text-sm">
             Oda kur
           </Link>
-          <Link href="/#uyelik" className="focus-ring hidden rounded-lg border border-lilac/30 px-3 py-2 text-sm font-semibold text-lilac hover:bg-lilac/10 lg:inline-flex">
-            VIP ol
-          </Link>
         </div>
       </div>
     </header>

@@ -660,6 +660,10 @@ export default function RoomClient({ code }) {
   }
 
   const activeLine = scene.lines.find((line) => line.id === playback.lineId);
+  const myLines = scene.lines.filter(
+    (line) => currentPlayer.characterId && line.characterId === currentPlayer.characterId,
+  );
+  const recordedCount = scene.lines.filter((line) => room.recordings?.[line.id]).length;
 
   return (
     <main className="min-h-screen">
@@ -703,12 +707,21 @@ export default function RoomClient({ code }) {
             </a>
           </div>
 
-          <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black">
+          <div
+            className={`relative aspect-video overflow-hidden rounded-2xl border bg-black shadow-glow ${
+              take.phase === "recording" ? "border-red-500/60" : "border-white/10"
+            }`}
+          >
             <div ref={videoMountRef} className="h-full w-full" />
             {!videoReady && (
               <div className="absolute inset-0 grid place-items-center text-sm text-zinc-500">
-                Lisanslı video oynatıcı yükleniyor…
+                Video oynatıcı yükleniyor…
               </div>
+            )}
+            {take.phase === "recording" && (
+              <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-red-500/90 px-3 py-1 text-xs font-bold text-white">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> KAYIT
+              </span>
             )}
             {take.phase && (
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4">
@@ -749,11 +762,28 @@ export default function RoomClient({ code }) {
 
           <div className="surface mt-4 rounded-2xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-bold">Repliklerin</h2>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Kaydet'e bas; video repliğin başına sarar, geri sayımdan sonra sesin kaydolur. Kayıtlar oda üyeleriyle paylaşılır.
-                </p>
+              <div className="flex items-center gap-3">
+                <span
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xl"
+                  aria-hidden="true"
+                >
+                  🎙️
+                </span>
+                <div>
+                  <h2 className="font-bold">Stüdyo</h2>
+                  <p className="text-xs text-zinc-500">
+                    {currentCharacter ? (
+                      <>
+                        Rolün:{" "}
+                        <span className="font-semibold" style={{ color: currentCharacter.color }}>
+                          {currentCharacter.name}
+                        </span>
+                      </>
+                    ) : (
+                      "Oda kurucusunun sana rol atamasını bekle"
+                    )}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -764,70 +794,94 @@ export default function RoomClient({ code }) {
               </button>
             </div>
 
-            {!currentCharacter && (
-              <p className="mt-4 rounded-xl bg-amber-200/10 p-3 text-sm text-amber-100">
-                Henüz bir karakterin yok; oda kurucusu sana rol atayabilir.
+            {!currentCharacter ? (
+              <p className="mt-4 rounded-xl border border-amber-200/20 bg-amber-200/10 p-3 text-sm text-amber-100">
+                Henüz bir karakterin yok; oda kurucusu roller bölümünden sana rol atayabilir.
               </p>
-            )}
-
-            <div className="mt-4 space-y-3">
-              {scene.lines.map((line) => {
-                const character = scene.characters.find((item) => item.id === line.characterId);
-                const assignedPlayer = room.players.find((player) => player.characterId === line.characterId);
-                const local = localRecordings[line.id];
-                const submitted = room.recordings?.[line.id];
-                const canRecord = currentPlayer.characterId === line.characterId;
-                const isTaking = take.lineId === line.id;
-                return (
-                  <article
-                    key={line.id}
-                    className={`rounded-xl border p-4 ${
-                      canRecord ? "border-lilac/25 bg-lilac/[0.045]" : "border-white/[0.07] bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: character?.color }} />
-                        <span className="font-semibold" style={{ color: character?.color }}>
-                          {character?.name}
+            ) : myLines.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-sm text-zinc-400">
+                Bu sahnede rolüne ait replik yok.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {myLines.map((line) => {
+                  const local = localRecordings[line.id];
+                  const submitted = room.recordings?.[line.id];
+                  const isTaking = take.lineId === line.id;
+                  return (
+                    <article
+                      key={line.id}
+                      className={`rounded-2xl border p-4 transition ${
+                        isTaking
+                          ? "border-red-400/40 bg-red-400/[0.06]"
+                          : submitted
+                            ? "border-mint/30 bg-mint/[0.05]"
+                            : "border-lilac/25 bg-lilac/[0.05]"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: currentCharacter.color }} />
+                          <span className="font-semibold" style={{ color: currentCharacter.color }}>
+                            {currentCharacter.name}
+                          </span>
+                          {submitted && <span className="text-mint">· odaya gönderildi ✓</span>}
                         </span>
-                        <span className="text-zinc-600">· {assignedPlayer?.name || "rol bekleniyor"}</span>
+                        <span className="font-mono text-zinc-500">
+                          {line.start.toFixed(1)}s – {line.end.toFixed(1)}s
+                        </span>
                       </div>
-                      <span className="font-mono text-xs text-zinc-500">
-                        {line.start.toFixed(1)}s – {line.end.toFixed(1)}s
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-zinc-100">{line.text}</p>
-                    {canRecord && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {isTaking && take.phase ? (
-                          <button onClick={stopRecording} className="button-secondary border-red-400/40 text-red-200">
-                            ■ Kaydı bitir
-                          </button>
-                        ) : (
+                      <p className="mt-2 text-base leading-7 text-zinc-100">{line.text}</p>
+
+                      {isTaking && take.phase ? (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-2 text-sm font-semibold">
+                              <span className={`h-2.5 w-2.5 rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`} />
+                              {take.phase === "countdown" ? `Hazır ol! ${take.count}` : "Kaydediliyor…"}
+                            </span>
+                            <button onClick={stopRecording} className="button-secondary border-red-400/40 text-red-200">
+                              ■ {take.phase === "countdown" ? "İptal" : "Kaydı bitir"}
+                            </button>
+                          </div>
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
+                            <div
+                              className={`h-full rounded-full transition-all ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`}
+                              style={{ width: `${(take.phase === "recording" ? take.progress : 0) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
                           <button
                             onClick={() => startRecording(line)}
                             disabled={Boolean(take.phase)}
-                            className="button-secondary disabled:opacity-40"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-red-500 px-5 font-bold text-white shadow-lg transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            ● {local ? "Yeniden kaydet" : "Kaydet"}
+                            <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-white" />
+                            {local ? "Yeniden kaydet" : "Kaydı başlat"}
                           </button>
-                        )}
-                        {local && !isTaking && (
-                          <>
-                            <audio className="h-9 max-w-[190px]" controls src={local.url} />
-                            <button onClick={() => submitRecording(line)} className="button-primary min-h-9 px-3 text-xs">
-                              Odaya gönder
-                            </button>
-                          </>
-                        )}
-                        {submitted && <span className="text-xs text-mint">Odaya gönderildi ✓</span>}
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
+                          {local && (
+                            <>
+                              <audio className="h-10 max-w-[220px]" controls src={local.url} />
+                              <button onClick={() => submitRecording(line)} className="button-primary min-h-10 px-4 text-sm">
+                                Odaya gönder
+                              </button>
+                            </>
+                          )}
+                          {!local && !submitted && (
+                            <span className="text-xs text-zinc-500">
+                              Video repliğin başına sarar, geri sayımdan sonra kayıt başlar.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
             {status && (
               <p role="status" className="mt-3 text-xs text-mint">
                 {status}
@@ -838,6 +892,49 @@ export default function RoomClient({ code }) {
                 {error}
               </p>
             )}
+          </div>
+
+          <div className="surface mt-4 rounded-2xl p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-bold">Senaryo</h2>
+              <span className="text-xs text-zinc-500">
+                {recordedCount}/{scene.lines.length} replik kaydı hazır
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {scene.lines.map((line, index) => {
+                const character = scene.characters.find((item) => item.id === line.characterId);
+                const owner = room.players.find((player) => player.characterId === line.characterId);
+                const submitted = room.recordings?.[line.id];
+                const isActive = playback.lineId === line.id || take.lineId === line.id;
+                return (
+                  <div
+                    key={line.id}
+                    className={`flex gap-3 rounded-xl border p-3 transition ${
+                      isActive ? "border-lilac/50 bg-lilac/[0.08]" : "border-white/[0.06] bg-white/[0.02]"
+                    }`}
+                  >
+                    <span className="w-6 shrink-0 text-center font-mono text-xs text-zinc-500">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: character?.color }} />
+                        <span className="font-semibold" style={{ color: character?.color }}>
+                          {character?.name}
+                        </span>
+                        <span className="text-zinc-600">· {owner?.name || "rol bekliyor"}</span>
+                        {submitted && <span className="text-mint">· hazır ✓</span>}
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-zinc-200">{line.text}</p>
+                    </div>
+                    <span className="shrink-0 self-start font-mono text-[11px] text-zinc-600">
+                      {line.start.toFixed(0)}–{line.end.toFixed(0)}s
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -899,10 +996,16 @@ export default function RoomClient({ code }) {
               <div>
                 <h2 className="font-bold">Ortak izleme</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {scene.lines.filter((line) => room.recordings?.[line.id]).length}/{scene.lines.length} replik kaydı hazır
+                  {recordedCount}/{scene.lines.length} replik kaydı hazır
                 </p>
               </div>
               <span className="text-xl text-lilac">♫</span>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-lilac to-mint transition-all"
+                style={{ width: `${scene.lines.length ? (recordedCount / scene.lines.length) * 100 : 0}%` }}
+              />
             </div>
             {playback.active ? (
               <button onClick={requestStop} className="button-secondary mt-4 w-full border-red-400/40 text-red-200">

@@ -11,6 +11,7 @@ const steps = [
 ];
 
 export default function HomePage() {
+  const featured = scenes[0];
   return (
     <>
       <SiteHeader />
@@ -62,34 +63,42 @@ export default function HomePage() {
               <div className="surface relative overflow-hidden rounded-[1.7rem] p-4 shadow-glow">
                 <div className="flex items-center justify-between px-2 pb-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.17em] text-zinc-500">Şimdi odada</p>
-                    <p className="mt-1 text-sm font-semibold">Tutkuların peşinde</p>
+                    <p className="text-xs uppercase tracking-[0.17em] text-zinc-500">Şimdi sahnede</p>
+                    <p className="mt-1 text-sm font-semibold">{featured.title}</p>
                   </div>
                   <span className="flex items-center gap-2 rounded-full bg-mint/10 px-3 py-1.5 text-xs text-mint">
-                    <span className="h-1.5 w-1.5 rounded-full bg-mint" /> 2 oyuncu
+                    <span className="h-1.5 w-1.5 rounded-full bg-mint" /> {featured.players} rol
                   </span>
                 </div>
-                <div className="relative grid aspect-video place-items-center overflow-hidden rounded-xl bg-[radial-gradient(ellipse_at_70%_40%,rgba(135,105,220,.45),transparent_45%),linear-gradient(125deg,#252938,#101117_58%,#19211f)]">
-                  <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(transparent_96%,rgba(255,255,255,.06)_97%),linear-gradient(90deg,transparent_96%,rgba(255,255,255,.06)_97%)] [background-size:26px_26px]" />
-                  <div className="relative grid h-16 w-16 place-items-center rounded-full border border-white/30 bg-white/10 text-2xl backdrop-blur">▶</div>
-                  <span className="absolute bottom-4 left-4 rounded-lg bg-black/40 px-3 py-1.5 text-xs text-zinc-200">Tears of Steel · CC BY 3.0</span>
+                <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+                  <iframe
+                    className="h-full w-full"
+                    src={`https://www.youtube-nocookie.com/embed/${featured.videoId}?start=${featured.sourceStart}&end=${featured.sourceEnd}&autoplay=1&mute=1&loop=1&playlist=${featured.videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
+                    title={`${featured.film} — ${featured.title}`}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                  <span className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/55 px-3 py-1.5 text-xs text-zinc-100">
+                    {featured.film} · CC BY 3.0
+                  </span>
                 </div>
                 <div className="mt-4 rounded-xl border border-lilac/20 bg-lilac/[0.06] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-lilac">Thom · senin repliğin</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-200">“Celia, tutkularımızın peşinden gitmeliyiz...”</p>
-                  <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full w-2/3 rounded-full bg-lilac" />
-                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-lilac">
+                    {featured.characters[0]?.name} · örnek replik
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-200">“{featured.lines[0]?.text}”</p>
                 </div>
               </div>
-              <div className="surface absolute -bottom-6 -left-8 hidden items-center gap-3 rounded-xl px-4 py-3 sm:flex">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-mint/10 text-mint">♫</span>
+              <Link
+                href={`/tr/sahne/${featured.id}`}
+                className="surface absolute -bottom-6 -left-8 hidden items-center gap-3 rounded-xl px-4 py-3 sm:flex"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-mint/10 text-mint">▶</span>
                 <span>
-                  <span className="block text-xs text-zinc-500">Kayıt hazır</span>
-                  <span className="text-sm font-semibold">Bir daha dinle</span>
+                  <span className="block text-xs text-zinc-500">Bu sahneyle</span>
+                  <span className="text-sm font-semibold">Oda kur</span>
                 </span>
-                <span className="ml-3 text-lilac">▶</span>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
@@ -147,32 +156,17 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="uyelik" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02]">
-          <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-mint">Arkadaş grubun için</p>
-              <h2 className="mt-3 text-3xl font-bold">Basit ve şeffaf üyelik.</h2>
+        <section className="border-y border-white/[0.07] bg-white/[0.02]">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-14 lg:px-8">
+            <div className="max-w-2xl">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-mint">Tamamen ücretsiz</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight">Hesap yok, ödeme yok, sadece oda kodu.</h2>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Oda kur, arkadaşlarını kodla çağır, rolleri paylaş, mikrofonunla kaydını ver ve dublajı
+                birlikte izleyin. Herkese açık.
+              </p>
             </div>
-            <div className="mt-7 grid gap-4 md:grid-cols-2">
-              <article className="surface rounded-2xl p-6">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-mint">MVP’de açık</p>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <h3 className="text-2xl font-black">Ücretsiz</h3>
-                  <span className="text-sm text-zinc-500">şimdilik</span>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">Oda kurma, sahne keşfi, rol paylaşımı, mikrofon kaydı ve ortak oynatma.</p>
-                <Link href="/tr/oda-kur" className="button-primary mt-5">İlk odanı kur</Link>
-              </article>
-              <article className="surface rounded-2xl p-6">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-lilac">Geliştirme listesinde</p>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <h3 className="text-2xl font-black">VIP</h3>
-                  <span className="text-sm text-zinc-500">henüz satışta değil</span>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">Ek sahne koleksiyonları ve dublajları yayımlama gibi özellikler ileride değerlendirilecek.</p>
-                <span className="mt-5 inline-flex rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-500">Ödeme alınmıyor</span>
-              </article>
-            </div>
+            <Link href="/tr/oda-kur" className="button-primary">İlk odanı kur ↗</Link>
           </div>
         </section>
 
