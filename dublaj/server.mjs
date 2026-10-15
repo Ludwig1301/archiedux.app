@@ -34,6 +34,16 @@ function broadcastRoom(room) {
   io.to(room.code).emit("room:update", roomStore.snapshot(room));
 }
 
+// Devam eden (veya birazdan başlayacak) ortak oynatmayı yeni katılan tek bir
+// sokete gönder; böylece sonradan gelen oyuncular da dublajı kaçırmaz.
+function yayiniGonder(socket, room) {
+  if (!room.playbackAt) return;
+  const scene = getScene(room.sceneId);
+  const bitis = room.playbackAt + (scene.sourceEnd - scene.sourceStart) * 1000;
+  if (Date.now() > bitis + 500) return;
+  socket.emit("playback:start", { ...roomStore.snapshot(room, true), playbackAt: room.playbackAt });
+}
+
 io.on("connection", (socket) => {
   socket.on("room:create", (payload, callback) => {
     acknowledge(callback, () => {
@@ -59,6 +69,7 @@ io.on("connection", (socket) => {
       roomStore.setSocketId(room, player, socket.id);
       socket.join(room.code);
       broadcastRoom(room);
+      setTimeout(() => yayiniGonder(socket, room), 600);
       return {
         room: roomStore.snapshot(room),
         scene: getScene(room.sceneId),
@@ -76,6 +87,7 @@ io.on("connection", (socket) => {
       roomStore.setSocketId(room, player, socket.id);
       socket.join(room.code);
       broadcastRoom(room);
+      setTimeout(() => yayiniGonder(socket, room), 600);
       return {
         room: roomStore.snapshot(room),
         scene: getScene(room.sceneId),
@@ -127,6 +139,16 @@ io.on("connection", (socket) => {
       const state = roomStore.snapshot(room, true);
       io.to(room.code).emit("playback:start", { ...state, playbackAt });
       return { playbackAt };
+    });
+  });
+
+  socket.on("room:stop", (payload, callback) => {
+    acknowledge(callback, () => {
+      const room = roomStore.get(payload?.code);
+      roomStore.stopPlayback(room, socket.id);
+      io.to(room.code).emit("playback:stop");
+      broadcastRoom(room);
+      return { room: roomStore.snapshot(room) };
     });
   });
 

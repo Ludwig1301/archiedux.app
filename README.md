@@ -143,28 +143,35 @@ Ardından `http://localhost:3100/dublaj` adresini aç. Mikrofon kaydı için
 tarayıcı izni gerekir. Oda kayıtları geçici olarak bellekte tutulur; servis
 kapanınca silinir ve kalıcı kayıt oluşturulmaz.
 
-Canlıya almak için `npm run build` sonrasında `server.mjs` ayrı bir PM2
-process'i olarak `127.0.0.1:3100` portunda çalıştırılmalı; Nginx,
-`/dublaj` ve altındaki yolları (Socket.IO dahil)
-`http://127.0.0.1:3100` adresine WebSocket upgrade başlıklarıyla
-iletmelidir. Next.js uygulaması `/dublaj` adresini kanonik kullanır;
-`/dublaj/` bu adrese yönlendirilir. Bu kuralları Nginx `location /`
-kuralından önce ekleyin:
+Canlıya almak için: önce dublaj servisini bir kez hazırla, sonra ana
+sunucuyu çalıştır.
+
+```bash
+cd dublaj
+npm install
+npm run build
+
+cd ..
+npm start            # ana site (PORT, varsayılan 3000)
+```
+
+Ana sunucu açılışta `127.0.0.1:3100` (`DUBLAJ_HOST`/`DUBLAJ_PORT`) portunu
+yoklar; dublaj servisi çalışmıyorsa kendisi başlatır ve servis durursa
+yeniden dener. `/dublaj` ve altındaki HTTP istekleri ile Socket.IO
+WebSocket yükseltmeleri ana sunucu tarafından içeride dublaj servisine
+iletilir. Yani canlıda ek bir PM2 süreci şart değildir; `npm start` yeter.
+
+`DUBLAJ_AUTOSTART=0` ile bu otomatik başlatma kapatılabilir (ör. dublaj'ı
+PM2 ile ayrı yönetmek isterseniz). Next.js uygulaması `/dublaj` adresini
+kanonik kullanır; `/dublaj/` bu adrese yönlendirilir.
+
+Nginx kullanıyorsanız, WebSocket yükseltmelerini ana Node servisine
+(varsayılan `127.0.0.1:3000`) iletmeniz yeterlidir; ayrı bir
+`/dublaj` kuralı gerekmez:
 
 ```nginx
-location = /dublaj {
-    proxy_pass http://127.0.0.1:3100;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 3600s;
-}
-location /dublaj/ {
-    proxy_pass http://127.0.0.1:3100;
+location / {
+    proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -176,8 +183,8 @@ location /dublaj/ {
 }
 ```
 
-Bu Nginx route'u eklenmeden ana uygulamada yayına çıkmaz. Canlıya almadan
-önce Nginx yapılandırması ve mevcut kullanıcı verileri yedeklenmelidir.
+Canlıya almadan önce Nginx yapılandırması ve mevcut kullanıcı verileri
+yedeklenmelidir.
 
 Sahne kataloğunda yalnızca lisans/kaynak bilgisi doğrulanmış medya yer
 almalıdır. Örnek sahne “Tears of Steel” için Blender Foundation'ın resmi

@@ -151,9 +151,12 @@ export default function RoomClient({ code }) {
           }
         }
 
-        const remaining = Math.max(0, (message.playbackAt - Date.now()) / 1000);
+        const now = Date.now();
+        const remaining = Math.max(0, (message.playbackAt - now) / 1000);
+        const elapsed = Math.max(0, (now - message.playbackAt) / 1000);
+        // Sonradan katılan oyuncu videoyu ve sesleri geçen süreye göre hizala.
         try {
-          player?.seekTo(currentScene.sourceStart, true);
+          player?.seekTo(currentScene.sourceStart + elapsed, true);
         } catch {
           /* yok say */
         }
@@ -161,12 +164,15 @@ export default function RoomClient({ code }) {
         if (context) {
           const startWhen = context.currentTime + remaining;
           for (const { line, buffer } of decoded) {
+            const relative = line.start - currentScene.sourceStart - elapsed;
+            const when = startWhen + Math.max(0, relative);
+            const trim = Math.max(0, -relative);
+            if (trim >= buffer.duration) continue; // bu replik çoktan bitmiş
             const source = context.createBufferSource();
             source.buffer = buffer;
             source.connect(context.destination);
-            const offset = Math.max(0, line.start - currentScene.sourceStart);
             try {
-              source.start(startWhen + offset);
+              source.start(when, trim);
             } catch (startError) {
               setError(`Bir kayıt zamanlanamadı: ${startError.message}`);
             }
@@ -174,7 +180,8 @@ export default function RoomClient({ code }) {
           }
         }
 
-        setPlayback({ active: true, pending: true, progress: 0, lineId: "" });
+        const bekliyor = remaining > 0.05;
+        setPlayback({ active: true, pending: bekliyor, progress: 0, lineId: "" });
         playbackTimerRef.current = setTimeout(() => {
           try {
             playerRef.current?.playVideo();
@@ -195,7 +202,12 @@ export default function RoomClient({ code }) {
           if (typeof time !== "number") return;
           const progress = Math.max(0, Math.min(1, (time - currentScene.sourceStart) / span));
           const active = currentScene.lines.find((line) => time >= line.start && time < line.end);
-          setPlayback({ active: true, pending: false, progress, lineId: active?.id || "" });
+          setPlayback({
+            active: true,
+            pending: Date.now() < message.playbackAt,
+            progress,
+            lineId: active?.id || "",
+          });
           if (time >= currentScene.sourceEnd - 0.1) stopPlayback();
         }, 120);
       })();
@@ -285,13 +297,15 @@ export default function RoomClient({ code }) {
     };
     socket.on("room:update", applyRoom);
     socket.on("playback:start", playHandler);
+    socket.on("playback:stop", stopPlayback);
     socket.on("connect", handleConnect);
     return () => {
       socket.off("room:update", applyRoom);
       socket.off("playback:start", playHandler);
+      socket.off("playback:stop", stopPlayback);
       socket.off("connect", handleConnect);
     };
-  }, [applyRoom, playTogether, join, safeCode]);
+  }, [applyRoom, playTogether, stopPlayback, join, safeCode]);
 
   // Ses bağlamını ilk kullanıcı etkileşiminde aç (tarayıcı otoplay kısıtı için).
   useEffect(() => {
@@ -383,7 +397,10 @@ export default function RoomClient({ code }) {
     [safeCode],
   );
 
-  const currentPlayer = room?.players.find((player) => player.id === playerId);
+  const currentPlayer =
+    (clientIdRef.current &&
+      room?.players.find((player) => player.clientId && player.clientId === clientIdRef.current)) ||
+    room?.players.find((player) => player.id === playerId);
   const currentCharacter = scene?.characters.find(
     (character) => character.id === currentPlayer?.characterId,
   );
@@ -561,6 +578,15 @@ export default function RoomClient({ code }) {
     } catch (playError) {
       setError(playError.message || "Oynatma başlatılamadı.");
     }
+  }
+
+  async function requestStop() {
+    try {
+      await emitAck(getRoomSocket(), "room:stop", { code: safeCode });
+    } catch {
+      /* kurucu değilse yalnızca kendi ekranında durdur */
+    }
+    stopPlayback();
   }
 
   function copyText(value, label) {
@@ -879,7 +905,7 @@ export default function RoomClient({ code }) {
               <span className="text-xl text-lilac">♫</span>
             </div>
             {playback.active ? (
-              <button onClick={stopPlayback} className="button-secondary mt-4 w-full border-red-400/40 text-red-200">
+              <button onClick={requestStop} className="button-secondary mt-4 w-full border-red-400/40 text-red-200">
                 ■ Oynatmayı durdur
               </button>
             ) : (

@@ -3,8 +3,7 @@ import Link from "next/link";
 const links = [
   { href: "/tr/oda-kur", label: "Oyna" },
   { href: "/tr/sahneler", label: "Sahneler" },
-  { href: "/#dublajlar", label: "Dublajlar" },
-  { href: "/#gunun-sahnesi", label: "Günün sahnesi" },
+  { href: "/tr/sahne/tears-of-steel-opening", label: "Günün sahnesi" },
 ];
 
 export default function SiteHeader() {

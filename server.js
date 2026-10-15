@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const net = require("net");
+const { spawn } = require("child_process");
 const dotenv = require("dotenv");
 const express = require("express");
 const session = require("express-session");
@@ -2334,9 +2335,72 @@ app.get("/api/profile/:id/rileyler", async (req, res) => {
   res.json({ gonderiler: sonuc });
 });
 
+// Replik Kulübü (dublaj) servisi ayrı bir süreç olarak çalışır. Ana sunucu
+// açılışta ve düzenli aralıklarla servisin ayakta olup olmadığını kontrol eder;
+// yoksa kendi başlatır. Böylece tek komutla (npm start) tüm site + dublaj çalışır.
+// DUBLAJ_AUTOSTART=0 ile bu davranış kapatılabilir (ör. PM2 ile ayrı yönetim).
+const DUBLAJ_DIR = path.join(__dirname, "dublaj");
+let dublajChild = null;
+let dublajUyariVerildi = false;
+
+function dublajDerlenmisMi() {
+  return (
+    fs.existsSync(path.join(DUBLAJ_DIR, "node_modules")) &&
+    fs.existsSync(path.join(DUBLAJ_DIR, ".next"))
+  );
+}
+
+function dublajServisiniBaslat() {
+  if (dublajChild) return;
+  if (!dublajDerlenmisMi()) {
+    if (!dublajUyariVerildi) {
+      dublajUyariVerildi = true;
+      console.warn(
+        "[dublaj] Servis çalışmıyor ve derleme eksik. Hazırlamak için: cd dublaj && npm install && npm run build",
+      );
+    }
+    return;
+  }
+  dublajChild = spawn(process.execPath, ["server.mjs"], {
+    cwd: DUBLAJ_DIR,
+    env: { ...process.env, DUBLAJ_PORT: String(DUBLAJ_PORT), DUBLAJ_HOST },
+    stdio: "inherit",
+  });
+  console.log(`[dublaj] Replik Kulübü servisi başlatıldı (${DUBLAJ_HOST}:${DUBLAJ_PORT}).`);
+  dublajChild.on("exit", (kod) => {
+    console.warn(`[dublaj] Servis durdu (kod ${kod}); kısa süre içinde yeniden denenecek.`);
+    dublajChild = null;
+  });
+  dublajChild.on("error", (hata) => {
+    console.warn("[dublaj] Servis başlatılamadı:", hata.message);
+    dublajChild = null;
+  });
+}
+
+function dublajServisiniDene() {
+  const prob = net.connect(DUBLAJ_PORT, DUBLAJ_HOST);
+  prob.setTimeout(1500);
+  prob.once("connect", () => prob.destroy());
+  prob.once("error", () => {
+    prob.destroy();
+    dublajServisiniBaslat();
+  });
+  prob.once("timeout", () => {
+    prob.destroy();
+    dublajServisiniBaslat();
+  });
+}
+
 // ---------- Sunucu Başlatma ----------
 const sunucu = app.listen(PORT || 3000, () => {
   console.log(`Sunucu çalışıyor: http://localhost:${PORT || 3000}`);
+  if (process.env.DUBLAJ_AUTOSTART !== "0") {
+    setTimeout(dublajServisiniDene, 600);
+    const zamanlayici = setInterval(() => {
+      if (!dublajChild) dublajServisiniDene();
+    }, 30_000);
+    zamanlayici.unref?.();
+  }
 });
 
 // /dublaj altındaki WebSocket (Socket.IO) bağlantılarını ham TCP ile aktar.

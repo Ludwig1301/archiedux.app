@@ -92,6 +92,16 @@ test("notifies when a disconnected player leaves after the grace period", (t) =>
   assert.equal(created.room.players.length, 1);
 });
 
+test("only the host can stop playback and snapshot exposes clientId", () => {
+  const { store, room } = makeRoom();
+  room.playbackAt = Date.now() + 5_000;
+  assert.throws(() => store.stopPlayback(room, "socket-guest"), /yalnızca oda kurucusu/);
+  store.stopPlayback(room, "socket-host");
+  assert.equal(room.playbackAt, null);
+  const snap = store.snapshot(room);
+  assert.ok(snap.players.every((player) => "clientId" in player));
+});
+
 test("limits uploaded recording size and removes the final empty room", () => {
   const { store, room } = makeRoom();
   assert.throws(

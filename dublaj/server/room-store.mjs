@@ -190,6 +190,12 @@ export class RoomStore {
     return room.playbackAt;
   }
 
+  stopPlayback(room, actorId) {
+    if (actorId !== room.hostId) throw new Error("Oynatmayı yalnızca oda kurucusu durdurabilir.");
+    room.playbackAt = null;
+    return room.playbackAt;
+  }
+
   removePlayer(room, socketId) {
     const removed = room.players.find((player) => player.id === socketId);
     room.players = room.players.filter((player) => player.id !== socketId);
@@ -218,6 +224,7 @@ export class RoomStore {
       hostId: room.hostId,
       players: room.players.map((player) => ({
         id: player.id,
+        clientId: player.clientId,
         name: player.name,
         avatar: player.avatar,
         characterId: player.characterId,
