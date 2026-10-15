@@ -11,7 +11,7 @@ const dev = process.argv.includes("--dev");
 const port = Number(process.env.DUBLAJ_PORT || 3100);
 const nextApp = next({ dev, dir: root });
 const handle = nextApp.getRequestHandler();
-const roomStore = new RoomStore();
+const roomStore = new RoomStore((room) => broadcastRoom(room));
 
 await nextApp.prepare();
 
@@ -53,6 +53,25 @@ io.on("connection", (socket) => {
       const { room, player } = roomStore.join({
         code: payload?.code,
         name: payload?.name,
+        clientId: payload?.clientId,
+        avatar: payload?.avatar,
+      });
+      roomStore.setSocketId(room, player, socket.id);
+      socket.join(room.code);
+      broadcastRoom(room);
+      return {
+        room: roomStore.snapshot(room),
+        scene: getScene(room.sceneId),
+        playerId: socket.id,
+      };
+    });
+  });
+
+  socket.on("room:rejoin", (payload, callback) => {
+    acknowledge(callback, () => {
+      const { room, player } = roomStore.rejoin({
+        code: payload?.code,
+        clientId: payload?.clientId,
       });
       roomStore.setSocketId(room, player, socket.id);
       socket.join(room.code);
@@ -114,7 +133,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     for (const room of roomStore.rooms.values()) {
       if (room.players.some((player) => player.id === socket.id)) {
-        roomStore.removePlayer(room, socket.id);
+        roomStore.markDisconnected(room, socket.id);
         if (room.players.length > 0) broadcastRoom(room);
       }
     }

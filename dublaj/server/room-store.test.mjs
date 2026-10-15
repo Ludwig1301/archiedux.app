@@ -51,6 +51,47 @@ test("requires every line before starting shared playback", () => {
   assert.ok(store.startPlayback(room, "socket-host") > Date.now());
 });
 
+test("rejoins a returning tab by clientId instead of creating a duplicate", () => {
+  const store = new RoomStore();
+  const created = store.create({
+    name: "Deniz",
+    sceneId: "tears-of-steel-opening",
+    clientId: "tab-1",
+  });
+  store.setSocketId(created.room, created.player, "socket-host");
+  store.markDisconnected(created.room, "socket-host");
+  const again = store.join({ code: created.room.code, name: "Deniz", clientId: "tab-1" });
+  assert.equal(again.player, created.player);
+  assert.equal(again.room.players.length, 1);
+  store.setSocketId(again.room, again.player, "socket-host-2");
+  assert.equal(again.room.hostId, "socket-host-2");
+});
+
+test("marks disconnected players offline and hands the host role on", () => {
+  const { store, room } = makeRoom();
+  store.markDisconnected(room, "socket-host");
+  assert.equal(room.players[0].connected, false);
+  assert.equal(room.hostId, "socket-guest");
+});
+
+test("notifies when a disconnected player leaves after the grace period", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const sizes = [];
+  const store = new RoomStore((room) => sizes.push(room.players.length));
+  const created = store.create({
+    name: "Deniz",
+    sceneId: "tears-of-steel-opening",
+    clientId: "tab-1",
+  });
+  store.setSocketId(created.room, created.player, "socket-host");
+  const guest = store.join({ code: created.room.code, name: "Ada", clientId: "tab-2" });
+  store.setSocketId(guest.room, guest.player, "socket-guest");
+  store.markDisconnected(created.room, "socket-host");
+  t.mock.timers.tick(30_000);
+  assert.deepEqual(sizes, [1]);
+  assert.equal(created.room.players.length, 1);
+});
+
 test("limits uploaded recording size and removes the final empty room", () => {
   const { store, room } = makeRoom();
   assert.throws(

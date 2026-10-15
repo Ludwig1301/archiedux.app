@@ -6,18 +6,30 @@ const ROOM_CODE_LENGTH = 6;
 const MAX_ROOM_PLAYERS = 8;
 const MAX_ACTIVE_ROOMS = 200;
 const MAX_RECORDING_BYTES = 1_500_000;
+const DISCONNECT_GRACE_MS = 30_000;
 
 function cleanName(name) {
   if (typeof name !== "string") return "";
   return name.replace(/[<>]/g, "").trim().slice(0, 24);
 }
 
+function cleanAvatar(value) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[<>&"']/g, "").trim().slice(0, 4);
+}
+
+function cleanClientId(value) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
+
 export class RoomStore {
-  constructor() {
+  constructor(onRoomChange) {
     this.rooms = new Map();
+    this.onRoomChange = typeof onRoomChange === "function" ? onRoomChange : null;
   }
 
-  create({ name, sceneId }) {
+  create({ name, sceneId, clientId, avatar }) {
     const playerName = cleanName(name);
     const scene = getScene(sceneId);
     if (playerName.length < 2) throw new Error("Görünen ad en az 2 karakter olmalı.");
@@ -35,30 +47,81 @@ export class RoomStore {
       playbackAt: null,
     };
 
-    const player = { id: null, name: playerName, characterId: null, ready: false };
+    const player = this.#makePlayer({ name: playerName, clientId, avatar });
     room.players.push(player);
     this.rooms.set(room.code, room);
     return { room, player };
   }
 
-  join({ code, name }) {
+  join({ code, name, clientId, avatar }) {
     const room = this.get(code);
     const playerName = cleanName(name);
     if (playerName.length < 2) throw new Error("Görünen ad en az 2 karakter olmalı.");
+
+    // Aynı tarayıcı sekmesi (sabit clientId) daha önce katılmışsa yeni bir
+    // oyuncu açmak yerine mevcut kaydı canlandır; rol ve kayıtlar korunur.
+    // Bu, sayfa yenilendiğinde "ad zaten kullanılıyor" hatasını da önler.
+    const id = cleanClientId(clientId);
+    const returning = id ? room.players.find((player) => player.clientId === id) : null;
+    if (returning) {
+      returning.name = playerName;
+      const nextAvatar = cleanAvatar(avatar);
+      if (nextAvatar) returning.avatar = nextAvatar;
+      return { room, player: returning };
+    }
+
     if (room.players.length >= MAX_ROOM_PLAYERS) throw new Error("Oda dolu.");
     if (room.players.some((player) => player.name.toLowerCase() === playerName.toLowerCase())) {
       throw new Error("Bu ad odada zaten kullanılıyor.");
     }
 
-    const player = { id: null, name: playerName, characterId: null, ready: false };
+    const player = this.#makePlayer({ name: playerName, clientId, avatar });
     room.players.push(player);
     return { room, player };
   }
 
   setSocketId(room, player, socketId) {
     player.id = socketId;
+    player.connected = true;
+    this.#clearGrace(player);
     if (!room.hostId) room.hostId = socketId;
-    this.#assignAvailableCharacter(room, player);
+    if (!player.characterId) this.#assignAvailableCharacter(room, player);
+  }
+
+  // Kopan bağlantı 30 saniye boyunca "bağlantı koptu" olarak tutulur; bu
+  // süre içinde aynı clientId ile dönen oyuncu rolünü kaybetmeden devam eder.
+  markDisconnected(room, socketId) {
+    const player = room.players.find((item) => item.id === socketId);
+    if (!player) return;
+    player.connected = false;
+    player.id = null;
+    if (room.hostId === socketId) {
+      room.hostId = room.players.find((item) => item.connected && item.id)?.id ?? null;
+    }
+    this.#clearGrace(player);
+    player.graceTimer = setTimeout(() => {
+      if (player.connected) return;
+      const index = room.players.indexOf(player);
+      if (index >= 0) room.players.splice(index, 1);
+      for (const [lineId, recording] of room.recordings) {
+        if (recording.clientId && recording.clientId === player.clientId) room.recordings.delete(lineId);
+      }
+      if (!room.hostId) room.hostId = room.players.find((item) => item.id)?.id ?? null;
+      if (room.players.length === 0) {
+        this.rooms.delete(room.code);
+      } else {
+        this.#notify(room);
+      }
+    }, DISCONNECT_GRACE_MS);
+    if (typeof player.graceTimer.unref === "function") player.graceTimer.unref();
+  }
+
+  rejoin({ code, clientId }) {
+    const room = this.get(code);
+    const id = cleanClientId(clientId);
+    const player = id ? room.players.find((item) => item.clientId === id) : null;
+    if (!player) throw new Error("Odaya yeniden bağlanılamadı; lütfen tekrar katıl.");
+    return { room, player };
   }
 
   assign(room, actorId, playerId, characterId) {
@@ -105,7 +168,8 @@ export class RoomStore {
 
     room.recordings.set(lineId, {
       lineId,
-      playerId,
+      playerId: socketlessPlayerId(player),
+      clientId: player.clientId,
       playerName: player.name,
       mimeType,
       audio: payload.audio,
@@ -115,7 +179,8 @@ export class RoomStore {
   startPlayback(room, actorId) {
     if (actorId !== room.hostId) throw new Error("Oynatmayı oda kurucusu başlatabilir.");
     const scene = getScene(room.sceneId);
-    if (!room.players.every((player) => player.ready)) {
+    const connected = room.players.filter((player) => player.connected);
+    if (!connected.length || !connected.every((player) => player.ready)) {
       throw new Error("Önce odadaki herkes hazır olduğunu belirtmeli.");
     }
     if (scene.lines.some((line) => !room.recordings.has(line.id))) {
@@ -126,11 +191,13 @@ export class RoomStore {
   }
 
   removePlayer(room, socketId) {
+    const removed = room.players.find((player) => player.id === socketId);
     room.players = room.players.filter((player) => player.id !== socketId);
     for (const [lineId, recording] of room.recordings) {
       if (recording.playerId === socketId) room.recordings.delete(lineId);
     }
-    if (room.hostId === socketId) room.hostId = room.players[0]?.id ?? null;
+    if (removed) this.#clearGrace(removed);
+    if (room.hostId === socketId) room.hostId = room.players.find((player) => player.id)?.id ?? null;
     if (room.players.length === 0) this.rooms.delete(room.code);
   }
 
@@ -149,7 +216,14 @@ export class RoomStore {
       code: room.code,
       sceneId: room.sceneId,
       hostId: room.hostId,
-      players: room.players.map((player) => ({ ...player })),
+      players: room.players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        avatar: player.avatar,
+        characterId: player.characterId,
+        ready: player.ready,
+        connected: player.connected,
+      })),
       recordings,
       playbackAt: room.playbackAt,
     };
@@ -159,6 +233,30 @@ export class RoomStore {
     const room = this.rooms.get(String(code || "").toUpperCase());
     if (!room) throw new Error("Bu oda bulunamadı veya kapatılmış.");
     return room;
+  }
+
+  #makePlayer({ name, clientId, avatar }) {
+    return {
+      id: null,
+      clientId: cleanClientId(clientId) || null,
+      name,
+      avatar: cleanAvatar(avatar),
+      characterId: null,
+      ready: false,
+      connected: true,
+      graceTimer: null,
+    };
+  }
+
+  #clearGrace(player) {
+    if (player.graceTimer) {
+      clearTimeout(player.graceTimer);
+      player.graceTimer = null;
+    }
+  }
+
+  #notify(room) {
+    if (this.onRoomChange) this.onRoomChange(room);
   }
 
   #newCode() {
@@ -180,4 +278,10 @@ export class RoomStore {
       ? available[randomInt(available.length)].id
       : null;
   }
+}
+
+// Kayıtlar oyuncunun sabit clientId'siyle ilişkilendirilir; socket kopsa bile
+// aynı oyuncunun kaydı ekranda kalır.
+function socketlessPlayerId(player) {
+  return player.id || `client:${player.clientId || player.name}`;
 }

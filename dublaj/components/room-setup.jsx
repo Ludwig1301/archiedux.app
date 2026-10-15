@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { scenes } from "../lib/scenes.js";
 import { getRoomSocket, setActiveRoom } from "../lib/client-socket.js";
+import { AVATAR_CHOICES, getClientId } from "../lib/avatars.js";
 
 function waitForConnection(socket) {
   if (socket.connected) return Promise.resolve();
@@ -42,6 +43,7 @@ function emitAck(socket, event, payload) {
 export default function RoomSetup({ initialScene }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState(AVATAR_CHOICES[0]);
   const [sceneId, setSceneId] = useState(
     scenes.some((scene) => scene.id === initialScene) ? initialScene : scenes[0].id,
   );
@@ -59,9 +61,10 @@ export default function RoomSetup({ initialScene }) {
       await waitForConnection(socket);
       const response =
         mode === "create"
-          ? await emitAck(socket, "room:create", { name, sceneId })
-          : await emitAck(socket, "room:join", { name, code: code.toUpperCase() });
+          ? await emitAck(socket, "room:create", { name, sceneId, clientId: getClientId(), avatar })
+          : await emitAck(socket, "room:join", { name, code: code.toUpperCase(), clientId: getClientId(), avatar });
       sessionStorage.setItem("replikName", name.trim());
+      sessionStorage.setItem("replikAvatar", avatar);
       setActiveRoom(response);
       router.push(`/tr/oda/${response.room.code}`);
     } catch (submissionError) {
@@ -101,6 +104,23 @@ export default function RoomSetup({ initialScene }) {
         placeholder="Örn. Deniz"
         required
       />
+      <span className="mt-6 block text-sm font-semibold">Avatarın</span>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {AVATAR_CHOICES.map((choice) => (
+          <button
+            key={choice}
+            type="button"
+            onClick={() => setAvatar(choice)}
+            aria-pressed={avatar === choice}
+            aria-label={`Avatar ${choice}`}
+            className={`focus-ring grid h-11 w-11 place-items-center rounded-xl border text-xl ${
+              avatar === choice ? "border-lilac/60 bg-lilac/15" : "border-white/10 bg-white/[0.03] hover:border-white/25"
+            }`}
+          >
+            {choice}
+          </button>
+        ))}
+      </div>
       {mode === "create" ? (
         <>
           <label className="mt-5 block text-sm font-semibold" htmlFor="scene">Seslendirilecek sahne</label>

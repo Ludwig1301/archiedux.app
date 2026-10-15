@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const net = require("net");
 const dotenv = require("dotenv");
 const express = require("express");
 const session = require("express-session");
@@ -360,6 +362,48 @@ async function discordUyeleriTopluCek() {
 
 // ---------- Express kurulumu ----------
 const app = express();
+
+// ---------- Replik Kulübü (dublaj) servisi proxy'si ----------
+// Next.js + Socket.IO servisi dublaj/ klasöründe ayrı bir süreç olarak
+// (varsayılan 127.0.0.1:3100) çalışır. Burada /dublaj ve altındaki tüm
+// HTTP istekleri ile WebSocket yükseltmelerini o servise iletiyoruz; böylece
+// ana sitedeki DUBLAJ bağlantısı ek Nginx kuralı olmadan da çalışır.
+const DUBLAJ_HOST = process.env.DUBLAJ_HOST || "127.0.0.1";
+const DUBLAJ_PORT = Number(process.env.DUBLAJ_PORT || 3100);
+
+function dublajHedefi(req) {
+  return {
+    host: DUBLAJ_HOST,
+    port: DUBLAJ_PORT,
+    method: req.method,
+    path: req.originalUrl,
+    headers: {
+      ...req.headers,
+      host: `${DUBLAJ_HOST}:${DUBLAJ_PORT}`,
+      "x-forwarded-host": req.headers.host || "",
+      "x-forwarded-proto": req.protocol || "http",
+    },
+  };
+}
+
+app.use("/dublaj", (req, res) => {
+  const proxyReq = http.request(dublajHedefi(req), (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on("error", () => {
+    if (res.headersSent) return res.destroy();
+    res
+      .status(502)
+      .type("html")
+      .send(
+        "<meta charset=\"utf-8\"><h2>Replik Kulübü servisi çalışmıyor</h2>" +
+          `<p>dublaj klasöründe <code>npm start</code> ile başlatın (${DUBLAJ_HOST}:${DUBLAJ_PORT}).</p>`,
+      );
+  });
+  req.pipe(proxyReq);
+});
+
 app.use(express.json({ limit: "80mb" })); // base64 görsel/video yüklemeleri için (50MB video ≈ 67MB base64)
 
 // Eski .html adresleri temiz adreslere yönlendirilsin (URL'de .html görünmesin).
@@ -2291,8 +2335,29 @@ app.get("/api/profile/:id/rileyler", async (req, res) => {
 });
 
 // ---------- Sunucu Başlatma ----------
-app.listen(PORT || 3000, () => {
+const sunucu = app.listen(PORT || 3000, () => {
   console.log(`Sunucu çalışıyor: http://localhost:${PORT || 3000}`);
+});
+
+// /dublaj altındaki WebSocket (Socket.IO) bağlantılarını ham TCP ile aktar.
+sunucu.on("upgrade", (req, socket, head) => {
+  if (!req.url || !req.url.startsWith("/dublaj")) {
+    socket.destroy();
+    return;
+  }
+  const target = net.connect(DUBLAJ_PORT, DUBLAJ_HOST, () => {
+    const headers = [`${req.method} ${req.url} HTTP/1.1`];
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      headers.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
+    }
+    headers.push(`x-forwarded-host: ${req.headers.host || ""}`, "x-forwarded-proto: " + (req.socket.encrypted ? "https" : "http"));
+    target.write(headers.join("\r\n") + "\r\n\r\n");
+    if (head && head.length) target.write(head);
+    socket.pipe(target).pipe(socket);
+  });
+  target.on("error", () => socket.destroy());
+  socket.on("error", () => target.destroy());
+  socket.on("close", () => target.destroy());
 });
 
 // Beklenmedik hatalar isteği asılı bırakmasın; JSON hata dönsün
