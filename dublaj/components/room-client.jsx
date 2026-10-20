@@ -11,6 +11,7 @@ import {
   updateActiveRoom,
 } from "../lib/client-socket.js";
 import { AVATAR_CHOICES, getClientId } from "../lib/avatars.js";
+import { Seal } from "./brand.jsx";
 
 const RECORD_LEAD_SECONDS = 2.5;
 
@@ -608,12 +609,12 @@ export default function RoomClient({ code }) {
   if (!room || !scene || !currentPlayer) {
     return (
       <main className="mx-auto flex min-h-screen max-w-xl items-center px-5 py-16">
-        <section className="surface w-full rounded-2xl p-7">
-          <Link href="/tr/oda-kur" className="text-sm text-zinc-500 hover:text-white">
+        <section className="surface w-full rounded-sm p-7">
+          <Link href="/tr/oda-kur" className="text-sm text-dim hover:text-parchment">
             ← Odalara dön
           </Link>
-          <h1 className="mt-6 text-3xl font-black">Oda {safeCode}</h1>
-          <p className="mt-2 text-sm text-zinc-400">{error || status || "Görünen adınla odaya katıl."}</p>
+          <h1 className="mt-6 text-3xl font-bold tracking-[-0.03em] text-parchment">Oda {safeCode}</h1>
+          <p className="mt-2 text-sm text-muted">{error || status || "Görünen adınla odaya katıl."}</p>
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -622,7 +623,7 @@ export default function RoomClient({ code }) {
             className="mt-5 space-y-3"
           >
             <input
-              className="focus-ring min-h-12 w-full rounded-xl border border-white/10 bg-black/25 px-4"
+              className="field focus-ring"
               value={nameInput}
               onChange={(event) => setNameInput(event.target.value)}
               minLength={2}
@@ -637,8 +638,8 @@ export default function RoomClient({ code }) {
                   type="button"
                   onClick={() => setAvatar(choice)}
                   aria-pressed={avatar === choice}
-                  className={`focus-ring grid h-10 w-10 place-items-center rounded-lg border text-lg ${
-                    avatar === choice ? "border-lilac/60 bg-lilac/15" : "border-white/10 bg-white/[0.03]"
+                  className={`focus-ring grid h-10 w-10 place-items-center rounded-sm border text-lg ${
+                    avatar === choice ? "border-brass/60 bg-brass/15" : "border-line bg-white/[0.03]"
                   }`}
                 >
                   {choice}
@@ -650,7 +651,7 @@ export default function RoomClient({ code }) {
             </button>
           </form>
           {error && (
-            <p role="alert" className="mt-3 text-sm text-red-200">
+            <p role="alert" className="mt-3 text-sm text-[#f0b4b4]">
               {error}
             </p>
           )}
@@ -667,15 +668,16 @@ export default function RoomClient({ code }) {
 
   return (
     <main className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-ink/90 px-5 py-3 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 border-b border-line bg-ink/95 px-5 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <button onClick={leaveRoom} className="focus-ring rounded-md text-sm font-extrabold tracking-[0.14em]">
-            REPLİK KULÜBÜ
+          <button onClick={leaveRoom} className="focus-ring flex items-center gap-2 rounded-sm text-sm font-bold tracking-[0.14em] text-parchment">
+            <Seal className="h-7 w-7" />
+            <span className="wordmark text-base">REPLİK KULÜBÜ</span>
           </button>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-zinc-500">ODA KODU</span>
+            <span className="text-xs text-dim">ODA KODU</span>
             <button
-              className="focus-ring rounded-lg border border-white/10 px-3 py-1.5 font-mono font-bold tracking-[0.18em] text-lilac"
+              className="focus-ring rounded-sm border border-line px-3 py-1.5 font-mono font-bold tracking-[0.18em] text-brass"
               onClick={() => copyText(safeCode, "Oda kodu")}
               title="Oda kodunu kopyala"
             >
@@ -688,7 +690,7 @@ export default function RoomClient({ code }) {
             >
               Bağlantıyı kopyala
             </button>
-            <span className="text-xs text-zinc-500">{room.players.length} oyuncu</span>
+            <span className="text-xs text-dim">{room.players.length} oyuncu</span>
           </div>
         </div>
       </header>
@@ -697,29 +699,29 @@ export default function RoomClient({ code }) {
         <section>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-lilac">
+              <p className="text-xs uppercase tracking-[0.16em] text-brass">
                 {scene.film} · {scene.age}
               </p>
-              <h1 className="mt-1 text-2xl font-black">{scene.title}</h1>
+              <h1 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-parchment">{scene.title}</h1>
             </div>
-            <a href={scene.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-zinc-500 hover:text-lilac">
+            <a href={scene.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-dim hover:text-brass">
               Kaynak ve lisans ↗
             </a>
           </div>
 
           <div
-            className={`relative aspect-video overflow-hidden rounded-2xl border bg-black shadow-glow ${
-              take.phase === "recording" ? "border-red-500/60" : "border-white/10"
+            className={`relative aspect-video overflow-hidden rounded-sm border bg-black shadow-glow ${
+              take.phase === "recording" ? "border-red-500/60" : "border-line"
             }`}
           >
             <div ref={videoMountRef} className="h-full w-full" />
             {!videoReady && (
-              <div className="absolute inset-0 grid place-items-center text-sm text-zinc-500">
+              <div className="absolute inset-0 grid place-items-center text-sm text-dim">
                 Video oynatıcı yükleniyor…
               </div>
             )}
             {take.phase === "recording" && (
-              <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-red-500/90 px-3 py-1 text-xs font-bold text-white">
+              <span className="absolute left-3 top-3 flex items-center gap-2 rounded-sm bg-rust px-3 py-1 text-xs font-bold text-white">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> KAYIT
               </span>
             )}
@@ -727,14 +729,14 @@ export default function RoomClient({ code }) {
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4">
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-sage"}`} />
                     {take.phase === "countdown" ? `Hazır ol! ${take.count}` : "Kaydediliyor…"}
                   </span>
-                  <span className="text-xs text-zinc-300">{scene.characters.find((c) => c.id === scene.lines.find((l) => l.id === take.lineId)?.characterId)?.name}</span>
+                  <span className="text-xs text-parchment">{scene.characters.find((c) => c.id === scene.lines.find((l) => l.id === take.lineId)?.characterId)?.name}</span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className={`h-full rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`}
+                    className={`h-full rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-sage"}`}
                     style={{ width: `${(take.phase === "recording" ? take.progress : 0) * 100}%` }}
                   />
                 </div>
@@ -744,34 +746,34 @@ export default function RoomClient({ code }) {
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4">
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-lilac" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-brass" />
                     {playback.pending ? "Dublaj birazdan başlıyor…" : "Dublaj oynatılıyor"}
                   </span>
                   {activeLine && (
-                    <span className="truncate text-xs text-zinc-200">
+                    <span className="truncate text-xs text-parchment">
                       {scene.characters.find((c) => c.id === activeLine.characterId)?.name}
                     </span>
                   )}
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
-                  <div className="h-full rounded-full bg-lilac" style={{ width: `${playback.progress * 100}%` }} />
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-brass" style={{ width: `${playback.progress * 100}%` }} />
                 </div>
               </div>
             )}
           </div>
 
-          <div className="surface mt-4 rounded-2xl p-5">
+          <div className="surface mt-4 rounded-sm p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xl"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-sm border border-line bg-brass/[0.05] text-xl"
                   aria-hidden="true"
                 >
                   🎙️
                 </span>
                 <div>
                   <h2 className="font-bold">Stüdyo</h2>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-dim">
                     {currentCharacter ? (
                       <>
                         Rolün:{" "}
@@ -788,18 +790,18 @@ export default function RoomClient({ code }) {
               <button
                 type="button"
                 onClick={toggleReady}
-                className={`button-secondary ${currentPlayer.ready ? "border-mint/40 text-mint" : ""}`}
+                className={`button-secondary ${currentPlayer.ready ? "border-sage/40 text-sage" : ""}`}
               >
                 {currentPlayer.ready ? "Hazırsın ✓" : "Hazırım"}
               </button>
             </div>
 
             {!currentCharacter ? (
-              <p className="mt-4 rounded-xl border border-amber-200/20 bg-amber-200/10 p-3 text-sm text-amber-100">
+              <p className="mt-4 rounded-sm border border-brass/25 bg-brass/[0.06] p-3 text-sm text-brass">
                 Henüz bir karakterin yok; oda kurucusu roller bölümünden sana rol atayabilir.
               </p>
             ) : myLines.length === 0 ? (
-              <p className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-sm text-zinc-400">
+              <p className="mt-4 rounded-sm border border-line bg-white/[0.02] p-3 text-sm text-muted">
                 Bu sahnede rolüne ait replik yok.
               </p>
             ) : (
@@ -811,12 +813,12 @@ export default function RoomClient({ code }) {
                   return (
                     <article
                       key={line.id}
-                      className={`rounded-2xl border p-4 transition ${
+                      className={`rounded-sm border p-4 transition ${
                         isTaking
                           ? "border-red-400/40 bg-red-400/[0.06]"
                           : submitted
-                            ? "border-mint/30 bg-mint/[0.05]"
-                            : "border-lilac/25 bg-lilac/[0.05]"
+                            ? "border-sage/30 bg-sage/[0.05]"
+                            : "border-brass/25 bg-brass/[0.05]"
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -825,28 +827,28 @@ export default function RoomClient({ code }) {
                           <span className="font-semibold" style={{ color: currentCharacter.color }}>
                             {currentCharacter.name}
                           </span>
-                          {submitted && <span className="text-mint">· odaya gönderildi ✓</span>}
+                          {submitted && <span className="text-sage">· odaya gönderildi ✓</span>}
                         </span>
-                        <span className="font-mono text-zinc-500">
+                        <span className="font-mono text-dim">
                           {line.start.toFixed(1)}s – {line.end.toFixed(1)}s
                         </span>
                       </div>
-                      <p className="mt-2 text-base leading-7 text-zinc-100">{line.text}</p>
+                      <p className="mt-2 text-base leading-7 text-parchment">{line.text}</p>
 
                       {isTaking && take.phase ? (
                         <div className="mt-4">
                           <div className="flex items-center justify-between gap-3">
                             <span className="flex items-center gap-2 text-sm font-semibold">
-                              <span className={`h-2.5 w-2.5 rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`} />
+                              <span className={`h-2.5 w-2.5 rounded-full ${take.phase === "recording" ? "bg-red-400" : "bg-sage"}`} />
                               {take.phase === "countdown" ? `Hazır ol! ${take.count}` : "Kaydediliyor…"}
                             </span>
-                            <button onClick={stopRecording} className="button-secondary border-red-400/40 text-red-200">
+                            <button onClick={stopRecording} className="button-secondary border-red-400/40 text-[#f0b4b4]">
                               ■ {take.phase === "countdown" ? "İptal" : "Kaydı bitir"}
                             </button>
                           </div>
-                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
+                          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
                             <div
-                              className={`h-full rounded-full transition-all ${take.phase === "recording" ? "bg-red-400" : "bg-mint"}`}
+                              className={`h-full rounded-full transition-all ${take.phase === "recording" ? "bg-red-400" : "bg-sage"}`}
                               style={{ width: `${(take.phase === "recording" ? take.progress : 0) * 100}%` }}
                             />
                           </div>
@@ -856,7 +858,7 @@ export default function RoomClient({ code }) {
                           <button
                             onClick={() => startRecording(line)}
                             disabled={Boolean(take.phase)}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-red-500 px-5 font-bold text-white shadow-lg transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-sm bg-rust px-5 font-bold text-white shadow-lg transition hover:bg-[#a62a2a] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-white" />
                             {local ? "Yeniden kaydet" : "Kaydı başlat"}
@@ -870,7 +872,7 @@ export default function RoomClient({ code }) {
                             </>
                           )}
                           {!local && !submitted && (
-                            <span className="text-xs text-zinc-500">
+                            <span className="text-xs text-dim">
                               Video repliğin başına sarar, geri sayımdan sonra kayıt başlar.
                             </span>
                           )}
@@ -883,21 +885,21 @@ export default function RoomClient({ code }) {
             )}
 
             {status && (
-              <p role="status" className="mt-3 text-xs text-mint">
+              <p role="status" className="mt-3 text-xs text-sage">
                 {status}
               </p>
             )}
             {error && (
-              <p role="alert" className="mt-3 text-sm text-red-200">
+              <p role="alert" className="mt-3 text-sm text-[#f0b4b4]">
                 {error}
               </p>
             )}
           </div>
 
-          <div className="surface mt-4 rounded-2xl p-5">
+          <div className="surface mt-4 rounded-sm p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-bold">Senaryo</h2>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-dim">
                 {recordedCount}/{scene.lines.length} replik kaydı hazır
               </span>
             </div>
@@ -910,11 +912,11 @@ export default function RoomClient({ code }) {
                 return (
                   <div
                     key={line.id}
-                    className={`flex gap-3 rounded-xl border p-3 transition ${
-                      isActive ? "border-lilac/50 bg-lilac/[0.08]" : "border-white/[0.06] bg-white/[0.02]"
+                    className={`flex gap-3 rounded-sm border p-3 transition ${
+                      isActive ? "border-brass/50 bg-brass/[0.08]" : "border-line bg-white/[0.02]"
                     }`}
                   >
-                    <span className="w-6 shrink-0 text-center font-mono text-xs text-zinc-500">
+                    <span className="w-6 shrink-0 text-center font-mono text-xs text-dim">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -923,12 +925,12 @@ export default function RoomClient({ code }) {
                         <span className="font-semibold" style={{ color: character?.color }}>
                           {character?.name}
                         </span>
-                        <span className="text-zinc-600">· {owner?.name || "rol bekliyor"}</span>
-                        {submitted && <span className="text-mint">· hazır ✓</span>}
+                        <span className="text-dim">· {owner?.name || "rol bekliyor"}</span>
+                        {submitted && <span className="text-sage">· hazır ✓</span>}
                       </div>
-                      <p className="mt-1 text-sm leading-6 text-zinc-200">{line.text}</p>
+                      <p className="mt-1 text-sm leading-6 text-parchment">{line.text}</p>
                     </div>
-                    <span className="shrink-0 self-start font-mono text-[11px] text-zinc-600">
+                    <span className="shrink-0 self-start font-mono text-[11px] text-dim">
                       {line.start.toFixed(0)}–{line.end.toFixed(0)}s
                     </span>
                   </div>
@@ -939,31 +941,31 @@ export default function RoomClient({ code }) {
         </section>
 
         <aside className="space-y-4">
-          <section className="surface rounded-2xl p-5">
+          <section className="surface rounded-sm p-5">
             <div className="flex items-center justify-between">
               <h2 className="font-bold">Oyuncular</h2>
-              <span className="text-xs text-zinc-500">{room.players.length}/8</span>
+              <span className="text-xs text-dim">{room.players.length}/8</span>
             </div>
-            <p className="mt-1 text-xs leading-5 text-zinc-500">
+            <p className="mt-1 text-xs leading-5 text-dim">
               Oda kurucusu rolleri değiştirebilir. Boş roller seyirci olarak kalır. Bağlantısı kopan oyuncular 30 sn içinde dönebilir.
             </p>
             <div className="mt-4 space-y-2">
               {room.players.map((player) => (
-                <div key={player.id || player.name} className="flex items-center gap-3 rounded-xl border border-white/[0.07] p-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-base font-bold text-lilac">
+                <div key={player.id || player.name} className="flex items-center gap-3 rounded-sm border border-line p-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-base font-bold text-brass">
                     {player.avatar || player.name.slice(0, 1).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">
                       {player.name}
                       {player.id === room.hostId && (
-                        <span className="ml-2 text-[10px] uppercase text-zinc-500">Kurucu</span>
+                        <span className="ml-2 text-[10px] uppercase text-dim">Kurucu</span>
                       )}
                       {!player.connected && (
-                        <span className="ml-2 text-[10px] uppercase text-amber-300">bağlantı yok</span>
+                        <span className="ml-2 text-[10px] uppercase text-brass">bağlantı yok</span>
                       )}
                     </p>
-                    <p className="mt-0.5 text-xs text-zinc-500">
+                    <p className="mt-0.5 text-xs text-dim">
                       {scene.characters.find((character) => character.id === player.characterId)?.name || "Seyirci"} ·{" "}
                       {player.ready ? "hazır" : "bekliyor"}
                     </p>
@@ -971,7 +973,7 @@ export default function RoomClient({ code }) {
                   {playerId === room.hostId && player.connected && (
                     <select
                       aria-label={`${player.name} karakteri`}
-                      className="max-w-24 rounded-lg border border-white/10 bg-[#11131a] px-2 py-2 text-xs"
+                      className="max-w-24 rounded-sm border border-line bg-ink px-2 py-2 text-xs"
                       value={player.characterId || ""}
                       onChange={(event) => setCharacter(player.id, event.target.value)}
                     >
@@ -985,30 +987,30 @@ export default function RoomClient({ code }) {
                       ))}
                     </select>
                   )}
-                  {player.id === playerId && player.id !== room.hostId && <span className="text-[10px] text-mint">Sen</span>}
+                  {player.id === playerId && player.id !== room.hostId && <span className="text-[10px] text-sage">Sen</span>}
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="surface rounded-2xl p-5">
+          <section className="surface rounded-sm p-5">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="font-bold">Ortak izleme</h2>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-dim">
                   {recordedCount}/{scene.lines.length} replik kaydı hazır
                 </p>
               </div>
-              <span className="text-xl text-lilac">♫</span>
+              <span className="text-xl text-brass">♫</span>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-lilac to-mint transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-brass to-sage transition-all"
                 style={{ width: `${scene.lines.length ? (recordedCount / scene.lines.length) * 100 : 0}%` }}
               />
             </div>
             {playback.active ? (
-              <button onClick={requestStop} className="button-secondary mt-4 w-full border-red-400/40 text-red-200">
+              <button onClick={requestStop} className="button-secondary mt-4 w-full border-red-400/40 text-[#f0b4b4]">
                 ■ Oynatmayı durdur
               </button>
             ) : (
@@ -1030,14 +1032,14 @@ export default function RoomClient({ code }) {
               </button>
             )}
             {playerId !== room.hostId && (
-              <p className="mt-2 text-center text-[11px] text-zinc-600">Oynatmayı oda kurucusu başlatır.</p>
+              <p className="mt-2 text-center text-[11px] text-dim">Oynatmayı oda kurucusu başlatır.</p>
             )}
           </section>
 
-          <section className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 text-xs leading-5 text-zinc-500">
-            <p className="font-semibold text-zinc-300">{scene.film} · CC BY 3.0</p>
+          <section className="rounded-sm border border-line bg-white/[0.02] p-4 text-xs leading-5 text-dim">
+            <p className="font-semibold text-parchment">{scene.film} · CC BY 3.0</p>
             <p className="mt-1">{scene.credit}</p>
-            <a href={scene.licenseUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-lilac hover:text-white">
+            <a href={scene.licenseUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-brass hover:text-parchment">
               Lisans koşulları ↗
             </a>
           </section>

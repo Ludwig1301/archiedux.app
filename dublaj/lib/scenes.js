@@ -16,8 +16,8 @@ export const scenes = [
     credit:
       "Tears of Steel (2012), Blender Foundation — CC BY 3.0. Video: official Blender Foundation YouTube embed. Turkish subtitles are an adaptation.",
     characters: [
-      { id: "thom", name: "Thom", color: "#b6a1ff" },
-      { id: "celia", name: "Celia", color: "#9ee6c2" },
+      { id: "thom", name: "Thom", color: "#e0bd4a" },
+      { id: "celia", name: "Celia", color: "#a7c4b6" },
     ],
     lines: [
       {

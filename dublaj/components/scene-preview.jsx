@@ -2,7 +2,7 @@
 
 export default function ScenePreview({ videoId, title, startAt = 0 }) {
   return (
-    <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black">
+    <div className="aspect-video overflow-hidden border border-line bg-black">
       <iframe
         className="h-full w-full"
         src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?start=${Math.floor(startAt)}&rel=0&playsinline=1`}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { scenes } from "../lib/scenes.js";
 import { getRoomSocket, setActiveRoom } from "../lib/client-socket.js";
 import { AVATAR_CHOICES, getClientId } from "../lib/avatars.js";
+import { ArrowRightIcon, FilmIcon, LockIcon, UsersIcon } from "./icons.jsx";
 
 function waitForConnection(socket) {
   if (socket.connected) return Promise.resolve();
@@ -74,28 +75,37 @@ export default function RoomSetup({ initialScene }) {
   }
 
   return (
-    <form onSubmit={submit} className="surface mt-9 max-w-2xl rounded-2xl p-6 sm:p-8">
-      <div className="grid grid-cols-2 rounded-xl border border-white/10 bg-black/20 p-1">
+    <form onSubmit={submit} className="surface mt-8 max-w-2xl p-5 sm:p-7">
+      <div className="grid grid-cols-2 gap-1 border border-line bg-black/25 p-1">
         {[
-          ["create", "Oda kur"],
-          ["join", "Kodla katıl"],
-        ].map(([value, label]) => (
+          ["create", "Oda kur", UsersIcon],
+          ["join", "Kodla katıl", FilmIcon],
+        ].map(([value, label, Icon]) => (
           <button
             key={value}
             type="button"
-            onClick={() => { setMode(value); setError(""); }}
-            className={`focus-ring rounded-lg px-4 py-3 text-sm font-semibold ${
-              mode === value ? "bg-lilac text-ink" : "text-zinc-400 hover:text-white"
+            onClick={() => {
+              setMode(value);
+              setError("");
+            }}
+            className={`focus-ring flex min-h-10 items-center justify-center gap-2 rounded-sm px-4 py-2.5 text-sm font-semibold transition ${
+              mode === value
+                ? "bg-brass text-ink"
+                : "text-dim hover:bg-white/[0.035] hover:text-parchment"
             }`}
           >
+            <Icon className="h-4 w-4" />
             {label}
           </button>
         ))}
       </div>
-      <label className="mt-6 block text-sm font-semibold" htmlFor="room-name">Odada görünecek adın</label>
+
+      <label className="mt-6 block text-sm font-semibold text-parchment" htmlFor="room-name">
+        Odada görünecek adın
+      </label>
       <input
         id="room-name"
-        className="focus-ring mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/25 px-4 text-white placeholder:text-zinc-600"
+        className="field focus-ring mt-2"
         value={name}
         onChange={(event) => setName(event.target.value)}
         maxLength={24}
@@ -104,7 +114,8 @@ export default function RoomSetup({ initialScene }) {
         placeholder="Örn. Deniz"
         required
       />
-      <span className="mt-6 block text-sm font-semibold">Avatarın</span>
+
+      <span className="mt-6 block text-sm font-semibold text-parchment">Avatarın</span>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {AVATAR_CHOICES.map((choice) => (
           <button
@@ -113,33 +124,47 @@ export default function RoomSetup({ initialScene }) {
             onClick={() => setAvatar(choice)}
             aria-pressed={avatar === choice}
             aria-label={`Avatar ${choice}`}
-            className={`focus-ring grid h-11 w-11 place-items-center rounded-xl border text-xl ${
-              avatar === choice ? "border-lilac/60 bg-lilac/15" : "border-white/10 bg-white/[0.03] hover:border-white/25"
+            className={`focus-ring grid h-10 w-10 place-items-center rounded-sm border text-lg transition ${
+              avatar === choice
+                ? "border-brass/60 bg-brass/15"
+                : "border-line bg-white/[0.03] hover:border-brass/40"
             }`}
           >
             {choice}
           </button>
         ))}
       </div>
+
       {mode === "create" ? (
         <>
-          <label className="mt-5 block text-sm font-semibold" htmlFor="scene">Seslendirilecek sahne</label>
+          <label className="mt-5 block text-sm font-semibold text-parchment" htmlFor="scene">
+            Seslendirilecek sahne
+          </label>
           <select
             id="scene"
-            className="focus-ring mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#11131a] px-4 text-white"
+            className="field focus-ring mt-2"
             value={sceneId}
             onChange={(event) => setSceneId(event.target.value)}
           >
-            {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.title} · {scene.film}</option>)}
+            {scenes.map((scene) => (
+              <option key={scene.id} value={scene.id}>
+                {scene.title} · {scene.film}
+              </option>
+            ))}
           </select>
-          <p className="mt-2 text-xs text-zinc-500">Sahne kaynağı ve lisans bilgisi oda içinde de görünür.</p>
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-dim">
+            <LockIcon className="h-3.5 w-3.5 text-brass-dim" />
+            Sahne kaynağı ve lisans bilgisi oda içinde de görünür.
+          </p>
         </>
       ) : (
         <>
-          <label className="mt-5 block text-sm font-semibold" htmlFor="room-code">Oda kodu</label>
+          <label className="mt-5 block text-sm font-semibold text-parchment" htmlFor="room-code">
+            Oda kodu
+          </label>
           <input
             id="room-code"
-            className="focus-ring mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/25 px-4 font-mono uppercase tracking-[0.2em] text-white placeholder:text-zinc-600"
+            className="field focus-ring mt-2 font-mono uppercase tracking-[0.2em]"
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
             minLength={6}
@@ -147,11 +172,19 @@ export default function RoomSetup({ initialScene }) {
             placeholder="ABC234"
             required
           />
+          <p className="mt-2 text-[11px] text-dim">6 karakterlik oda kodunu arkadaşından al.</p>
         </>
       )}
-      {error && <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{error}</p>}
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-sm border border-rust/40 bg-rust/10 px-3 py-2 text-sm text-[#f0b4b4]">
+          {error}
+        </p>
+      )}
+
       <button className="button-primary mt-6 w-full" type="submit" disabled={busy}>
         {busy ? "Bağlanıyor…" : mode === "create" ? "Odayı oluştur" : "Odaya katıl"}
+        {!busy && <ArrowRightIcon className="h-4 w-4" />}
       </button>
     </form>
   );
