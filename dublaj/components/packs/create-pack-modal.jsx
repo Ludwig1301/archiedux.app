@@ -58,11 +58,23 @@ export function CreatePackModal({ open, onClose, initialUrl = "", initialSource 
   }, [open]);
 
   useEffect(() => {
-    if (open) {
-      setSource(initialFile ? "upload" : initialSource);
-      if (initialUrl) setUrl(initialUrl);
-      if (initialFile) pickFile(initialFile);
-    }
+    if (!open) return;
+    setSource(initialFile ? "upload" : initialSource);
+    setUrl(initialUrl || "");
+    setYtInfo(null);
+    setYtLoading(false);
+    setFile(null);
+    setFileUrl(null);
+    setFileDuration(0);
+    setStart(0);
+    setEnd(30);
+    setTitle("");
+    setCategory("Türkçe Dizi");
+    setSubmitting(false);
+    setProgress(0);
+    setError(null);
+    setDragOver(false);
+    if (initialFile) pickFile(initialFile);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialUrl, initialSource, initialFile]);
 
@@ -114,6 +126,16 @@ export function CreatePackModal({ open, onClose, initialUrl = "", initialSource 
     setFile(f);
     setFileUrl(URL.createObjectURL(f));
     setTitle((t) => t || f.name.replace(/\.[^.]+$/, "").slice(0, 120));
+  };
+
+  const clearFile = () => {
+    if (previewRef.current) previewRef.current.pause();
+    setFile(null);
+    setFileUrl(null);
+    setFileDuration(0);
+    setStart(0);
+    setEnd(30);
+    setError(null);
   };
 
   const maxDuration =
@@ -284,21 +306,32 @@ export function CreatePackModal({ open, onClose, initialUrl = "", initialSource 
                 </label>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-[1fr_1fr]">
-                  <video
-                    ref={previewRef}
-                    src={fileUrl ?? undefined}
-                    controls
-                    playsInline
-                    className="aspect-video w-full rounded-sm bg-black border border-line"
-                    onLoadedMetadata={(e) => {
-                      const d = e.currentTarget.duration;
-                      if (Number.isFinite(d)) {
-                        setFileDuration(d);
-                        setStart(0);
-                        setEnd(Math.min(d, MAX_SEGMENT_SECONDS));
-                      }
-                    }}
-                  />
+                  <div className="relative">
+                    <video
+                      ref={previewRef}
+                      src={fileUrl ?? undefined}
+                      controls
+                      playsInline
+                      className="aspect-video w-full rounded-sm bg-black border border-line"
+                      onLoadedMetadata={(e) => {
+                        const d = e.currentTarget.duration;
+                        if (Number.isFinite(d)) {
+                          setFileDuration(d);
+                          setStart(0);
+                          setEnd(Math.min(d, MAX_SEGMENT_SECONDS));
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      aria-label="Videoyu kaldır"
+                      title="Videoyu kaldır"
+                      className="absolute right-2 top-2 grid size-8 place-items-center rounded-sm border border-white/25 bg-black/75 text-white shadow-lg transition hover:border-red-300 hover:bg-red-500/80"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                   <div className="space-y-2 text-sm">
                     <p className="font-semibold break-all">{file.name}</p>
                     <p className="tabular text-muted">
@@ -323,14 +356,11 @@ export function CreatePackModal({ open, onClose, initialUrl = "", initialSource 
                     </div>
                     <button
                       type="button"
-                      className="text-muted underline-offset-2 hover:text-parchment hover:underline"
-                      onClick={() => {
-                        setFile(null);
-                        setFileUrl(null);
-                        setFileDuration(0);
-                      }}
+                      className="inline-flex items-center gap-1.5 text-red-300 underline-offset-2 hover:text-red-200 hover:underline"
+                      onClick={clearFile}
                     >
-                      Başka dosya seç
+                      <X size={14} />
+                      Videoyu kaldır
                     </button>
                   </div>
                 </div>
