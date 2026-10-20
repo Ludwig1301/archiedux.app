@@ -45,15 +45,15 @@ const menus = {
     label: "Üret",
     items: [
       {
-        href: "/#ai-creator",
-        title: "AI Creator",
-        description: "MP4 yükle, replikleri otomatik olarak stüdyoya al.",
+        href: "/tr/paketler?yeni=youtube",
+        title: "YouTube’dan sahne",
+        description: "Link yapıştır, aralığı seç; replikler otomatik çıksın.",
         icon: SparklesIcon,
       },
       {
-        href: "/#ai-creator",
+        href: "/tr/paketler?yeni=upload",
         title: "Video Yükle",
-        description: "Kendi sahneni 60 saniyeye kadar dublajla.",
+        description: "Kendi MP4’ünü 60 saniyeye kadar dublajla.",
         icon: UploadIcon,
       },
     ],
@@ -162,7 +162,7 @@ export default function SiteHeader() {
             </div>
           ))}
 
-          <Link href="/#packs" className="nav-link">
+          <Link href="/tr/paketler" className="nav-link">
             Dub Packs
           </Link>
           <Link href="/#pricing" className="nav-link">
@@ -224,10 +224,10 @@ export default function SiteHeader() {
             <Link href="/tr/mimic" className="mobile-link" onClick={() => setMobileOpen(false)}>
               Mimic Party <span className="ml-2 rounded-sm bg-brass px-1.5 py-0.5 text-[9px] font-bold uppercase text-ink">Yeni</span>
             </Link>
-            <Link href="/#ai-creator" className="mobile-link" onClick={() => setMobileOpen(false)}>
-              AI Creator / Video Yükle
+            <Link href="/tr/paketler?yeni=youtube" className="mobile-link" onClick={() => setMobileOpen(false)}>
+              YouTube’dan sahne / Video Yükle
             </Link>
-            <Link href="/#packs" className="mobile-link" onClick={() => setMobileOpen(false)}>
+            <Link href="/tr/paketler" className="mobile-link" onClick={() => setMobileOpen(false)}>
               Dub Packs
             </Link>
             <Link href="/#pricing" className="mobile-link" onClick={() => setMobileOpen(false)}>

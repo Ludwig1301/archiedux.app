@@ -4,7 +4,7 @@ import Brand from "../components/brand.jsx";
 import DubStage from "../components/dub-stage.jsx";
 import DubPackGrid from "../components/dub-pack-grid.jsx";
 import MicTester from "../components/mic-tester.jsx";
-import UploadStudio from "../components/upload-studio.jsx";
+import { CreatorPanel } from "../components/packs/creator-panel.jsx";
 import { dubPacks } from "../lib/dub-packs.js";
 import { scenes } from "../lib/scenes.js";
 import {
@@ -70,17 +70,17 @@ const faqs = [
   {
     question: "Sahnelerin lisansı ne?",
     answer:
-      "Katalogdaki oynanabilir sahneler açık lisanslı veya kamu malı kaynaklardan seçilir. Her sahnenin detay sayfasında kaynak, lisans bağlantısı ve atıf metni bulunur. Kullanıcı videoları yalnızca kendi tarayıcısında işlenir.",
+      "Oda kataloğundaki sahneler açık lisanslı veya kamu malı kaynaklardan seçilir; her sahnenin detay sayfasında kaynak, lisans bağlantısı ve atıf metni bulunur. Topluluk Dub Pack’leri ise kullanıcıların YouTube linki ya da MP4 ile oluşturduğu paketlerdir; hak sahibinin talebiyle kaldırılır.",
   },
   {
     question: "Kayıtlarım nereye gidiyor?",
     answer:
-      "Dublaj odasındaki kayıtlar oda açık kaldığı sürece sunucu belleğinde tutulur ve oda kapanınca silinir. Mimic Party ve AI Creator kayıtları ise cihazından ayrılmaz; tarayıcı oturumu bitince serbest bırakılır.",
+      "Dublaj odasındaki kayıtlar oda açık kaldığı sürece sunucu belleğinde tutulur ve oda kapanınca silinir. Mimic Party kayıtları cihazından ayrılmaz. Dub Pack stüdyosundaki kayıtların tarayıcında saklanır; yalnızca MP4 indirmek istediğinde videoyu oluşturmak için sunucuya gönderilir ve işlem bitince silinir.",
   },
   {
     question: "MP4 olarak indirebilir miyim?",
     answer:
-      "Şu anda kayıtlarını tek bir WAV ses dosyası olarak indirebilirsin. Video üzerine filigranlı MP4 render ve Pro kalite seçenekleri yakında eklenecek.",
+      "Evet. Dub Pack stüdyosunda replikleri kaydettikten sonra “MP4 olarak indir” ile sesinin orijinal müzik ve efektlerin üzerine yerleştirildiği videoyu indirirsin. Dublaj odalarında kayıtlar WAV ses dosyası olarak indirilir.",
   },
   {
     question: "Aynı odada kaç kişi oynayabilir?",
@@ -105,7 +105,8 @@ const tiers = [
       "8 oyuncuya kadar dublaj odası",
       "Tüm açık lisanslı dub pack’ler",
       "Replik replik kayıt ve ortak izleme",
-      "WAV ses indirme",
+      "YouTube / MP4’ten dub pack oluşturma",
+      "MP4 ve WAV indirme",
     ],
     cta: "Ücretsiz başla",
     href: "/tr/oda-kur",
@@ -115,12 +116,10 @@ const tiers = [
     name: "Pro",
     price: "Yakında",
     note: "Creator planı",
-    description: "Video render, daha uzun yüklemeler ve filigransız çıktı.",
+    description: "Daha uzun sahneler, öncelikli render ve gelişmiş araçlar.",
     features: [
-      "Filigransız MP4 render",
-      "60 saniyeye kadar AI Creator",
+      "60 saniyeden uzun sahneler",
       "Öncelikli render kuyruğu",
-      "Özel dub pack oluşturma",
       "Gelişmiş mikrofon araçları",
     ],
     cta: "Yakında",
@@ -307,24 +306,25 @@ export default function HomePage() {
                 <p className="eyebrow">Yeni Dub Pack’ler</p>
                 <h2 className="display mt-2 text-3xl text-parchment sm:text-4xl">Bugün neyi seslendiriyoruz?</h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
-                  Kısa, açık lisanslı sahneler. Her kartta replik sayısı, rol sayısı ve dil etiketi var.
-                  Yeni paketler yayına hazırlandıkça burada görünecek.
+                  Topluluğun hazırladığı Türk dizisi ve meme paketleri ile açık lisanslı oda sahneleri. Her
+                  kartta replik sayısı, rol sayısı ve dil etiketi var.
                 </p>
               </div>
-              <Link href="/tr/sahneler" className="button-secondary min-h-9 px-3.5 text-xs">
-                Tüm kataloğu gör
+              <Link href="/tr/paketler" className="button-secondary min-h-9 px-3.5 text-xs">
+                Tüm Dub Pack’ler
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </div>
 
             <div className="mt-7">
-              <DubPackGrid packs={dubPacks} />
+              <DubPackGrid packs={dubPacks} live />
             </div>
 
             <p className="mt-5 flex items-start gap-2 rounded-sm border border-line bg-ink/40 px-3 py-2 text-[11px] leading-5 text-dim">
               <ShieldIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brass-dim" />
-              Katalogda yalnızca açık lisanslı, kamu malı veya izinli medya yer alır. Kaynak, lisans ve
-              atıf bilgisi her sahnenin detayında bulunur.
+              Oda sahneleri açık lisanslı, kamu malı veya izinli medyadan seçilir; kaynak ve atıf bilgisi
+              sahne detayında bulunur. Topluluk paketleri kullanıcılar tarafından oluşturulur ve hak sahibinin
+              talebiyle kaldırılır.
             </p>
           </div>
         </section>
@@ -431,20 +431,21 @@ export default function HomePage() {
             <div>
               <p className="eyebrow">AI Creator</p>
               <h2 className="display mt-2 text-3xl text-parchment sm:text-4xl">
-                Kendi MP4’ünü yükle,
+                YouTube linki ya da MP4,
                 <br />
-                <span className="gold-text">sahneye dönüştür.</span>
+                <span className="gold-text">dakikalar içinde sahne.</span>
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-7 text-muted">
-                En fazla 60 saniyelik bir MP4 bırak. Demo hattı sesi ayırır, konuşma aralıklarını
-                repliklere böler ve düzenlenebilir bir taslak hazırlar. Sonra aynı stüdyoda kaydedersin.
+                En fazla 60 saniyelik bir aralık seç. Sunucu oyuncu seslerini müzik ve efektlerden ayırır,
+                Türkçe konuşmayı zaman damgalı repliklere çevirir. Replikleri düzeltip karakter atarsın,
+                sonra kaydedip MP4 olarak indirirsin.
               </p>
               <ul className="mt-5 space-y-2.5">
                 {[
-                  "Sürükle-bırak yükleme · max 95 MB",
-                  "Otomatik replik taslağı ve zaman damgaları",
-                  "Yerel işlem: dosya sunucuya gitmez",
-                  "WAV ses indirme · MP4 render yakında",
+                  "YouTube linki ya da sürükle-bırak MP4",
+                  "Vokal / arka plan ayrıştırma (Demucs)",
+                  "Türkçe replikler ve zaman damgaları (Whisper)",
+                  "Müzik ve efektler korunarak MP4 indirme",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-xs leading-5 text-muted">
                     <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brass" />
@@ -464,7 +465,7 @@ export default function HomePage() {
                 </span>
               </div>
             </div>
-            <UploadStudio />
+            <CreatorPanel />
           </div>
         </section>
 
@@ -524,8 +525,9 @@ export default function HomePage() {
                   Gizlilik notu
                 </p>
                 <p className="mt-1.5">
-                  Mikrofon akışı yalnızca kayıt ve test sırasında açılır. Mimic Party ve AI Creator
-                  kayıtları cihazında kalır; dublaj odası kayıtları oda kapanınca sunucudan silinir.
+                  Mikrofon akışı yalnızca kayıt ve test sırasında açılır. Mimic Party kayıtları cihazında
+                  kalır; dublaj odası kayıtları oda kapanınca sunucudan silinir. Dub Pack kayıtları yalnızca
+                  MP4 oluştururken sunucuya gider ve işlem bitince silinir.
                 </p>
               </div>
             </div>
@@ -540,8 +542,8 @@ export default function HomePage() {
                 <h2 className="display mt-2 text-3xl text-parchment sm:text-4xl">Stüdyo senin, oda senin.</h2>
               </div>
               <p className="max-w-md text-sm leading-7 text-muted">
-                Temel dublaj deneyimi tamamen ücretsiz. Profesyonel render ve ekip araçları hazır
-                olduğunda Pro plan devreye girecek.
+                Temel dublaj deneyimi, dub pack oluşturma ve MP4 indirme dahil, tamamen ücretsiz. Uzun
+                sahneler ve ekip araçları hazır olduğunda Pro plan devreye girecek.
               </p>
             </div>
 

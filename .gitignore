@@ -6,3 +6,4 @@ _srv_err.txt
 data/db.json
 public/uploads/*
 !public/uploads/.gitkeep
+dublaj/storage/

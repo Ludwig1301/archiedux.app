@@ -1,29 +1,67 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DubPackCard from "./dub-pack-card.jsx";
-import { dubPackCategories } from "../lib/dub-packs.js";
+import { api } from "../lib/packs/client/api.js";
+import { withBase } from "../lib/base-path.js";
 import { FilmIcon, SparklesIcon } from "./icons.jsx";
 
-export default function DubPackGrid({ packs, showSearch = false, limit }) {
+/** Stüdyoda yayınlanan bir paketi katalog kartının beklediği biçime çevirir. */
+function toCard({ pack, meta }) {
+  const seconds = Math.round(pack.duration);
+  return {
+    id: `live-${pack.packId}`,
+    title: pack.title,
+    source: pack.characters.map((c) => c.name).slice(0, 3).join(" · "),
+    category: pack.category,
+    language: pack.language,
+    lines: pack.lines.length,
+    players: pack.characters.length,
+    duration: `${seconds} sn`,
+    status: "live",
+    href: `/tr/paket/${pack.packId}`,
+    thumbnail: meta.hasThumbnail ? withBase(`/packs/${pack.packId}/thumb.jpg`) : null,
+    blurb: pack.lines.find((l) => l.text)?.text ?? "Topluluk tarafından hazırlanan dub pack.",
+    tags: ["Topluluk"],
+    art: "linear-gradient(135deg, #2b2414 0%, #17171b 55%, #0d0d0f 100%)",
+  };
+}
+
+export default function DubPackGrid({ packs, showSearch = false, limit, live = false }) {
   const [category, setCategory] = useState("Tümü");
   const [search, setSearch] = useState("");
+  const [livePacks, setLivePacks] = useState([]);
+
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    api
+      .library()
+      .then((r) => !cancelled && setLivePacks(r.packs.map(toCard)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [live]);
+
+  const allPacks = useMemo(() => [...livePacks, ...packs], [livePacks, packs]);
+  const categories = useMemo(() => ["Tümü", ...new Set(allPacks.map((pack) => pack.category))], [allPacks]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("tr");
-    const filtered = packs.filter((pack) => {
+    const filtered = allPacks.filter((pack) => {
       const matchesCategory = category === "Tümü" || pack.category === category;
       const haystack = `${pack.title} ${pack.source} ${pack.category} ${pack.tags.join(" ")}`.toLocaleLowerCase("tr");
       return matchesCategory && (!term || haystack.includes(term));
     });
     return typeof limit === "number" ? filtered.slice(0, limit) : filtered;
-  }, [category, limit, packs, search]);
+  }, [allPacks, category, limit, search]);
 
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5" aria-label="Dub pack kategorileri">
-          {dubPackCategories.map((item) => (
+          {categories.map((item) => (
             <button
               key={item}
               type="button"

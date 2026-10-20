@@ -546,3 +546,98 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Dub Pack stüdyosu (components/packs) ---------- */
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Karaoke tarzı altyazı dolumu: --p replik çalarken 0 → 1 */
+.subtitle-fill {
+  background-image: linear-gradient(
+    90deg,
+    #f3d978 calc(var(--p, 0) * 100%),
+    rgba(230, 225, 216, 0.6) calc(var(--p, 0) * 100%)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+input[type="range"].range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+}
+
+input[type="range"].range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: #2a2a30;
+}
+
+input[type="range"].range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid #c9a227;
+  border-radius: 50%;
+  background: #e6e1d8;
+}
+
+input[type="range"].range::-moz-range-track {
+  height: 4px;
+  border-radius: 4px;
+  background: #2a2a30;
+}
+
+input[type="range"].range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #c9a227;
+  border-radius: 50%;
+  background: #e6e1d8;
+}
+
+@keyframes rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.rec-pulse {
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes count-pop {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.count-pop {
+  animation: count-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+/*
+ * Yukarıdaki `button, input, select, textarea { font: inherit; }` katmansız olduğu için
+ * Tailwind'in text-* / font-* sınıflarını ezer. Dub Pack ekranlarında bu sınıfların
+ * çalışması için o kuralı geri alıyoruz (revert-layer → Tailwind katmanına düşer).
+ */
+.packs-ui :is(button, input, select, textarea):not(.chip, .field, [class*="button-"]) {
+  font-size: revert-layer;
+  line-height: revert-layer;
+  font-weight: revert-layer;
+}

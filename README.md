@@ -191,3 +191,88 @@ almalıdır. Örnek sahne “Tears of Steel” için Blender Foundation'ın resm
 YouTube gömme oynatıcısını ve CC BY 3.0 atfını kullanır; Türkçe altyazılar
 lisanslı İngilizce altyazıdan uyarlanmıştır. Kullanıcı videoları veya
 altyazıları sunucuya indirilmez ya da yeniden barındırılmaz.
+
+## 7) Dub Pack stüdyosu (YouTube / MP4 → kendi sesinle dublaj)
+
+`/dublaj/tr/paketler` altında, Türk dizileri ve memeler için ChoicerVoicer tarzı tek
+kişilik dublaj stüdyosu çalışır. Aynı `dublaj/` Next.js servisinin parçasıdır; ayrı bir
+süreç ya da port gerekmez.
+
+Akış:
+
+1. Kullanıcı YouTube linki yapıştırır ya da MP4 yükler, en fazla 60 sn'lik aralığı seçer.
+2. Sunucu: `yt-dlp` ile bölümü indirir → FFmpeg ile H.264/AAC'ye çevirir → vokali
+   müzik/efektlerden ayırır (Demucs) → Türkçe konuşmayı zaman damgalı repliklere çevirir
+   (Whisper) → `pack.json` yazar.
+3. Oluşturan kişi stüdyoda (`/dublaj/tr/paket/<id>/duzenle`) metinleri düzeltir, zamanları
+   sürükleyerek ayarlar, karakter adı/rengi atar ve isterse kütüphanede yayınlar.
+4. Dublaj sahnesinde (`/dublaj/tr/paket/<id>`) her repliği orijinal müzik ve efektler
+   kulağında çalarken kaydeder; "MP4 olarak indir" ile FFmpeg sesleri tam zamanına
+   yerleştirip videoyu üretir.
+
+Kod: `dublaj/lib/packs/server/` (hat ve render), `dublaj/app/api/packs/` (API),
+`dublaj/app/packs/[packId]/[file]` (medya, Range destekli), `dublaj/components/packs/` (arayüz).
+Paketler `dublaj/storage/packs/<id>/` klasörüne yazılır (git'e girmez, **yedeklenmeli**).
+
+### Sunucuda gerekenler
+
+| Araç | Ne için | Zorunlu mu |
+|---|---|---|
+| `ffmpeg` + `ffprobe` | Kesme, dönüştürme, MP4 render | Evet |
+| `yt-dlp` (+ `deno`) | YouTube'dan bölüm indirme | YouTube linki için |
+| Demucs (Python) **veya** `REPLICATE_API_TOKEN` | Vokal / arka plan ayrıştırma | Önerilir |
+| `OPENAI_API_KEY` **veya** yerel `whisper` | Türkçe konuşma → metin | Önerilir |
+
+Ubuntu (x86_64) için — canlı sunucuya bu şekilde kuruldu:
+
+```bash
+# FFmpeg (güncel statik derleme; Ubuntu 22.04'ün apt sürümü bazı filtreler için eski)
+curl -fL https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz | sudo tar -xJ -C /opt
+sudo ln -sf /opt/ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg
+sudo ln -sf /opt/ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ffprobe
+
+# yt-dlp (tek dosya) + Deno (yt-dlp'nin YouTube çözücüsü için)
+sudo curl -fL -o /usr/local/bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux
+sudo chmod a+rx /usr/local/bin/yt-dlp
+curl -fL -o /tmp/deno.zip https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip
+sudo unzip -o /tmp/deno.zip -d /usr/local/bin
+
+# Derleme
+cd dublaj && npm ci && npm run build && pm2 restart archiedux-dublaj
+```
+
+4 GB+ RAM'li bir sunucuda Replicate yerine yerel Demucs kullanılabilir:
+`pip install torch torchaudio demucs soundfile` (CPU'da 60 sn ses ≈ 1-3 dk).
+
+Ayarlar **`dublaj/.env`** dosyasına yazılır (örnek: `dublaj/.env.example`). Next.js bu
+dosyayı dublaj servisi başlarken okur; servis ana sunucu tarafından ya da pm2 ile ayrı
+başlatılsa da aynı şekilde çalışır. En azından:
+
+```
+OPENAI_API_KEY=...
+REPLICATE_API_TOKEN=...        # sunucuda Demucs yoksa
+DUBPACK_ADMIN_TOKEN=uzun-rastgele-bir-metin
+```
+
+Hiçbir yapay zekâ aracı yoksa da sayfa çalışır: ayrıştırma FFmpeg merkez kanal iptaliyle
+(düşük kalite) yapılır, replik zamanları ses seviyesinden bulunur ve metinler editörde elle
+yazılır. Hangi araçların bulunduğunu `GET /dublaj/api/health` gösterir.
+
+Nginx kullanılıyorsa yükleme ve render için `location /` bloğuna şunlar eklenmeli:
+
+```nginx
+client_max_body_size 150m;
+proxy_request_buffering off;
+```
+
+Mikrofon kaydı yalnızca HTTPS'te çalışır.
+
+### Yetki
+
+Hesap gerekmez. Paketi oluşturan tarayıcıya bir düzenleme anahtarı verilir ve paketi
+sadece o tarayıcı düzenleyebilir. `DUBPACK_ADMIN_TOKEN` tanımlanırsa, paketler sayfasındaki
+anahtar simgesine bu değeri giren kişi tüm paketleri düzenleyebilir, yayından kaldırabilir
+ve silebilir. `DUBPACK_PUBLISH_REQUIRES_ADMIN=true` ile kütüphaneye yalnızca yönetici yayın yapar.
+
+Topluluk paketleri kullanıcıların yüklediği içerikten oluşur. Hak sahibinden kaldırma
+talebi gelirse paket yönetici anahtarıyla silinir.

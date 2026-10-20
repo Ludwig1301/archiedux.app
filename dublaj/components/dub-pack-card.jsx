@@ -8,8 +8,9 @@ import {
 } from "./icons.jsx";
 
 function CardBody({ pack, index }) {
-  const playable = pack.status === "playable";
-  const thumbnail = pack.videoId ? `https://i.ytimg.com/vi/${pack.videoId}/hqdefault.jpg` : null;
+  const live = pack.status === "live";
+  const playable = pack.status === "playable" || live;
+  const thumbnail = pack.thumbnail ?? (pack.videoId ? `https://i.ytimg.com/vi/${pack.videoId}/hqdefault.jpg` : null);
 
   return (
     <>
@@ -78,12 +79,12 @@ function CardBody({ pack, index }) {
 
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
           <span className="text-[11px] text-dim">
-            {playable ? "Açık lisans · hemen oyna" : "Katalog hazırlanıyor"}
+            {live ? "Topluluk paketi · tek başına seslendir" : playable ? "Açık lisans · hemen oyna" : "Katalog hazırlanıyor"}
           </span>
           {playable ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brass">
               <PlayIcon className="h-3.5 w-3.5" />
-              Oyna
+              {live ? "Seslendir" : "Oyna"}
               <ArrowRightIcon className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </span>
           ) : (
@@ -96,6 +97,14 @@ function CardBody({ pack, index }) {
 }
 
 export default function DubPackCard({ pack, index = 0 }) {
+  if (pack.href) {
+    return (
+      <Link href={pack.href} className="pack-card focus-ring group block" aria-label={`${pack.title} paketini aç`}>
+        <CardBody pack={pack} index={index} />
+      </Link>
+    );
+  }
+
   if (pack.status === "playable") {
     return (
       <Link
